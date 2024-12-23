@@ -81,17 +81,27 @@ class AfParser():
 			2. Ca-pLDDT
 		"""
 		symbol = residue.get_resname()
-		if symbol in ["DA", "DG", "DC", "DT"]:
-			atom = "P"
+		# Using representative atoms as specified by AF3.
+		if symbol in ["DA", "DG", "DC", "DT", "GLY"]:
+			if symbol == "GLY":
+				# Use Ca-atom for Glycine.
+				rep_atom = "CA"
+			elif symbol in ["DA", "DG"]:
+				# C4 for purines.
+				rep_atom = "C4"
+			else:
+				# C2 for pyrimidines.
+				rep_atom = "C2"
 		else:
-			atom = "CA"
+			# Use Cb-atom for all other amino acids.
+			rep_atom = "CB"
 
 		if quantity == "coords":
-			coords = residue[atom].coord
+			coords = residue[rep_atom].coord
 			return coords
 		
 		elif quantity == "plddt":
-			plddt = residue[atom].bfactor
+			plddt = residue[rep_atom].bfactor
 			return plddt
 		
 		else:
