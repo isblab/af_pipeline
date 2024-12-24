@@ -11,7 +11,7 @@ Any new method required to extract a feature from the input files must go here.
 
 2. main.py: contains classes to be used for obtaining required metadata (contact maps, interacting residues) from the extracted features.  
 Creates the required attributes (features) required for getting the metadata.  
-Any methods for extracting new metadata must be created here.  
+Any class for extracting new metadata must be created here.  
 
 3. utils.py: contains accessory functions.  
 
