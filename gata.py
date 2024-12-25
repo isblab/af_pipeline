@@ -8,3 +8,17 @@ interactting_regions = {"A": [1, 10], "B": [1, 10]}
 obj = Interaction( struct_file, data_file, interactting_regions )
 
 print( obj.get_confident_interactions() )
+
+
+"""
+We need a statistical test for assessing the significance 
+	in the difference between the interactions formed in 
+	the WT and mutant GATA binding to DNA.
+
+Assumptions for the test:
+	1. Paired data.
+	2. Should work for interval scaling.
+	3. No assumtion of normal data distribution.
+Wilcoxn signed-ranked test meets these criterion.
+"""
+
