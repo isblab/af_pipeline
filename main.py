@@ -37,7 +37,7 @@ class Initialize( AfParser ):
 		# Ca-coords of all residues for each chain.
 		self.coords_dict = self.get_ca_coordinates()
 		# Ca-plddt of all residues for each chain.
-		self.pplddt_dict = self.get_ca_plddt()
+		self.plddt_dict = self.get_ca_plddt()
 		# Average PAE matrix.
 		data = self.get_data_dict()
 		self.pae = self.get_pae( data )
@@ -61,8 +61,11 @@ class Interaction( Initialize ):
 						data_file_path: str, 
 						interacting_region: Dict ):
 		super().__init__( struct_file_path, data_file_path )
-		self.contact_threshold = 8
 		self.interacting_region = interacting_region
+
+		self.contact_threshold = 8
+		self.plddt_cutoff = 70
+		self.pae_cutoff = 5
 
 
 	def get_chains_n_indices( self ):
@@ -134,8 +137,8 @@ class Interaction( Initialize ):
 			else:
 				cum_start2 += len( self.res_dict[chain] )
 
-		cum_end1 = cum_start1 + ( end1 - start1 + 1 )
-		cum_end2 = cum_start2 + ( end2 - start2 + 1 )
+		cum_end1 = cum_start1 + ( end1 - start1 )
+		cum_end2 = cum_start2 + ( end2 - start2 )
 
 		pae = self.pae[cum_start1:cum_end1, cum_start2:cum_end2]
 
@@ -152,12 +155,20 @@ class Interaction( Initialize ):
 		coords1, coords2 = self.get_required_coords( chains, mol1_res, mol2_res )
 
 		contact_map = get_contact_map( 
-								distance_map( coords1, coords2 )
+								get_distance_map( coords1, coords2 ),
+								self.contact_threshold
 								 )
 
 		plddt1, plddt2 = self.get_required_plddt( chains, mol1_res, mol2_res )
 		pae = self.get_required_pae( chains, mol1_res, mol2_res )
 
+		plddt1 = np.where( plddt1 >= self.plddt_cutoff, 1, 0 )
+		plddt2 = np.where( plddt2 >= self.plddt_cutoff, 1, 0 )
+		plddt_matrix = plddt1 * plddt2.T
 
-		contact_map = contact_map * pae
+		pae = np.where( pae >= self.pae_cutoff, 1, 0 )
+		print( contact_map.shape, "  ", plddt_matrix.shape, "  ", pae.shape )
+		confident_interactions = contact_map * plddt_matrix * pae
+
+		return confident_interactions
 
