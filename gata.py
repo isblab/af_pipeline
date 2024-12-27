@@ -7,7 +7,7 @@ import random
 from main import Interaction
 
 
-class GataRaheMeraDil():
+class GataAnalysis():
 	def __init__( self, args ):
 		self.args = args
 
@@ -19,7 +19,7 @@ class GataRaheMeraDil():
 			raise Exception( "Either of the flags '-cj' or '-a' must be provided..." )
 
 
-	def tu_hi_meri_manzil( self ):
+	def create_af3_input_json( self ):
 		"""
 		Given the input sequence for wt-GATA and e-GATA,
 			create input JSON file for AF3.
@@ -52,7 +52,7 @@ class GataRaheMeraDil():
 				json.dump( af3_batch )
 
 
-	def kahin_beete_na_ye_raatein( self ):
+	def parse_input_fasta( self ):
 		"""
 		Parse the FASTA files for wt-GATA and e-GATA
 			to obtain the sequences for both.
