@@ -74,7 +74,9 @@ class AfParser():
 		return res_dict
 
 
-	def extract_quantity( self, residue, quantity ):
+	def extract_quantity( self, residue, quantity ): 
+		#TODO rename to extract_perresidue_quantity or extract_residuewise_quantity : 
+		#TODO because I was expecting PAE also to be extracted in this function
 		"""
 		Given the Biopython residue object, return the specified quantity:
 			1. Ca-coordinate
