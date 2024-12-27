@@ -74,9 +74,7 @@ class AfParser():
 		return res_dict
 
 
-	def extract_quantity( self, residue, quantity ): 
-		#TODO rename to extract_perresidue_quantity or extract_residuewise_quantity : 
-		#TODO because I was expecting PAE also to be extracted in this function
+	def extract_perresidue_quantity( self, residue, quantity ): 
 		"""
 		Given the Biopython residue object, return the specified quantity:
 			1. Ca-coordinate
@@ -116,7 +114,7 @@ class AfParser():
 		"""
 		coords_dict = {}
 		for residue, chain_id in self.get_residues():
-			coords = self.extract_quantity( residue, "coords" )
+			coords = self.extract_perresidue_quantity( residue, "coords" )
 			if chain_id not in coords_dict.keys():
 				coords_dict[chain_id] = np.array( coords )
 			else:
@@ -133,7 +131,7 @@ class AfParser():
 		"""
 		plddt_dict = {}
 		for residue, chain_id in self.get_residues():
-			plddt = self.extract_quantity( residue, "plddt" )
+			plddt = self.extract_perresidue_quantity( residue, "plddt" )
 			if chain_id not in plddt_dict.keys():
 				plddt_dict[chain_id] = np.array( [plddt] )
 			else:
