@@ -58,27 +58,12 @@ class AfParser():
 					yield residue, chain_id
 
 
-	def get_residue_positions( self ):
-		"""
-		Get the residue positions for all residues.
-		"""
-		res_dict = {}
-		for residue, chain_id in self.get_residues():
-			if chain_id not in res_dict.keys():
-				res_dict[chain_id] = np.array( [residue.id[1]] )
-			else:
-				res_dict[chain_id] = np.append( res_dict[chain_id], residue.id[1] )
-
-		res_dict = {k: v.reshape( -1, 1 ) for k, v in res_dict.items()}
-
-		return res_dict
-
-
 	def extract_perresidue_quantity( self, residue, quantity ): 
 		"""
 		Given the Biopython residue object, return the specified quantity:
-			1. Ca-coordinate
-			2. Ca-pLDDT
+			1. residue position
+			2. Ca-coordinate
+			3. Ca-pLDDT
 		"""
 		symbol = residue.get_resname()
 		# Using representative atoms as specified by AF3.
@@ -96,7 +81,10 @@ class AfParser():
 			# Use Cb-atom for all other amino acids.
 			rep_atom = "CB"
 
-		if quantity == "coords":
+		if quantity == "res_pos":
+			return residue.id[1]
+
+		elif quantity == "coords":
 			coords = residue[rep_atom].coord
 			return coords
 		
@@ -106,6 +94,40 @@ class AfParser():
 		
 		else:
 			raise Exception( f"Specified quantity: {quantity} does not exist..." )
+
+
+	def get_residue_positions( self ):
+		"""
+		Get the residue positions for all residues.
+		"""
+		res_dict = {}
+		for residue, chain_id in self.get_residues():
+			res_id = self.extract_perresidue_quantity( residue, "res_pos" )
+			if chain_id not in res_dict.keys():
+				res_dict[chain_id] = np.array( res_id )
+			else:
+				res_dict[chain_id] = np.append( res_dict[chain_id], res_id )
+
+		res_dict = {k: v.reshape( -1, 1 ) for k, v in res_dict.items()}
+
+		return res_dict
+
+
+	def create_chain_lengths( self, res_dict: Dict ):
+		"""
+		Create a dict containing the length of all chains in the system 
+			and the total length of the system.
+		"""
+		lengths_dict = {}
+		lengths_dict["total"] = 0
+		for chain in res_dict:
+			if chain not in lengths_dict.keys():
+				lengths_dict[chain] = 1
+			else:
+				lengths_dict[chain] += 1
+			lengths_dict["total"] += 1
+
+		return lengths_dict
 
 
 	def get_ca_coordinates( self ):
@@ -181,6 +203,38 @@ class AfParser():
 		avg_pae = ( pae + pae.T )/2
 
 		return avg_pae
+
+
+	def create_interchain_mask( self, lengths_dict: Dict ):
+		"""
+		Create a binary 2D mask for selecting only interchain interactions.
+		"""
+		sys_len = lengths_dict["total"]
+		interchain_mask = np.ones( ( sys_len, sys_len ) )
+
+		limit = 0
+		for chain in lengths_dict:
+			l = lengths_dict[chain]
+			limit += l
+			interchain_mask[:limit, :limit] = 0
+
+		return interchain_mask
+
+
+	def get_min_pae( self, avg_pae: np.array, lengths_dict: Dict, mask_intrachain: bool ):
+		"""
+		Given the averaged PAE matrix, obtain min PAe values for all residues.
+			Esentially return a vector containing row-wise min PAE values.
+		min_pae indicates whether the minimum error in the interaction with some residue.
+
+		If mask_intrachain, only interchain interactions are considered.
+		"""
+		if mask_intrachain:
+			interchain_mask = self.create_interchain_mask( lengths_dict )
+			avg_pae = avg_pae * interchain_mask
+		min_pae = np.min( avg_pae, axis = 1 )
+
+		return min_pae
 
 
 
