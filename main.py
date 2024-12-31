@@ -2,16 +2,13 @@ import numpy as np
 
 from typing import Dict
 
-from parser import AfParser
+from parser import AfParser, ResidueSelect
 from utils import get_distance_map, get_contact_map
 
 """
 This script will contain modules for performing analysis for the AF2/3 prediction.
 Define a class to perform housekeeping jobs like parsing, extracting coords, plddt, pae, etc.
-Derive base classes for downstream analysis.
-1. Nivedhya's project
-	Identify confident interactions based on PAE (pLDDt maybe) for a WT and mutant.
-	Perform a paired/unpaired T-test to assess the significance of the difference in interactions.
+Derive child classes for downstream analysis.
 """
 
 class Initialize( AfParser ):
@@ -34,6 +31,7 @@ class Initialize( AfParser ):
 		"""
 		# Residue positions of all residues for each chain.
 		self.res_dict = self.get_residue_positions()
+		self.lengths_dict = self.get_chain_lengths( self.res_dict )
 		# Ca-coords of all residues for each chain.
 		self.coords_dict = self.get_ca_coordinates()
 		# Ca-plddt of all residues for each chain.
@@ -41,16 +39,48 @@ class Initialize( AfParser ):
 		# Average PAE matrix.
 		data = self.get_data_dict()
 		self.pae = self.get_pae( data )
+		# Get minPAE for each residue.
+		self.min_pae = self.get_min_pae( avg_pae = self.pae, 
+										lengths_dict = self.lengths_dict, 
+										mask_intrachain = True,
+										return_dict = True )
 
-		# """
-		# Parse the AF predicted structure file to obtain:
-		# 	1. Ca coordinates.
-		# 	2. Ca pLDDT.
-		# 	3. Average PAE matrix.
-		# """
-		# self.coords, self.plddt, self.pae = self.af_parser( 
-		# 									struct_file_path = self.struct_file_path,
-		# 									data_file_path = self.data_file_path )
+
+class SaveConfidentPredictions( Initialize ):
+	def __init__( self, struct_file_path: str, data_file_path: str ):
+		super().__init__( struct_file_path, data_file_path )
+
+		self.apply_plddt = True
+		self.apply_pae = True
+		self.plddt_cutoff = 70
+		self.pae_cutoff = 5
+
+	def save_confident_regions( self ):
+		"""
+		Select confident residues based on plddt and min_pae.
+		Save the confident residues as a CIF file.
+		"""
+		confident_residues = {}
+
+		if not apply_plddt and not apply_pae:
+			raise Esception( "No confidence filter applied..." )
+
+		for chain in self.res_dict:
+			confident_residues[chain] = []
+			for res in self.res_dict[chain]:
+				select = False
+				if self.apply_plddt;
+					if self.plddt_dict[chain][res] >= self.plddt_cutoff:
+						select = True
+
+				if self.apply_pae;
+					if self.min_pae_dict[chain][res] <= self.pae_cutoff:
+						select = True
+
+				if select:
+					confident_residues[chain].append( res )
+
+		ResidueSelect( confident_residues )
 
 
 class Interaction( Initialize ):
@@ -91,8 +121,8 @@ class Interaction( Initialize ):
 		chain1, chain2 = chains
 		start1, end1 = mol1_res
 		start2, end2 = mol2_res
-		coords1 = self.coords_dict[chain1][start1:end1]
-		coords2 = self.coords_dict[chain2][start2:end2]
+		coords1 = self.coords_dict[chain1][start1:end1,:]
+		coords2 = self.coords_dict[chain2][start2:end2,:]
 
 		return coords1, coords2
 
