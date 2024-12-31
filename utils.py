@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.spatial import distance_matrix
 
-
 def get_distance_map( coords1, coords2 ):
 	"""
 	Create an all-v-all distance map.

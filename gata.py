@@ -4,7 +4,7 @@ from Bio import SeqIO
 import json
 import random
 
-from main import Interaction
+from main import Interaction, SaveConfidentPredictions
 
 
 
@@ -74,6 +74,8 @@ obj = Interaction( struct_file, data_file, interactting_regions )
 
 print( obj.get_confident_interactions() )
 
+# obj = SaveConfidentPredictions( struct_file, data_file, "trial.pdb" )
+# obj.save_confident_regions()
 
 """
 We need a statistical test for assessing the significance 
