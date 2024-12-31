@@ -70,9 +70,9 @@ data_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_full_dat
 
 interactting_regions = {"A": [1, 10], "B": [1, 10]}
 
-obj = Interaction( struct_file, data_file, interactting_regions )
+obj = Interaction( struct_file, data_file )
 
-print( obj.get_confident_interactions() )
+print( obj.get_confident_interactions( interactting_regions ) )
 
 # obj = SaveConfidentPredictions( struct_file, data_file, "trial.pdb" )
 # obj.save_confident_regions()
