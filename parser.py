@@ -3,9 +3,20 @@ import os
 import json
 import pickle as pkl
 import Bio
-from Bio.PDB import PDBParser, MMCIFParser
+from Bio.PDB import PDBParser, MMCIFParser, Select
 
 from typing import Dict
+
+
+
+class ResidueSelect( Select ):
+	def __init__( self, confident_residues ):
+		self.confident_residues = confident_residues
+
+	def accept_residue( self, residue ):
+		chain = residue.parent.id
+		return residue.id[1] in self.confident_residues[chain]
+
 
 class AfParser():
 	def __init__( self, struct_file_path: str, data_file_path: str ):
@@ -113,7 +124,7 @@ class AfParser():
 		return res_dict
 
 
-	def create_chain_lengths( self, res_dict: Dict ):
+	def get_chain_lengths( self, res_dict: Dict ):
 		"""
 		Create a dict containing the length of all chains in the system 
 			and the total length of the system.
@@ -221,7 +232,8 @@ class AfParser():
 		return interchain_mask
 
 
-	def get_min_pae( self, avg_pae: np.array, lengths_dict: Dict, mask_intrachain: bool ):
+	def get_min_pae( self, avg_pae: np.array, lengths_dict: Dict, 
+						mask_intrachain: bool, return_dict: bool ):
 		"""
 		Given the averaged PAE matrix, obtain min PAe values for all residues.
 			Esentially return a vector containing row-wise min PAE values.
@@ -234,7 +246,17 @@ class AfParser():
 			avg_pae = avg_pae * interchain_mask
 		min_pae = np.min( avg_pae, axis = 1 )
 
-		return min_pae
+		# Convert to a dict.
+		min_pae_dict = {}
+		start = 0
+		for chain in self.lengths_dict:
+			if chain != "total":
+				end = self.lengths_dict[chain]
+				min_pae_dict[chain] = min_pae[start:end]
+				start = end
 
-
+		if return_dict:
+			return min_pae_dict
+		else:
+			return min_pae
 
