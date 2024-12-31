@@ -3,7 +3,7 @@ import os
 import json
 import pickle as pkl
 import Bio
-from Bio.PDB import PDBParser, MMCIFParser, Select
+from Bio.PDB import PDBParser, MMCIFParser, PDBIO, Select
 
 from typing import Dict
 
@@ -67,6 +67,15 @@ class AfParser():
 				chain_id = chain.id[0]
 				for residue in chain:
 					yield residue, chain_id
+
+
+	def save_pdb( self, res_select_obj: Bio.PDB.Select, out_file: str ):
+		"""
+		Given the ResidueSelect object, save the structure as a PDB file.
+		"""
+		io = PDBIO()
+		io.set_structure( self.structure )
+		io.save( out_file, res_select_obj )
 
 
 	def extract_perresidue_quantity( self, residue, quantity ): 
@@ -247,10 +256,11 @@ class AfParser():
 		# Convert to a dict.
 		min_pae_dict = {}
 		start = 0
-		for chain in self.lengths_dict:
+		for chain in lengths_dict:
 			if chain != "total":
-				end = self.lengths_dict[chain]
+				end = start + lengths_dict[chain]
 				min_pae_dict[chain] = min_pae[start:end]
+
 				start = end
 
 		if return_dict:

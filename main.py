@@ -40,20 +40,22 @@ class Initialize( AfParser ):
 		data = self.get_data_dict()
 		self.pae = self.get_pae( data )
 		# Get minPAE for each residue.
-		self.min_pae = self.get_min_pae( avg_pae = self.pae, 
+		self.min_pae_dict = self.get_min_pae( avg_pae = self.pae, 
 										lengths_dict = self.lengths_dict, 
 										mask_intrachain = True,
 										return_dict = True )
 
 
 class SaveConfidentPredictions( Initialize ):
-	def __init__( self, struct_file_path: str, data_file_path: str ):
+	def __init__( self, struct_file_path: str, data_file_path: str, out_file: str ):
 		super().__init__( struct_file_path, data_file_path )
 
+		self.out_file = out_file
 		self.apply_plddt = True
 		self.apply_pae = True
 		self.plddt_cutoff = 70
 		self.pae_cutoff = 5
+
 
 	def save_confident_regions( self ):
 		"""
@@ -62,25 +64,31 @@ class SaveConfidentPredictions( Initialize ):
 		"""
 		confident_residues = {}
 
-		if not apply_plddt and not apply_pae:
+		if not self.apply_plddt and not self.apply_pae:
 			raise Esception( "No confidence filter applied..." )
 
 		for chain in self.res_dict:
 			confident_residues[chain] = []
 			for res in self.res_dict[chain]:
+				# Get index from residue position.
+				idx = res - 1
 				select = False
-				if self.apply_plddt;
-					if self.plddt_dict[chain][res] >= self.plddt_cutoff:
+				if self.apply_plddt:
+					if self.plddt_dict[chain][idx] >= self.plddt_cutoff:
 						select = True
 
-				if self.apply_pae;
-					if self.min_pae_dict[chain][res] <= self.pae_cutoff:
+				if self.apply_pae:
+					# print( self.min_pae_dict[chain][idx] )
+					if self.min_pae_dict[chain][idx] <= self.pae_cutoff:
 						select = True
 
 				if select:
 					confident_residues[chain].append( res )
 
 		ResidueSelect( confident_residues )
+
+		self.save_pdb( ResidueSelect( confident_residues ),
+						self.out_file )
 
 
 class Interaction( Initialize ):
@@ -197,8 +205,9 @@ class Interaction( Initialize ):
 		plddt_matrix = plddt1 * plddt2.T
 
 		pae = np.where( pae >= self.pae_cutoff, 1, 0 )
-		print( contact_map.shape, "  ", plddt_matrix.shape, "  ", pae.shape )
 		confident_interactions = contact_map * plddt_matrix * pae
 
 		return confident_interactions
+
+
 
