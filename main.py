@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict
 
 from parser import AfParser, ResidueSelect
-from utils import get_distance_map, get_contact_map
+from utils import get_interaction_map
 
 """
 This script will contain modules for performing analysis for the AF2/3 prediction.
@@ -96,26 +96,30 @@ class Interaction( Initialize ):
 	# Obtain confident interactions.
 	# Return the required interacting residues.
 	def __init__( self, struct_file_path: str, 
-						data_file_path: str, 
-						interacting_region: Dict ):
+						data_file_path: str ):
 		super().__init__( struct_file_path, data_file_path )
-		self.interacting_region = interacting_region
+		# self.interacting_region = interacting_region
 
+		# Either contact/distance.
+		self.interaction_map_type = "contact"
+		# Distance threshold in (Angstorm) to define a contact between residue pairs.
 		self.contact_threshold = 8
+		# pLDDt cutoff to consider a confident prediction.
 		self.plddt_cutoff = 70
+		# PAE cutoff to consider a confident prediction.
 		self.pae_cutoff = 5
 
 
-	def get_chains_n_indices( self ):
+	def get_chains_n_indices( self, interacting_region: Dict ):
 		"""
 		Obtain the chain IDs and residues indices 
 			for the required interacting region.
 		residue_index = residue_position - 1
 		"""
-		chain1, chain2 = self.interacting_region.keys()
-		mol1_res1, mol1_res2 = self.interacting_region[chain1]
+		chain1, chain2 = interacting_region.keys()
+		mol1_res1, mol1_res2 = interacting_region[chain1]
 		mol1_res1 -= 1
-		mol2_res1, mol2_res2 = self.interacting_region[chain2]
+		mol2_res1, mol2_res2 = interacting_region[chain2]
 		mol2_res1 -= 1
 
 		return [chain1, chain2], [mol1_res1, mol1_res2], [mol2_res1, mol2_res2]
@@ -183,19 +187,19 @@ class Interaction( Initialize ):
 		return pae
 
 
-	def get_confident_interactions( self ):
+	def get_confident_interactions( self, interacting_region ):
 		"""
 		For the specified regions in the predicted structure, 
 			obtain all confident interacting residue pairs.
 		"""
-		chains, mol1_res, mol2_res = self.get_chains_n_indices()
+		chains, mol1_res, mol2_res = self.get_chains_n_indices( interacting_region )
 
 		coords1, coords2 = self.get_required_coords( chains, mol1_res, mol2_res )
 
-		contact_map = get_contact_map( 
-								get_distance_map( coords1, coords2 ),
-								self.contact_threshold
-								 )
+		# Create a contact map or distance map as specified.
+		interaction_map = get_interaction_map( coords1, coords2, 
+												self.contact_threshold, 
+												self.interaction_map_type )
 
 		plddt1, plddt2 = self.get_required_plddt( chains, mol1_res, mol2_res )
 		pae = self.get_required_pae( chains, mol1_res, mol2_res )
@@ -205,7 +209,7 @@ class Interaction( Initialize ):
 		plddt_matrix = plddt1 * plddt2.T
 
 		pae = np.where( pae >= self.pae_cutoff, 1, 0 )
-		confident_interactions = contact_map * plddt_matrix * pae
+		confident_interactions = interaction_map * plddt_matrix * pae
 
 		return confident_interactions
 
