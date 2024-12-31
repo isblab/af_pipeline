@@ -132,11 +132,9 @@ class AfParser():
 		lengths_dict = {}
 		lengths_dict["total"] = 0
 		for chain in res_dict:
-			if chain not in lengths_dict.keys():
-				lengths_dict[chain] = 1
-			else:
-				lengths_dict[chain] += 1
-			lengths_dict["total"] += 1
+			chain_length = len( res_dict[chain] )
+			lengths_dict[chain] = chain_length
+			lengths_dict["total"] += chain_length
 
 		return lengths_dict
 
