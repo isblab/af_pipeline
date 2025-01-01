@@ -9,70 +9,94 @@ from main import Interaction, SaveConfidentPredictions
 
 
 class GataRaheMeraDil():
-	def __init__( self, args ):
-		self.args = args
+# class GataAnalysis():
+	def __init__( self ):
+		# self.args = args
+		self.create_json = True
+		self.base_dir = "../GATA_NV_SRlab/"
+		self.wt_gata_fasta = f"{self.base_dir}gata3_wt.fasta"
+		self.mut_gata_fasta = f"{self.base_dir}gata3_mut.fasta"
+		self.dna_gata_fasta = f"{self.base_dir}gata3_dna.fasta"
 
 		# Set the seed for PRNG.
 		np.random.seed( 1 )
 		random.seed( 1 )
 
-		if not self.args.cj and not self.args.a:
-			raise Exception( "Either of the flags '-cj' or '-a' must be provided..." )
+		# if not self.args.cj and not self.args.a:
+		# 	raise Exception( "Either of the flags '-cj' or '-a' must be provided..." )
 
 
 	def tu_hi_meri_manzil( self ):
+	# def forward( self ):
+		"""
+		"""
+		if self.create_json:
+			self.kahin_beete_na_ye_raatein()
+			self.kahin_beete_na_ye_din()
+		else:
+			pass
+
+
+	def kahin_beete_na_ye_raatein( self ):
+	# def parse_fasta( self ):
+		"""
+		Parse the FASTA files for wt-GATA and mut-GATA, and GATA-DNA
+			to obtain their sequences.
+		"""
+		for record in SeqIO.parse( self.wt_gata_fasta, "fasta" ):
+			self.wt_gata = str( record.seq )
+
+		for record in SeqIO.parse( self.mut_gata_fasta, "fasta" ):
+			self.mut_gata = str( record.seq )
+
+		for record in SeqIO.parse( self.dna_gata_fasta, "fasta" ):
+			self.dna_gata = str( record.seq )
+
+
+	def kahin_beete_na_ye_din( self ):
+	# def create_json_input( self ):
 		"""
 		Given the input sequence for wt-GATA and e-GATA,
 			create input JSON file for AF3.
 		Create a JSON file with 20 entries with different seeds.
 		"""
-		for prot, seq in zip( ["wt_gata", "e_gata"], [self.wt_gata, self.e_gata] ):
+		for prot, seq in zip( ["wt_gata", "mut_gata"], [self.wt_gata, self.mut_gata] ):
+			i = 0
 			af3_batch = []
-			seeds = np.arange( 1, 401, 20 )
+			seeds = np.arange( 1, 4001, 200 )
 			for seed in seeds:
-				name = f"{prot}_{seed}"
+				entry_id = f"{prot}_{seed}"
 				af3_entry = {}
 				af3_entry["name"] = entry_id
-				af3_entry["modelSeeds"] = []
+				af3_entry["modelSeeds"] = [float( seed )]
 				af3_entry["sequences"] = [
 									{
 									"proteinChain": {
-										"sequence": self.wt_gata,
+										"sequence": seq,
 										"count": 2
-									},
+									} },
+									{
 									"dnaSequence": {
-										"sequence": self.e_gata,
+										"sequence": self.dna_gata,
 										"count": 2
-									}
-									}
+									} }
 				]
 
 				af3_batch.append( af3_entry )
 
-			with open( f"{prot}_af3_batch.json", "w" ) as w:
-				json.dump( af3_batch )
+			with open( f"{self.base_dir}{prot}_af3_batch_{seeds[0]}-{seeds[-1]}.json", "w" ) as w:
+				json.dump( af3_batch, w )
 
 
-	def kahin_beete_na_ye_raatein( self ):
-		"""
-		Parse the FASTA files for wt-GATA and e-GATA
-			to obtain the sequences for both.
-		"""
-		for record in SeqIO.parse( self.args.wt, "fasta" ):
-			self.wt_gata = record.seq
 
-		for record in SeqIO.parse( self.args.e, "fasta" ):
-			self.e_gata = record.seq
+# struct_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_model_0.cif"
+# data_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_full_data_0.json"
 
+# interactting_regions = {"A": [1, 10], "B": [1, 10]}
 
-struct_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_model_0.cif"
-data_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_full_data_0.json"
+# obj = Interaction( struct_file, data_file )
 
-interactting_regions = {"A": [1, 10], "B": [1, 10]}
-
-obj = Interaction( struct_file, data_file )
-
-print( obj.get_confident_interactions( interactting_regions ) )
+# print( obj.get_confident_interactions( interactting_regions ) )
 
 # obj = SaveConfidentPredictions( struct_file, data_file, "trial.pdb" )
 # obj.save_confident_regions()
@@ -89,7 +113,9 @@ Assumptions for the test:
 Wilcoxn signed-ranked test meets these criterion.
 """
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+	GataRaheMeraDil().tu_hi_meri_manzil()
+	# GataAnalysis().forward()
 # 	parser = argparse.ArgumentParser(
 # 						prog = "GATA analysis",
 # 						description = "Perform analysis for wt-GATA and e-GATA interaction with DNA."
