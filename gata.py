@@ -1,8 +1,10 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import argparse
 from Bio import SeqIO
 import json
 import random
+import os
 
 from typing import Dict, List
 
@@ -16,9 +18,9 @@ class GataRaheMeraDil():
 		# self.args = args
 		self.create_json = True
 		# Identifiers for all input entries for AF3 for wt-GATA-DNA.
-		self.wt_gata_ids = []
+		# self.wt_gata_ids = []
 		# Identifiers for all input entries for AF3 for mut-GATA-DNA.
-		self.mut_gata_ids = []
+		# self.mut_gata_ids = []
 		self.base_dir = "../GATA_NV_SRlab/"
 
 		# FASTA files for the input proteins.
@@ -44,16 +46,14 @@ class GataRaheMeraDil():
 		Determine whether there is a significant difference between the 
 			inetractions formed by the wt_GATA and mut_GATA with DNA.
 		"""
-		if self.create_json:
-			self.kahin_beete_na_ye_raatein()
-			self.kahin_beete_na_ye_din()
-		else:
-			# self.arre_pyaar_krne_waale()
-			pass
+		self.kahin_beete_na_ye_raatein()
+		self.kahin_beete_na_ye_din()
+		self.arre_pyar_krne_waale()
+		# self.get_confident_predictions()
+
 
 
 	def kahin_beete_na_ye_raatein( self ):
-	# def parse_fasta( self ):
 		"""
 		Parse the FASTA files for wt-GATA and mut-GATA, and GATA-DNA
 			to obtain their sequences.
@@ -72,15 +72,17 @@ class GataRaheMeraDil():
 			self.lengths_dict["dna_gata"] = len( self.dna_gata )
 
 
+
 	def kahin_beete_na_ye_din( self ):
-	# def create_json_input( self ):
 		"""
 		Given the input sequence for wt-GATA and e-GATA,
 			create input JSON file for AF3.
 		Create a JSON file with 20 entries with different seeds.
 		"""
+		self.prot_ids = {}
 		for prot, seq in zip( ["wt_gata", "mut_gata"], [self.wt_gata, self.mut_gata] ):
-			i = 0
+			self.prot_ids[f"{prot}"] = []
+			
 			af3_batch = []
 			seeds = np.arange( 1, 4001, 200 )
 			for seed in seeds:
@@ -103,30 +105,78 @@ class GataRaheMeraDil():
 
 				af3_batch.append( af3_entry )
 
-				id_ = {prot}_af3_batch_{seeds[0]}-{seeds[-1]}
-				if prot == "wt_gata":
-					self.wt_gata_ids.append( id_ )
-				else:
-					self.mut_gata_ids.append( id_ )
+				self.prot_ids[f"{prot}"].append( entry_id )
 
-			with open( f"{self.base_dir}{id_}.json", "w" ) as w:
-				json.dump( af3_batch, w )
+			file = f"{prot}_af3_batch_{seeds[0]}-{seeds[-1]}"
+			if not os.path.exists( f"{self.base_dir}{file}.json" ):
+				with open( f"{self.base_dir}{id_}.json", "w" ) as w:
+					json.dump( af3_batch, w )
+			else:
+				print( "AF3 input already created..." )
 
 
-	def jalne_waale_chahe( self, entry_ids: List ):
-	# def yield_struct_data_files( self, entry_ids ):
+
+	def arre_pyar_krne_waale( self ):
+	# def get_confident_predictions( self ):
+		"""
+		For both wt-GATA and mut-GATA, get confident predictions or load from disk if already existing.
+		"""
+		self.interactions = {}
+		for prot in ["wt_gata"]:
+			out_file = f"{self.base_dir}{prot}-dna.npy"
+			if not os.path.exists( out_file ):
+				gata_dna_interaction = self.jalne_waale_chahe( self.prot_ids[prot] )
+				# gata_dna_interaction = self.extract_wt_mut_predictions( self.prot_ids[prot] )
+
+				self.interactions[f"{prot}_dna"] = gata_dna_interaction
+				np.save( out_file, gata_dna_interaction )
+			else:
+				self.interactions[f"{prot}_dna"] = np.load( out_file )
+
+
+		p = self.interactions[f"{prot}_dna"]
+		p = np.sum( p, axis = 0 )
+		plt.imshow( np.where( p >0, 1, 0 ) )
+		plt.show()
+
+
+
+	def jalne_waale_chahe( self, entry_ids ):
+	# def extract_wt_mut_predictions( self, entry_ids ):
+		"""
+		Get the confident interactions as a binary contact map.
+		"""
+		gata_dna = []
+
+		# for files in self.yield_struct_data_files( entry_ids ):
+		for files in self.jal_jal_marenge( entry_ids ):
+			confident_interactions = self.milke_jo_dhadke_hain_do_dil( *files )
+			# confident_interactions = self.get_confident_interactions( *files )
+			gata_dna.append(
+					self.concat_interactions( region = 0, confident_interactions = confident_interactions )
+					)
+
+		gata_dna = np.stack( gata_dna )
+		return gata_dna
+
+
+
+	def jal_jal_marenge( self, entry_ids: List ):
+	# def yield_struct_data_files( self, entry_ids: List ):
 		"""
 		Yield the AF3 pred files for wt-GATA-DNA and mut-GATA-DNA.
 		"""
 		for entry in entry_ids:
+			print( f"Entry: {entry}..." )
 			for i in range( 5 ):
-				struct_file = f"{self.wt_gata_dna_preds_dir}fold_{ntry}_model_{i}.cif"
-				data_file = f"{self.wt_gata_dna_preds_dir}fold_{ntry}_full_data_{i}.json"
+				struct_file = f"{self.wt_gata_dna_preds_dir}fold_{entry}/fold_{entry}_model_{i}.cif"
+				data_file = f"{self.wt_gata_dna_preds_dir}fold_{entry}/fold_{entry}_full_data_{i}.json"
 
 				yield struct_file, data_file
 
 
-	def jalne_waale_chahe( self, region: int ):
+
+	def hardam_ye_kahenge( self, region: int ):
 	# def get_interacting_region( self, region: int ):
 		"""
 		Get the regions of interest for both proteins for which 
@@ -143,56 +193,63 @@ class GataRaheMeraDil():
 		c_term_mut = [342, self.lengths_dict["mut_gata"]]
 
 		if region == 0:
-			interactting_regions = {
-						"A": dbd,
-						"B": dbd,
-						"C": dna,
-						"D": dna
-							}
+			for chain1 in ["A", "B"]:
+				for chain2 in ["C", "D"]:
+					interacting_region = {
+								chain1: dbd,
+								chain2: dna
+									}
+					yield interacting_region
 
 
-	def arre_pyaar_hi_krenge( self, interactting_regions: Dict, struct_file: str, data_file: str ):
-	# def get_confident_interactions( self ):
+
+	def milke_jo_dhadke_hain_do_dil( self, struct_file: str, data_file: str ):
+	# def get_confident_interactions( self, struct_file: str, data_file: str ):
 		"""
 		Obtain confident interactions, given the structure and data file.
 		"""
-
+		# Initialize the Interactions class.
 		obj = Interaction( struct_file, data_file )
-		confident_interactions = obj.get_confident_interactions( interactting_regions )
+
+		# obj.contact_threshold = 10
+		# obj.plddt_cutoff = 0
+		# obj.pae_cutoff = 10
+		confident_interactions = []
+		
+		# for interacting_regions in self.get_interacting_region( 0 ):
+		for interacting_regions in self.hardam_ye_kahenge( 0 ):
+
+			pair_interactions = obj.get_confident_interactions( interacting_regions )
+			confident_interactions.append( pair_interactions )
 
 		return confident_interactions
 
 
-	def arre_pyaar_krne_waale( self ):
-	# def get_wt_mut_predictions( self ):
+
+	def concat_interactions( self, region, confident_interactions ):
 		"""
-		For both the wt-GATA and mut-GATA, get the confident interactions as a binary contact map.
+		Based on the interacting regions, concat the pairwise confident predictions.
 		"""
-		wt_gata_dna, mut_gata_dna = [], []
+		if region == 0:
+			p1_d1, p1_d2, p2_d1, p2_d2 = confident_interactions
 
-		wt_gata_dna.append( 
-						self.pyaar_hi_krenge( 
-											self.jalne_waale_chahe( 0 ),
-											self.jal_jal_marenge( self.wt_gata_ids )
-										 )
-		 )
+			p1_d = np.concatenate( [p1_d1, p1_d2], axis = 1 )
+			p2_d = np.concatenate( [p2_d1, p2_d2], axis = 1 )
 
-		wt_gata_dna = np.stack( wt_gata_dna )
-		# self.get_confident_interactions( 
-		# 								self.yield_struct_data_files( self.wt_gata_ids )
-		# 								 )
+			combined_map = np.concatenate( [p1_d, p2_d], axis = 0 )
 
+		return combined_map
 
 
 
 # struct_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_model_0.cif"
 # data_file = "./example/fold_e_gata3_dna_binding_domain_motif_c_terminus_full_data_0.json"
 
-# interactting_regions = {"A": [1, 10], "B": [1, 10]}
+# interacting_regions = {"A": [1, 10], "B": [1, 10]}
 
 # obj = Interaction( struct_file, data_file )
 
-# print( obj.get_confident_interactions( interactting_regions ) )
+# print( obj.get_confident_interactions( interacting_regions ) )
 
 # obj = SaveConfidentPredictions( struct_file, data_file, "trial.pdb" )
 # obj.save_confident_regions()
@@ -211,6 +268,7 @@ Wilcoxn signed-ranked test meets these criterion.
 
 if __name__ == "__main__":
 	GataRaheMeraDil().tu_hi_meri_manzil()
+	print( "May the Force be with you.." )
 	# GataAnalysis().forward()
 # 	parser = argparse.ArgumentParser(
 # 						prog = "GATA analysis",
