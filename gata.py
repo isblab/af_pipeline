@@ -15,12 +15,6 @@ from main import Interaction, SaveConfidentPredictions
 class GataRaheMeraDil():
 # class GataAnalysis():
 	def __init__( self ):
-		# self.args = args
-		self.create_json = True
-		# Identifiers for all input entries for AF3 for wt-GATA-DNA.
-		# self.wt_gata_ids = []
-		# Identifiers for all input entries for AF3 for mut-GATA-DNA.
-		# self.mut_gata_ids = []
 		self.base_dir = "../GATA_NV_SRlab/"
 
 		# FASTA files for the input proteins.
@@ -182,24 +176,19 @@ class GataRaheMeraDil():
 		Get the regions of interest for both proteins for which 
 			the confident interactions are required.
 		Regions of interest:
-			0 --> GATA( dna binding domains ) and DNA
-			1 --> GATA( dna binding domains ) and GATA( C-term )
-			2 --> GATA( C-term ) and DNA
+			GATA( dna binding domains ) and DNA
 		"""
 		# GATA DNA binding domain (263-287 and 317-341).
 		dbd = [263, 341]
 		dna = [1, self.lengths_dict["dna_gata"]]
-		c_term_wt = [342, self.lengths_dict["wt_gata"]]
-		c_term_mut = [342, self.lengths_dict["mut_gata"]]
 
-		if region == 0:
-			for chain1 in ["A", "B"]:
-				for chain2 in ["C", "D"]:
-					interacting_region = {
-								chain1: dbd,
-								chain2: dna
-									}
-					yield interacting_region
+		for chain1 in ["A", "B"]:
+			for chain2 in ["C", "D"]:
+				interacting_region = {
+							chain1: dbd,
+							chain2: dna
+								}
+				yield interacting_region
 
 
 
@@ -211,9 +200,6 @@ class GataRaheMeraDil():
 		# Initialize the Interactions class.
 		obj = Interaction( struct_file, data_file )
 
-		# obj.contact_threshold = 10
-		# obj.plddt_cutoff = 0
-		# obj.pae_cutoff = 10
 		confident_interactions = []
 		
 		# for interacting_regions in self.get_interacting_region( 0 ):
@@ -230,13 +216,12 @@ class GataRaheMeraDil():
 		"""
 		Based on the interacting regions, concat the pairwise confident predictions.
 		"""
-		if region == 0:
-			p1_d1, p1_d2, p2_d1, p2_d2 = confident_interactions
+		p1_d1, p1_d2, p2_d1, p2_d2 = confident_interactions
 
-			p1_d = np.concatenate( [p1_d1, p1_d2], axis = 1 )
-			p2_d = np.concatenate( [p2_d1, p2_d2], axis = 1 )
+		p1_d = np.concatenate( [p1_d1, p1_d2], axis = 1 )
+		p2_d = np.concatenate( [p2_d1, p2_d2], axis = 1 )
 
-			combined_map = np.concatenate( [p1_d, p2_d], axis = 0 )
+		combined_map = np.concatenate( [p1_d, p2_d], axis = 0 )
 
 		return combined_map
 
