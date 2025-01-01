@@ -187,10 +187,9 @@ class Interaction( Initialize ):
 		return pae
 
 
-	def get_confident_interactions( self, interacting_region ):
+	def get_interaction_data( self, interacting_region ):
 		"""
-		For the specified regions in the predicted structure, 
-			obtain all confident interacting residue pairs.
+		Get the interaction amp, pLDDT, and PAE for the interacting region.
 		"""
 		chains, mol1_res, mol2_res = self.get_chains_n_indices( interacting_region )
 
@@ -208,7 +207,34 @@ class Interaction( Initialize ):
 		plddt2 = np.where( plddt2 >= self.plddt_cutoff, 1, 0 )
 		plddt_matrix = plddt1 * plddt2.T
 
-		pae = np.where( pae >= self.pae_cutoff, 1, 0 )
+		pae = np.where( pae <= self.pae_cutoff, 1, 0 )
+
+		return interaction_map, plddt_matrix, pae
+
+
+	def get_confident_interactions( self, interacting_region ):
+		"""
+		For the specified regions in the predicted structure, 
+			obtain all confident interacting residue pairs.
+		"""
+		# chains, mol1_res, mol2_res = self.get_chains_n_indices( interacting_region )
+
+		# coords1, coords2 = self.get_required_coords( chains, mol1_res, mol2_res )
+
+		# # Create a contact map or distance map as specified.
+		# interaction_map = get_interaction_map( coords1, coords2, 
+		# 										self.contact_threshold, 
+		# 										self.interaction_map_type )
+
+		# plddt1, plddt2 = self.get_required_plddt( chains, mol1_res, mol2_res )
+		# pae = self.get_required_pae( chains, mol1_res, mol2_res )
+
+		# plddt1 = np.where( plddt1 >= self.plddt_cutoff, 1, 0 )
+		# plddt2 = np.where( plddt2 >= self.plddt_cutoff, 1, 0 )
+		# plddt_matrix = plddt1 * plddt2.T
+
+		# pae = np.where( pae >= self.pae_cutoff, 1, 0 )
+		interaction_map, plddt_matrix, pae = self.get_interaction_data( interacting_region )
 		confident_interactions = interaction_map * plddt_matrix * pae
 
 		return confident_interactions
