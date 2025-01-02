@@ -203,13 +203,26 @@ class Interaction( Initialize ):
 		plddt1, plddt2 = self.get_required_plddt( chains, mol1_res, mol2_res )
 		pae = self.get_required_pae( chains, mol1_res, mol2_res )
 
+		# plddt1 = np.where( plddt1 >= self.plddt_cutoff, 1, 0 )
+		# plddt2 = np.where( plddt2 >= self.plddt_cutoff, 1, 0 )
+		# plddt_matrix = plddt1 * plddt2.T
+
+		# pae = np.where( pae <= self.pae_cutoff, 1, 0 )
+
+		return interaction_map, plddt1, plddt2, pae
+
+
+	def apply_confidence_cutoffs( self, plddt1, plddt2, pae ):
+		"""
+		mask low-confidence interactions.
+		"""
 		plddt1 = np.where( plddt1 >= self.plddt_cutoff, 1, 0 )
 		plddt2 = np.where( plddt2 >= self.plddt_cutoff, 1, 0 )
 		plddt_matrix = plddt1 * plddt2.T
 
 		pae = np.where( pae <= self.pae_cutoff, 1, 0 )
 
-		return interaction_map, plddt_matrix, pae
+		return plddt_matrix, pae
 
 
 	def get_confident_interactions( self, interacting_region ):
@@ -234,10 +247,10 @@ class Interaction( Initialize ):
 		# plddt_matrix = plddt1 * plddt2.T
 
 		# pae = np.where( pae >= self.pae_cutoff, 1, 0 )
-		interaction_map, plddt_matrix, pae = self.get_interaction_data( interacting_region )
+		interaction_map, plddt1, plddt2, pae = self.get_interaction_data( interacting_region )
+		plddt_matrix, pae = self.apply_confidence_cutoffs( plddt1, plddt2, pae )
 		confident_interactions = interaction_map * plddt_matrix * pae
 
 		return confident_interactions
-
 
 
