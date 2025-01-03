@@ -230,12 +230,13 @@ class AfParser():
 		sys_len = lengths_dict["total"]
 		interchain_mask = np.ones( ( sys_len, sys_len ) )
 
-		limit = 0
+		prev = 0
 		for chain in lengths_dict:
 			if chain != "total":
 				l = lengths_dict[chain]
-				limit += l
-				interchain_mask[:limit, :limit] = 100
+				curr = prev + l
+				interchain_mask[prev:curr:, prev:curr] = 100
+				prev += l
 
 		return interchain_mask
 
