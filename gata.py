@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import wilcoxon, permutation_test
+from statsmodels.stats.contingency_tables import mcnemar
 import argparse
 from Bio import SeqIO
 import json
@@ -20,10 +21,10 @@ class GataRaheMeraDil():
 		self.base_dir = "../GATA_NV_SRlab/"
 
 		# Defined in forward.
-		self.contact_threshold = [8]
+		self.contact_threshold = [8, 10]
 		self.plddt_cutoff = [70]
-		self.pae_cutoff = [5]
-		self.significance_test = "permut_test"
+		self.pae_cutoff = [5, 10]
+		self.significance_test = "mcnemar"
 
 		# FASTA files for the input proteins.
 		self.wt_gata_fasta = f"{self.base_dir}gata3_wt.fasta"
@@ -312,6 +313,7 @@ class GataRaheMeraDil():
 			self.interactions[prot] = np.sum( self.interactions[prot], axis = 0 )
 
 
+
 	def plot_contact_map( self ):
 		"""
 		Plot binary contact maps for the wt-GATA and mut-GATA complex with DNA.
@@ -319,16 +321,18 @@ class GataRaheMeraDil():
 		fig, ax = plt.subplots( 2, 1, figsize = ( 10, 10 ) )
 
 		p = self.interactions[f"wt_gata_dna"]
-		ax[0].imshow( np.where( p > 0, 1, 0 ).T )
+		ax[0].imshow( p.T )
+		# ax[0].imshow( np.where( p > 0, 1, 0 ).T )
 		ax[0].set_title( "wt_GATA-dbd with DNA" )
 		ax[0].set_ylabel( "DNA" )
 		ax[0].set_xlabel( "wt_GATA-dbd" )
 		ax[0].set_xticklabels( np.arange( 263, 341 ) )
 
 		p = self.interactions[f"mut_gata_dna"]
-		ax[1].imshow( np.where( p > 0, 1, 0 ).T )
+		ax[1].imshow( p.T )
+		# ax[1].imshow( np.where( p > 0, 1, 0 ).T )
 		ax[1].set_title( "mut_GATA-dbd with DNA" )
-		ax[0].set_ylabel( "DNA" )
+		ax[1].set_ylabel( "DNA" )
 		ax[1].set_xlabel( "mut_GATA-dbd" )
 		ax[1].set_xticklabels( np.arange( 263, 341 ) )
 		plt.savefig( self.interaction_map, dpi = 300 )
@@ -361,30 +365,42 @@ class GataRaheMeraDil():
 		x = x.reshape( -1 )
 		y = self.interactions["mut_gata_dna"]
 		y = y.reshape( -1 )
-		print( x.shape )
-		def statistic( x, y ):
-			return np.mean( x - y )
 
-		result = permutation_test( ( x, y ), statistic, permutation_type = "samples", n_resamples = 5000 )
+		print( np.count_nonzero( x ) )
+		print( np.count_nonzero( y ) )
+
+		if self.significance_test == "wilcox":
+			result = wilcoxon( x, y, zero_method = "wilcox", alternative = "two-sided" )
+
+		elif self.significance_test == "permut_test":
+
+			print( x.shape )
+			def statistic( x, y ):
+				return np.mean( x - y )
+
+			result = permutation_test( ( x, y ), statistic, permutation_type = "samples", n_resamples = 5000 )
+
+		elif self.significance_test == "mcnemar":
+			x = np.where( x > 0, 1, 0 )
+			y = np.where( y > 0, 1, 0 )
+
+			n00 = np.sum( ( x == 1 ) & ( y == 1 ) )
+			n01 = np.sum( ( x == 1 ) & ( y == 0 ) )
+			n10 = np.sum( ( x == 0 ) & ( y == 1 ) )
+			n11 = np.sum( ( x == 0 ) & ( y == 0 ) )
+
+			contingency_table = np.array( [[n00, n01], [n10, n11]] ).reshape( 2, 2 )
+			print( contingency_table )
+
+			result = mcnemar( contingency_table, exact = True )
 
 		stat = result.statistic
 		pval = result.pvalue
 
-		if self.significance_test == "wilcox":
+		print( f"Statistic: {stat} \t p-value: {pval}" )
 
-			x = self.interactions["wt_gata_dna"]
-			x = x.reshape( -1 )
-			print( np.count_nonzero( x ) )
-			y = self.interactions["mut_gata_dna"]
-			y = y.reshape( -1 )
-			print( np.count_nonzero( y ) )
-
-			result = wilcoxon( x, y, zero_method = "wilcox", alternative = "two-sided" )
-			stat = result.statistic
-			pval = result.pvalue
-
-			print( f"Statistic: {stat} \t p-value: {pval}" )
 		return stat, pval
+
 
 
 	def write_output( self ):
