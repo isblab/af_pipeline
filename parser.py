@@ -232,9 +232,10 @@ class AfParser():
 
 		limit = 0
 		for chain in lengths_dict:
-			l = lengths_dict[chain]
-			limit += l
-			interchain_mask[:limit, :limit] = 100
+			if chain != "total":
+				l = lengths_dict[chain]
+				limit += l
+				interchain_mask[:limit, :limit] = 100
 
 		return interchain_mask
 
