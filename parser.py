@@ -227,16 +227,15 @@ class AfParser():
 		"""
 		Create a binary 2D mask for selecting only interchain interactions.
 		"""
-		sys_len = lengths_dict["total"]
+		sys_len = lengths_dict.pop( "total" )
 		interchain_mask = np.ones( ( sys_len, sys_len ) )
 
 		prev = 0
 		for chain in lengths_dict:
-			if chain != "total":
-				l = lengths_dict[chain]
-				curr = prev + l
-				interchain_mask[prev:curr:, prev:curr] = 100
-				prev += l
+			l = lengths_dict[chain]
+			curr = prev + l
+			interchain_mask[prev:curr:, prev:curr] = 100
+			prev += l
 
 		return interchain_mask
 
