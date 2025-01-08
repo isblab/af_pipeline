@@ -12,14 +12,7 @@ import time
 from typing import Dict, List
 
 from main import Interaction, SaveConfidentPredictions
-
-
-def make_prot_pair( self, p1, p2, sep ):
-	return f"{p1}{sep}{p2}"
-
-
-def get_prot_from_pair( self, prot_pair, sep ):
-	return prot_pair.split( sep )
+from utils import str_join, str_split
 
 
 class ClsyAnalysis():
@@ -27,9 +20,9 @@ class ClsyAnalysis():
 		self.base_dir = "../CLSY_R_SPlab/"
 
 		# Defined in forward.
-		self.contact_threshold = [8]
+		self.contact_threshold = [8, 10]
 		self.plddt_cutoff = [70]
-		self.pae_cutoff = [5]
+		self.pae_cutoff = [5, 10]
 		# Dict containing the sequences and lengths of all proteins of interest.
 		self.prot_dict = {}
 
@@ -37,8 +30,8 @@ class ClsyAnalysis():
 		self.fasta_path = f"{self.base_dir}Sequence_CLSYs_SHHs.fasta"
 
 		# Dir containing the AF3 predictions.
-		self.os_af3_preds_dir = f"{self.base_dir}Os_preds/"
-		self.at_af3_preds_dir = f"{self.base_dir}At_preds/"
+		self.os_af3_preds_dir = f"{self.base_dir}os_preds/"
+		self.at_af3_preds_dir = f"{self.base_dir}at_preds/"
 
 		# Dir to save predicted files.
 		self.output_dir = f"{self.base_dir}output/"
@@ -59,6 +52,8 @@ class ClsyAnalysis():
 		self.read_input_fasta()
 		self.get_combinations()
 		self.create_af3_input()
+		self.run_analysis()
+
 
 
 	def initialize_prot_of_interest( self ):
@@ -137,7 +132,7 @@ class ClsyAnalysis():
 		for p1 in prot1:
 			for p2 in prot2:
 				combos.append( 
-						make_prot_pair( p1, p2 )
+						str_join( [p1, p2], "--" )
 						 )
 
 		return combos
@@ -184,7 +179,7 @@ class ClsyAnalysis():
 			for comb in self.prot_combos[org]:
 				print( comb )
 				entry_id = comb
-				p1, p2 = get_prot_from_pair( comb )
+				p1, p2 = str_split( comb, "--" )
 
 				seq1 = self.prot_dict[org][p1]["seq"]
 				seq2 = self.prot_dict[org][p2]["seq"]
@@ -226,7 +221,24 @@ class ClsyAnalysis():
 			Save the predictions for all prot pairs of an organism as a .npy file.
 		"""
 		for org in self.prot_combos:
-			for pair in self.prot_combos[org]:
+			conf_preds = {}
+
+			out_file = f"{self.output_dir}{org}_preds.npy"
+			if os.path.exists( out_file ):
+				print( f"Confident predictions for {org} already exist..." )
+
+				conf_preds = np.load( out_file, allow_pickle = True )
+
+			else:
+				for pair in self.prot_combos[org]:
+					print( f"\n --> Organism = {org} \t Complex = {pair}" )
+					confident_interactions = self.get_contact_maps_from_struct( 
+																			org, pair
+																			 )
+					conf_preds.update( confident_interactions )
+
+				np.save( out_file, conf_preds, allow_pickle = True )
+
 
 
 
@@ -240,8 +252,14 @@ class ClsyAnalysis():
 		else:
 			path = self.at_af3_preds_dir
 
-		struct_file = f"{path}fold_{prot_pair}/fold_{prot_pair}_model_{i}.cif"
-		data_file = f"{path}fold_{prot_pair}/fold_{prot_pair}_full_data_{i}.json"
+		# AF3 output dir names have "--" separator replaced with "__".
+		p1, p2 = str_split( prot_pair, "--" )
+		# e.g. SHH1-L1
+		p2 = str_join( str_split( p2, "-" ), "_" )
+		prot_pair = str_join( [p1.lower(), p2.lower()], "_" )
+
+		struct_file = f"{path}fold_{prot_pair}/fold_{prot_pair}_model_0.cif"
+		data_file = f"{path}fold_{prot_pair}/fold_{prot_pair}_full_data_0.json"
 
 		return struct_file, data_file
 
@@ -252,7 +270,7 @@ class ClsyAnalysis():
 		Create an dict containing regions for which interaction map is required.
 		By construction, prot1 and prot2 will always correspond to chain A and B respectively.
 		"""
-		p, p2 = get_prot_from_pair( prot_pair )
+		p1, p2 = str_split( prot_pair, "--" )
 		p1_len = self.prot_dict[org][p1]["len"]
 		p2_len = self.prot_dict[org][p2]["len"]
 
@@ -262,7 +280,7 @@ class ClsyAnalysis():
 
 
 
-	def set_thresholds( self, obj: Interaction, cthresh: int, pldd: int, pae: int ):
+	def set_thresholds( self, obj: Interaction, cthresh: int, plddt: int, pae: int ):
 		"""
 		Set the thresholds for the Interaction object.
 		"""
@@ -293,13 +311,14 @@ class ClsyAnalysis():
 			for plddt in plddt_cutoff:
 				confident_interactions[cthresh][plddt] = {}
 				for pae_ in pae_cutoff:
-					confident_interactions[cthresh][plddt][pae] = {}
-					self.set_thresholds( obj, cthresh, pldd, pae_ )
+					print( f"Contact cthreshold: {cthresh}  pLDDT: {plddt} PAE: {pae_}" )
+					confident_interactions[cthresh][plddt][pae_] = {}
+					self.set_thresholds( obj, cthresh, plddt, pae_ )
 
 					plddt_matrix, pae_matrix = obj.apply_confidence_cutoffs( plddt1, pldd2, pae )
-					confident_contact_map = interaction_map * plddt_matrix * pae_matrix
+					confident_contact_map = contact_map * plddt_matrix * pae_matrix
 
-					confident_interactions[cthresh][plddt][pae] = confident_contact_map
+					confident_interactions[cthresh][plddt][pae_] = confident_contact_map
 
 		return confident_interactions
 
@@ -320,9 +339,6 @@ class ClsyAnalysis():
 		confident_interactions = self.get_confident_interactions( obj, contact_map, plddt1, pldd2, pae )
 
 		return confident_interactions
-
-
-
 
 
 
