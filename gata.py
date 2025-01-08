@@ -145,7 +145,7 @@ class GataRaheMeraDil():
 
 			file = f"{prot}_af3_batch_{seeds[0]}-{seeds[-1]}"
 			if not os.path.exists( f"{self.base_dir}{file}.json" ):
-				with open( f"{self.base_dir}{id_}.json", "w" ) as w:
+				with open( f"{self.base_dir}{file}.json", "w" ) as w:
 					json.dump( af3_batch, w )
 			else:
 				print( "AF3 input already created..." )
