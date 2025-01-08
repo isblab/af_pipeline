@@ -1,6 +1,23 @@
 import numpy as np
 from scipy.spatial import distance_matrix
 
+from typing import List
+
+
+def str_join( prots: List, sep: str ):
+	"""
+	Given a list of strings, join them by the provided separator (sep).
+	"""
+	return f"{sep}".join( prots )
+
+
+def str_split( prot_pair: str, sep: str ):
+	"""
+	Split the given string by the  provided separator (sep).
+	"""
+	return prot_pair.split( sep )
+
+
 def get_distance_map( coords1: np.array, coords2: np.array ):
 	"""
 	Create an all-v-all distance map.
