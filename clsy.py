@@ -239,7 +239,7 @@ class ClsyAnalysis():
 					conf_preds[pair] = confident_interactions
 
 				np.save( out_file, conf_preds, allow_pickle = True )
-			self.plot_contact_maps( conf_preds )
+			self.plot_contact_maps( org, conf_preds )
 
 
 
@@ -309,19 +309,15 @@ class ClsyAnalysis():
 		confident_interactions = {}
 
 		for cthresh in contact_threshold:
-			confident_interactions[cthresh] = {}
 			for plddt in plddt_cutoff:
-				confident_interactions[cthresh][plddt] = {}
 				for pae_ in pae_cutoff:
 					key = f"{cthresh}_{plddt}_{pae_}"
 					print( f"Contact cthreshold: {cthresh}  pLDDT: {plddt} PAE: {pae_}" )
-					confident_interactions[cthresh][plddt][pae_] = {}
+					# confident_interactions[key] = {}
 					self.set_thresholds( obj, cthresh, plddt, pae_ )
 
 					plddt_matrix, pae_matrix = obj.apply_confidence_cutoffs( plddt1, pldd2, pae )
 					confident_contact_map = contact_map * plddt_matrix * pae_matrix
-
-
 
 					confident_interactions[key] = confident_contact_map
 
@@ -347,7 +343,7 @@ class ClsyAnalysis():
 
 
 
-	def plot_contact_maps( self, conf_preds: Dict ):
+	def plot_contact_maps( self, org: str, conf_preds: Dict ):
 		"""
 		Plot contact maps for all given pairs.
 		"""
@@ -355,20 +351,21 @@ class ClsyAnalysis():
 		for pair in conf_preds.keys():
 			prot1, prot2 = pair.split( "--" )
 			col = 2
-			row = math.ceil( len( conf_preds[pair] )/2 )
+			# row = math.ceil( len( conf_preds[pair] )/2 )
+			row = len( conf_preds[pair] )
+			print( col, "  ", row )
 
-			fig, ax = plt.subplots( row, col, figsize = ( 10*row, 8*col ) )
-			r, c = 0, 0
-			for cmap in conf_preds[pair].keys():
-				ax[r, c].imshow( cmap )
-				ax[r, c].set_xlabel( prot2, fontsize = 14*row )
-				ax[r, c].set_ylabel( prot1, fontsize = 14*row )
+			fig, ax = plt.subplots( row, figsize = ( 10, 4*row ) )
+			r = 0
+			for k in conf_preds[pair].keys():
+				ax[r].imshow( conf_preds[pair][k].T )
+				ax[r].set_title( k, fontsize = 4*row )
+				ax[r].set_xlabel( prot1, fontsize = 4*row )
+				ax[r].set_ylabel( prot2, fontsize = 4*row )
 
-				r = r+1 if c == 1 else r
-				c = 1 if c == 0 else 0
-			plt.show()
-			exit()
-
+				r += 1
+			plt.savefig( f"{self.output_dir}{org}_{pair}.png" )
+			plt.close()
 
 
 
