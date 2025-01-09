@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import math
 import matplotlib.pyplot as plt
 from scipy.stats import wilcoxon, permutation_test
 import argparse
@@ -227,7 +228,7 @@ class ClsyAnalysis():
 			if os.path.exists( out_file ):
 				print( f"Confident predictions for {org} already exist..." )
 
-				conf_preds = np.load( out_file, allow_pickle = True )
+				conf_preds = np.load( out_file, allow_pickle = True ).item()
 
 			else:
 				for pair in self.prot_combos[org]:
@@ -235,9 +236,10 @@ class ClsyAnalysis():
 					confident_interactions = self.get_contact_maps_from_struct( 
 																			org, pair
 																			 )
-					conf_preds.update( confident_interactions )
+					conf_preds[pair] = confident_interactions
 
 				np.save( out_file, conf_preds, allow_pickle = True )
+			self.plot_contact_maps( conf_preds )
 
 
 
@@ -311,6 +313,7 @@ class ClsyAnalysis():
 			for plddt in plddt_cutoff:
 				confident_interactions[cthresh][plddt] = {}
 				for pae_ in pae_cutoff:
+					key = f"{cthresh}_{plddt}_{pae_}"
 					print( f"Contact cthreshold: {cthresh}  pLDDT: {plddt} PAE: {pae_}" )
 					confident_interactions[cthresh][plddt][pae_] = {}
 					self.set_thresholds( obj, cthresh, plddt, pae_ )
@@ -318,7 +321,9 @@ class ClsyAnalysis():
 					plddt_matrix, pae_matrix = obj.apply_confidence_cutoffs( plddt1, pldd2, pae )
 					confident_contact_map = contact_map * plddt_matrix * pae_matrix
 
-					confident_interactions[cthresh][plddt][pae_] = confident_contact_map
+
+
+					confident_interactions[key] = confident_contact_map
 
 		return confident_interactions
 
@@ -339,6 +344,31 @@ class ClsyAnalysis():
 		confident_interactions = self.get_confident_interactions( obj, contact_map, plddt1, pldd2, pae )
 
 		return confident_interactions
+
+
+
+	def plot_contact_maps( self, conf_preds: Dict ):
+		"""
+		Plot contact maps for all given pairs.
+		"""
+		print( conf_preds.keys() )
+		for pair in conf_preds.keys():
+			prot1, prot2 = pair.split( "--" )
+			col = 2
+			row = math.ceil( len( conf_preds[pair] )/2 )
+
+			fig, ax = plt.subplots( row, col, figsize = ( 10*row, 8*col ) )
+			r, c = 0, 0
+			for cmap in conf_preds[pair].keys():
+				ax[r, c].imshow( cmap )
+				ax[r, c].set_xlabel( prot2, fontsize = 14*row )
+				ax[r, c].set_ylabel( prot1, fontsize = 14*row )
+
+				r = r+1 if c == 1 else r
+				c = 1 if c == 0 else 0
+			plt.show()
+			exit()
+
 
 
 
