@@ -4,6 +4,8 @@
 
 The following repository contains scripts to parse and analyze AF2/3 predictions.  
 
+
+
 ## Overview
 The organization and roles of the scripts are as follows:
 1. `parser.py`: defines a class AfParser that comprises methods to parse and extract relevant features (coordinates, pLDDT, and PAE for now) from the AF2/3 output files.  
@@ -23,6 +25,9 @@ Look at the scripts for more details.
 ## AF3 
 
 Take 100 models from 20 seeds (5 models each). 
+
+### Input to AF3
+See `IMP_toolbox/#TODO Omkar`
 
 ## AF2
 
