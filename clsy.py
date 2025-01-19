@@ -221,6 +221,7 @@ class ClsyAnalysis():
 				Contact threshold, pLDDT and PAE cutoff.
 			Save the predictions for all prot pairs of an organism as a .npy file.
 		"""
+		log_results = {k:[] for k in ["Organism", "Prot_pair", "Cutoff", "#Contacts"]}
 		for org in self.prot_combos:
 			conf_preds = {}
 
@@ -240,6 +241,14 @@ class ClsyAnalysis():
 
 				np.save( out_file, conf_preds, allow_pickle = True )
 			self.plot_contact_maps( org, conf_preds )
+			prot_pair, cutoffs, counts = self.count_contacts( conf_preds )
+			log_results["Organism"].extend( [org]*len( prot_pair ) )
+			log_results["Prot_pair"].extend( prot_pair )
+			log_results["Cutoff"].extend( cutoffs )
+			log_results["#Contacts"].extend( counts )
+
+		df = pd.DataFrame( log_results )
+		df.to_csv( f"{self.output_dir}contacts_count.csv", index = False )
 
 
 
@@ -294,7 +303,7 @@ class ClsyAnalysis():
 
 	def get_confident_interactions( self, obj: Interaction, 
 										contact_map: np.array, 
-										plddt1: np.array, pldd2: np.array, 
+										plddt1: np.array, plddt2: np.array, 
 										pae: np.array ):
 		"""
 		Get confident interactions across different metric cutoffs:
@@ -316,7 +325,7 @@ class ClsyAnalysis():
 					# confident_interactions[key] = {}
 					self.set_thresholds( obj, cthresh, plddt, pae_ )
 
-					plddt_matrix, pae_matrix = obj.apply_confidence_cutoffs( plddt1, pldd2, pae )
+					plddt_matrix, pae_matrix = obj.apply_confidence_cutoffs( plddt1, plddt2, pae )
 					confident_contact_map = contact_map * plddt_matrix * pae_matrix
 
 					confident_interactions[key] = confident_contact_map
@@ -335,9 +344,9 @@ class ClsyAnalysis():
 
 		interacting_region = self.get_interacting_region( org, prot_pair )
 
-		contact_map, plddt1, pldd2, pae = obj.get_interaction_data( interacting_region )
+		contact_map, plddt1, plddt2, pae = obj.get_interaction_data( interacting_region )
 
-		confident_interactions = self.get_confident_interactions( obj, contact_map, plddt1, pldd2, pae )
+		confident_interactions = self.get_confident_interactions( obj, contact_map, plddt1, plddt2, pae )
 
 		return confident_interactions
 
@@ -353,19 +362,36 @@ class ClsyAnalysis():
 			col = 2
 			# row = math.ceil( len( conf_preds[pair] )/2 )
 			row = len( conf_preds[pair] )
-			print( col, "  ", row )
 
 			fig, ax = plt.subplots( row, figsize = ( 10, 4*row ) )
 			r = 0
 			for k in conf_preds[pair].keys():
 				ax[r].imshow( conf_preds[pair][k].T )
-				ax[r].set_title( k, fontsize = 4*row )
+				count = np.count_nonzero(  conf_preds[pair][k] )
+				ax[r].set_title( f"{k}  -->  #Contacts = {count}", fontsize = 4*row )
 				ax[r].set_xlabel( prot1, fontsize = 4*row )
 				ax[r].set_ylabel( prot2, fontsize = 4*row )
 
 				r += 1
-			plt.savefig( f"{self.output_dir}{org}_{pair}.png" )
+			plt.savefig( f"{self.output_dir}{org}_{pair}.png", dpi = 300 )
 			plt.close()
+
+
+	def count_contacts( self, conf_preds: Dict ):
+		"""
+		Get the no. of confident contacts.
+		"""
+		prot_pair, cutoffs, counts = [], [], []
+		for pair in conf_preds.keys():
+			prot1, prot2 = pair.split( "--" )
+			for k in conf_preds[pair].keys():
+				c = np.count_nonzero(  conf_preds[pair][k] )
+
+				prot_pair.append( pair )
+				cutoffs.append( k )
+				counts.append( c )
+
+		return prot_pair, cutoffs, counts
 
 
 
