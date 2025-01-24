@@ -178,7 +178,6 @@ class ClsyAnalysis():
 			af3_batch = []
 
 			for comb in self.prot_combos[org]:
-				print( comb )
 				entry_id = comb
 				p1, p2 = str_split( comb, "--" )
 
@@ -348,6 +347,8 @@ class ClsyAnalysis():
 
 		confident_interactions = self.get_confident_interactions( obj, contact_map, plddt1, plddt2, pae )
 
+		self.write_to_csv( org, prot_pair, obj, confident_interactions )
+
 		return confident_interactions
 
 
@@ -395,6 +396,29 @@ class ClsyAnalysis():
 
 
 
+	def write_to_csv( self, org: str, prot_pair: str, obj: Interaction, confident_interactions: Dict ):
+		"""
+		Write the interacting residues in a contact map to a csv file.
+		"""
+		for key in confident_interactions.keys():
+			contact_cutoff, plddt_cutoff, pae_cutoff = key.split( "_" )
+			contact_map = confident_interactions[key]
+
+			prot1_name, prot2_name = prot_pair.split( "--" )
+			print( prot1_name, "  ", prot2_name )
+			
+			# Only considering the most confident contact maps.
+			if int( contact_cutoff ) == 8: # and int( pae_cutoff ) == 5:
+				if np.count_nonzero( contact_map ) != 0:
+					print( np.count_nonzero( contact_map ) )
+
+					df = obj.get_contacts_as_restraints( prot1_name, prot2_name, contact_map, interface_only = True )
+
+					df.to_csv( f"{self.output_dir}{org}_{prot_pair}_{key}.csv", index = False )
+
+
+
+
 if __name__ == "__main__":
 	tic = time.time()
 	ClsyAnalysis().forward()
@@ -403,3 +427,4 @@ if __name__ == "__main__":
 	print( "\n------------------------------------------------\n" )
 	print( f"Time taken: {t/60} minutes or {t} seconds" )
 	print( "May the Force be with you.." )
+
