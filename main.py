@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from typing import Dict
 
@@ -254,3 +255,44 @@ class Interaction( Initialize ):
 		return confident_interactions
 
 
+
+	def get_contacts_as_restraints( self, prot1_name: str, prot2_name: str, contact_map: np.array, 
+									interface_only = True ):
+		"""
+		Given a contact map, convert it the IMP compatible XL-restraint data format.
+		"""
+		idx = np.where( contact_map != 0 )
+
+		res1_idx = idx[0]
+		res2_idx = idx[1]
+
+		# Index to residue no.
+		res1_idx += 1
+		res2_idx += 1
+
+		df = pd.DataFrame()
+		# Just write the interface residues.
+		if interface_only:
+			res1_idx = sorted( pd.unique( res1_idx ) )
+			res2_idx = sorted( pd.unique( res2_idx ) )
+
+			if len( res1_idx ) > len( res2_idx ):
+				diff = len( res1_idx ) - len( res2_idx )
+				res2_idx = np.append( res2_idx, ["" for x in range( diff )] )
+			else:
+				diff = len( res2_idx ) - len( res1_idx )
+				res1_idx = np.append( res1_idx, ["" for x in range( diff )] )
+
+			df["Protein1"] = [prot1_name]*len( res1_idx )
+			df["Residue1"] = res1_idx
+			df["Protein2"] = [prot2_name]*len( res2_idx )
+			df["Residue2"] = res2_idx
+		
+		# Write all interacting residue pairs.
+		else:
+			df["Protein1"] = [prot1_name]*len( res1_idx )
+			df["Residue1"] = res1_idx
+			df["Protein2"] = [prot2_name]*len( res2_idx )
+			df["Residue2"] = res2_idx
+
+		return df
