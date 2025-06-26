@@ -211,7 +211,7 @@ class DataParser:
         else:
             warnings.warn(
                 """
-                Atomized chain IDs not found, data file might be AF2.
+                Per atom chain IDs not found, data file might be AF2.
                 Structure file is required for AF2.
                 """
             )
@@ -245,7 +245,7 @@ class DataParser:
         else:
             warnings.warn(
                 """
-                Atomized pLDDT scores not found, data file might be AF2.
+                Per atom pLDDT scores not found, data file might be AF2.
                 Structure file is required for AF2.
                 """
             )
