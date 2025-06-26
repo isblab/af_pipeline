@@ -181,11 +181,10 @@ class StructureParser:
 
                     yield residue, chain_id
 
-    @staticmethod
     def extract_perresidue_quantity(
+        self,
         residue: Bio.PDB.Residue.Residue,
         quantity: str,
-        only_representative: bool = False,
     ):
         """Extract per-residue quantities from the Biopython residue object.
 
@@ -250,7 +249,7 @@ class StructureParser:
 
             # if the residue is standard residue
             # or user wants only representative atoms
-            if only_representative or symbol in STD_RESIDUES:
+            if self.only_representative or symbol in STD_RESIDUES:
 
                 if (
                     "CB" in residue.child_dict
@@ -289,7 +288,7 @@ class StructureParser:
             # if the dna/rna nucleotide is standard
             # or user wants only representative atoms
             if (
-                only_representative
+                self.only_representative
                 or symbol in PURINES_STD + PYRIMIDINES_STD
             ):
 
@@ -318,7 +317,7 @@ class StructureParser:
 
             # if the user wants only representative atoms
             # the first atom in the ligand is selected
-            if only_representative:
+            if self.only_representative:
                 rep_atom = residue.child_list[0].get_name()
                 warnings.warn(
                     f"""
@@ -338,7 +337,7 @@ class StructureParser:
 
             # if the user wants only representative atoms
             # select the first atom as representative atom
-            if only_representative:
+            if self.only_representative:
                 rep_atom = residue.child_list[0].get_name()
                 warnings.warn(
                     f"""
@@ -394,10 +393,9 @@ class StructureParser:
                 "'res_pos', 'coords', 'plddt'."
             )
 
-    @staticmethod
     def get_token_chain_res_ids(
+        self,
         structure: Bio.PDB.Structure.Structure,
-        only_representative: bool = False,
     ):
         """Get the token chain IDs and token residue IDs for all residues.
 
@@ -429,12 +427,11 @@ class StructureParser:
         token_chain_ids = []
         token_res_ids = []
 
-        for residue, chain_id in StructureParser.get_residues(structure):
+        for residue, chain_id in self.get_residues(structure):
 
-            res_ids, _ = StructureParser.extract_perresidue_quantity(
+            res_ids, _ = self.extract_perresidue_quantity(
                 residue=residue,
                 quantity="res_pos",
-                only_representative=only_representative,
             )
 
             token_chain_ids.extend([chain_id]* len(res_ids))
@@ -442,10 +439,9 @@ class StructureParser:
 
         return token_chain_ids, token_res_ids
 
-    @staticmethod
     def get_rep_coordinates(
+        self,
         structure: Bio.PDB.Structure.Structure,
-        only_representative: bool = False,
     ):
         """Get the coordinates of representative atoms in all residues.
 
@@ -468,22 +464,20 @@ class StructureParser:
 
         coords_list = []
 
-        for residue, _chain_id in StructureParser.get_residues(structure):
+        for residue, _chain_id in self.get_residues(structure):
 
-            coords, _ = StructureParser.extract_perresidue_quantity(
+            coords, _ = self.extract_perresidue_quantity(
                 residue=residue,
                 quantity="coords",
-                only_representative=only_representative,
             )
 
             coords_list.extend(coords)
 
         return coords_list
 
-    @staticmethod
     def get_rep_plddt(
+        self,
         structure: Bio.PDB.Structure.Structure,
-        only_representative: bool = False,
     ):
         """Get the pLDDT values for representative atoms in all residues.
 
@@ -506,12 +500,11 @@ class StructureParser:
 
         plddt_list = []
 
-        for residue, _chain_id in StructureParser.get_residues(structure):
+        for residue, _chain_id in self.get_residues(structure):
 
-            plddt, _ = StructureParser.extract_perresidue_quantity(
+            plddt, _ = self.extract_perresidue_quantity(
                 residue=residue,
                 quantity="plddt",
-                only_representative=only_representative,
             )
 
             plddt_list.extend(plddt)

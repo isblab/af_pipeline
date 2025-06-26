@@ -240,7 +240,7 @@ class DataParser:
         """
 
         if "atom_plddts" in data:
-            atom_plddts = np.array(data["atom_plddts"])
+            atom_plddts = data["atom_plddts"]
 
         else:
             warnings.warn(
