@@ -2,9 +2,11 @@ from collections import defaultdict
 from typing import Dict
 import warnings
 import Bio
+from typing import Any
 import Bio.PDB
 import Bio.PDB.Structure
 import Bio.PDB.Residue
+import Bio.PDB.Atom
 from af_pipeline.constants.af_constants import *
 
 def add_header_footer(
@@ -64,7 +66,9 @@ def add_header_footer(
     return structure
 
 def decorate_residue(
-    residue: Bio.PDB.Residue.Residue
+    residue: Bio.PDB.Residue.Residue,
+    xtra_field: str | None = None,
+    xtra_value: Any = None,
 ):
     """Decorate the residue with entity type based on its symbol.
 
@@ -85,6 +89,9 @@ def decorate_residue(
 
         if symbol in ALLOWED_PTMS:
             residue.xtra["is_modified"] = True
+
+        if symbol in ONLY_CA_RESIDUES:
+            residue.xtra["is_ca_only"] = True
 
     elif symbol in DNA_ENTITIES:
         residue.xtra["entityType"] = "dnaSequence"
@@ -115,6 +122,60 @@ def decorate_residue(
             """
         )
         residue.xtra["entityType"] = None
+
+    if symbol in PURINES:
+        residue.xtra["is_purine"] = True
+
+    elif symbol in PYRIMIDINES:
+        residue.xtra["is_pyrimidine"] = True
+
+    if xtra_field is not None and xtra_value is not None:
+        if xtra_field in residue.xtra:
+            warnings.warn(
+                f"""
+                The field '{xtra_field}' already exists in the residue's xtra.
+                Overwriting the value.
+                """
+            )
+        residue.xtra[xtra_field] = xtra_value
+
+
+def decorate_atom(
+    atom: Bio.PDB.Atom.Atom,
+    xtra_field: str | None = None,
+    xtra_value: Any = None,
+):
+    symbol = atom.get_name()
+    residue = atom.get_parent().get_resname()
+
+    if residue in PROTEIN_ENTITIES and residue not in ONLY_CA_RESIDUES:
+        if symbol == "CB":
+            atom.xtra["is_representative"] = True
+
+    elif residue in ONLY_CA_RESIDUES:
+        if symbol == "CA":
+            atom.xtra["is_representative"] = True
+
+    elif residue in PURINES:
+        if symbol == "C4":
+            atom.xtra["is_representative"] = True
+
+    elif residue in PURINES:
+        if symbol == "C2":
+            atom.xtra["is_representative"] = True
+
+    else:
+        atom.xtra["is_representative"] = False
+
+    if xtra_field is not None and xtra_value is not None:
+        if xtra_field in atom.xtra:
+            warnings.warn(
+                f"""
+                The field '{xtra_field}' already exists in the atom's xtra.
+                Overwriting the value.
+                """
+            )
+        atom.xtra[xtra_field] = xtra_value
 
 
 class RenumberResidues:
@@ -284,7 +345,7 @@ class RenumberResidues:
                 chain_res_num=res_num,
                 chain_id=chain_id,
             )
-            print(res_idx, res_num, chain_id)
+            # print(res_idx, res_num, chain_id)
 
             idx_to_num[res_idx] = {
                 "chain_id": chain_id,
