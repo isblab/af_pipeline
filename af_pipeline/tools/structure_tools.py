@@ -1,14 +1,16 @@
-from collections import defaultdict
-from typing import Dict
 import warnings
 import Bio
-from typing import Any
 import Bio.PDB
 import Bio.PDB.Structure
 import Bio.PDB.Residue
 import Bio.PDB.Atom
+from Bio.PDB.Chain import Chain
+from Bio.PDB.mmcifio import MMCIFIO
+from Bio.PDB.PDBIO import Select, PDBIO
+from collections import defaultdict
+from typing import Dict, Any, overload
 from af_pipeline.constants.af_constants import *
-from Bio.PDB import Select
+
 
 def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     """ Check if the residue has per-atom token.
@@ -38,9 +40,9 @@ def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     return condition
 
 def save_structure_obj(
-    structure: Bio.PDB.Structure,
+    structure: Bio.PDB.Structure.Structure,
     out_file: str,
-    res_select_obj: Bio.PDB.Select = Select(),
+    res_select_obj: Select = Select(),
     save_type: str = "cif",
     preserve_header_footer = False,
 ):
@@ -48,7 +50,7 @@ def save_structure_obj(
 
     Args:
 
-        structure (Bio.PDB.Structure):
+        structure (Bio.PDB.Structure.Structure):
             Biopython Structure object to save.
 
         out_file (str):
@@ -69,7 +71,6 @@ def save_structure_obj(
 
     if save_type == "pdb":
 
-        from Bio.PDB import PDBIO
         io = PDBIO()
         io.set_structure(structure)
         io.save(out_file, res_select_obj)
@@ -85,7 +86,6 @@ def save_structure_obj(
 
     elif save_type == "cif":
 
-        from Bio.PDB.mmcifio import MMCIFIO
         io = MMCIFIO()
         io.set_structure(structure)
         io.save(out_file, res_select_obj)
@@ -192,7 +192,7 @@ def decorate_residue(
 ):
     """Decorate the residue.
 
-    This function adds `entityType` attribute to the residue's `xtra` 
+    This function adds `entityType` attribute to the residue's `xtra`
     attribute depending on the type of entity. \n
 
     Allowed entity types are:
@@ -240,7 +240,6 @@ def decorate_residue(
         residue.xtra["entitiyType"] = "ligand"
         residue.xtra["is_ligand"] = True
 
-
     elif symbol in ION:
         residue.xtra["entityType"] = "ion"
         residue.xtra["is_ion"] = True
@@ -278,7 +277,17 @@ def decorate_atom(
     xtra_value: Any = None,
 ):
     symbol = atom.get_name()
-    residue = atom.get_parent().get_resname()
+    residue = atom.get_parent()
+
+    if not isinstance(residue, Bio.PDB.Residue.Residue):
+        raise TypeError(
+            f"""
+
+            Expected a Bio.PDB.Residue.Residue object, got {type(residue)}
+            """
+        )
+
+    residue = residue.get_resname()
 
     if residue in PROTEIN_ENTITIES and residue not in ONLY_CA_RESIDUES:
         if symbol == "CB":
@@ -316,7 +325,7 @@ class RenumberResidues:
 
     Attributes:
 
-        af_offset (Dict | None):
+        af_offset (dict):
             Offset describing start and end residue number for each chain in
             the predicted structure.
     """
@@ -326,8 +335,9 @@ class RenumberResidues:
 
         Args:
 
-            af_offset (Dict | None, optional):
-                Offset describing start and end residue number for each chain in the predicted structure.
+            af_offset (dict, optional):
+                Offset describing start and end residue number for each chain
+                in the predicted structure.
                 (Default: None) \n
                 example: `{'A': [1, 100], 'B': [101, 200]}`. \n
                 If None, no renumbering is done.
@@ -504,7 +514,7 @@ class ResidueSelect(Select):
 
     Attributes:
         confident_residues (Dict):
-            Dictionary containing the chain ID as key and a list of residue 
+            Dictionary containing the chain ID as key and a list of residue
             numbers as value. \n
             e.g. {"A": [1, 2, 3], "B": [4, 5, 6]}
     """
@@ -521,6 +531,38 @@ class ResidueSelect(Select):
                 Dictionary containing the chain ID as key and a list of residue numbers as value.
         """
         self.confident_residues = confident_residues
+
+    @overload
+    def accept_residue(
+        self,
+        residue: Bio.PDB.Residue.Residue
+    ) -> bool:
+        """Accept the residue if it's in `self.confident_residues`.
+
+        Args:
+
+            residue (Bio.PDB.Residue.Residue):
+                Biopython residue object.
+
+        Returns:
+
+            bool:
+                True if the residue is in the `self.confident_residues`.
+        """
+
+        chain = residue.parent
+        if not isinstance(chain, Chain):
+            raise TypeError(
+                f"Expected a Bio.PDB.Chain.Chain object, got {type(chain)}"
+            )
+        chain_id = chain.id
+
+        return residue.id[1] in self.confident_residues[chain_id]
+
+    @overload
+    def accept_residue(self, residue):
+        """Overload this to reject residues for output."""
+        return 1
 
     def accept_residue(
         self,
@@ -539,7 +581,11 @@ class ResidueSelect(Select):
                 True if the residue is in the `self.confident_residues`.
         """
 
-        chain = residue.parent.id
+        chain = residue.parent
+        if not isinstance(chain, Chain):
+            raise TypeError(
+                f"Expected a Bio.PDB.Chain.Chain object, got {type(chain)}"
+            )
+        chain_id = chain.id
 
-        return residue.id[1] in self.confident_residues[chain]
-
+        return residue.id[1] in self.confident_residues[chain_id]

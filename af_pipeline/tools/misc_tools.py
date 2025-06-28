@@ -2,25 +2,25 @@ import copy
 import warnings
 import pandas as pd
 import numpy as np
-from typing import Dict
+from typing import Any, Dict
 from collections import Counter
 from collections import defaultdict
 
 
 def create_mask(
     partition_dict: Dict,
-    hide_interactions: str = "intrachain",
+    hide_interactions: str = "intra_part",
     masked_value: int = 1,
     unmasked_value: int = 0,
 ):
     """Create a binary 2D mask.
 
-    Create a binary 2D mask for selecting only interchain or intrachain
+    Create a binary 2D mask for selecting only inter_part or intra_part
     interactions. \n
-    The mask is created by setting the values of the intrachain or
-    interchain interactions to masked values. \n
-    if `hide_interactions`=="intrachain"`, intrachain interactions masked.
-    if `hide_interactions=="interchain"`, interchain interactions masked.
+    The mask is created by setting the values of the intra_part or
+    inter_part interactions to masked values. \n
+    if `hide_interactions`=="intra_part"`, intra_part interactions masked.
+    if `hide_interactions=="inter_part"`, inter_part interactions masked.
 
     Args:
 
@@ -28,8 +28,8 @@ def create_mask(
             Dictionary containing the chain lengths.
 
         hide_interactions (str):
-            Hide intrachain or interchain interactions.
-            Defaults to "intrachain".
+            Hide intra_part or inter_part interactions.
+            Defaults to "intra_part".
 
         masked_value (int):
             Value to set for the masked interactions.
@@ -42,20 +42,20 @@ def create_mask(
     Returns:
 
         new_mask_ (np.ndarray):
-            binary 2D mask for selecting only interchain interactions.
+            binary 2D mask for selecting only inter_part interactions.
 
     Examples:
 
         >>> partition_dict = {"A": 2, "B": 1, "total": 3}
         >>> mask = create_mask(
-        ... partition_dict, hide_interactions="intrachain"
+        ... partition_dict, hide_interactions="intra_part"
         ... )
         >>> print(mask)
         [[1 1 0]
          [1 1 0]
          [0 0 1]]
         >>> mask = create_mask(
-        ... partition_dict, hide_interactions="interchain"
+        ... partition_dict, hide_interactions="inter_part"
         ... )
         >>> print(mask)
         [[0 0 1]
@@ -64,9 +64,9 @@ def create_mask(
     """
 
     assert (hide_interactions in [
-        "intrachain",
-        "interchain",
-    ]), "hide_interactions should be either 'intrachain' or 'interchain'."
+        "intra_part",
+        "inter_part",
+    ]), "hide_interactions should be either 'intra_part' or 'inter_part'."
 
     assert masked_value != unmasked_value, \
         "masked_value and unmasked_value should be different."
@@ -96,10 +96,10 @@ def create_mask(
         mask_[prev:curr:, prev:curr] = masked_value
         prev += l
 
-    if hide_interactions == "intrachain":
+    if hide_interactions == "intra_part":
         return mask_
 
-    elif hide_interactions == "interchain":
+    elif hide_interactions == "inter_part":
         new_mask_ = np.full((sys_len, sys_len), unmasked_value)
         new_mask_[mask_ == unmasked_value] = masked_value
 
@@ -315,11 +315,11 @@ def get_duplicate_indices(
     Returns:
 
         duplicate_indices (list | dict):
-            - If return_type is "list", returns a list of indices of duplicate 
+            - If return_type is "list", returns a list of indices of duplicate
             elements.
-            - If return_type is "dict", returns a dictionary with residue IDs 
+            - If return_type is "dict", returns a dictionary with residue IDs
             as keys and duplicate indices as values.
-            - first or last occurrence of the duplicate element is excluded 
+            - first or last occurrence of the duplicate element is excluded
             from the output list or dict based on the keep_which parameter.
 
     Example:
@@ -370,7 +370,7 @@ def get_duplicate_indices(
 
 def update_list(
     li: list,
-    idxs_to_update: dict,
+    idxs_to_update: dict[Any, list[int]],
     replace_with_avg: bool = False,
     idxs_to_keep: dict = {},
 ):
@@ -386,7 +386,7 @@ def update_list(
 
         replace_with_avg (bool, optional):
             If True, replaces the specified indices with the average value.
-            If False, replaces the specified indices with the values at the 
+            If False, replaces the specified indices with the values at the
             specified indices in `idxs_to_keep`.
             If `idxs_to_keep` is not provided, the first index in each
             list of `idxs_to_update` will be used to replace the indices.
@@ -417,8 +417,7 @@ def update_list(
         [1.0, 2.5, 4.5, 6.0]
     """
 
-    li = np.array(li, dtype=float)
-    li = copy.deepcopy(li)
+    li1 = np.asarray(copy.deepcopy(li), dtype=float)
 
     idxs_to_update_list = [
         idx for idxs in idxs_to_update.values() for idx in idxs[1:]
@@ -437,13 +436,13 @@ def update_list(
             idx_ = idxs_to_keep.get(token_id, 0)
             to_replace = to_replace[idx_]
 
-        li[start:end] = to_replace
+        li1[start:end] = to_replace
 
-    mask = np.ones(li.shape[0], dtype=bool)
+    mask = np.ones(li1.shape[0], dtype=bool)
     mask[idxs_to_update_list] = False
-    li = li[mask]
+    li1 = li1[mask]
 
-    return li.tolist()
+    return li1.tolist()
 
 def update_matrix_row_col(
     matrix: np.ndarray,
@@ -453,18 +452,18 @@ def update_matrix_row_col(
 ):
     """ Update a square matrix by replacing rows and columns.
 
-    This function updates a square matrix by replacing the specified rows and 
+    This function updates a square matrix by replacing the specified rows and
     columns.
 
     idxs_to_update is a dictionary which specifies the indices to update.
-    For each key, a list of indices is provided. In the output matrix, the rows 
-    and columns corresponding to these indices will be replaced with the 
+    For each key, a list of indices is provided. In the output matrix, the rows
+    and columns corresponding to these indices will be replaced with the
     average if `replace_with_avg` is True.
 
-    If `replace_with_avg` is False, the rows and columns will be replaced with 
+    If `replace_with_avg` is False, the rows and columns will be replaced with
     the values at the specified indices in `idxs_to_keep`.
 
-    If `idxs_to_keep` is not provided, the first index in each list of 
+    If `idxs_to_keep` is not provided, the first index in each list of
     `idxs_to_update` will be used to replace the columns and rows.
 
     Args:
@@ -482,7 +481,7 @@ def update_matrix_row_col(
 
         idxs_to_keep (dict, optional):
             Dictionary of indices to keep.
-            If provided, the rows and columns will be replaced with the values 
+            If provided, the rows and columns will be replaced with the values
             at the specified indices in `idxs_to_keep`.
             Defaults to {}.
 
@@ -796,7 +795,7 @@ class MatrixPatches:
 
         Returns:
             new_one_sets (dict):
-                dictionary of lists of lists where each list contains the 
+                dictionary of lists of lists where each list contains the
                 indices of 1s
 
         Example:
@@ -891,7 +890,7 @@ class MatrixPatches:
         Returns:
 
             df (pd.DataFrame):
-                DataFrame with the dictionary keys as first column and values 
+                DataFrame with the dictionary keys as first column and values
                 as second column in columns
 
         Example:
@@ -1004,7 +1003,7 @@ class MatrixPatches:
         Returns:
 
             new_df (pd.DataFrame):
-                combined DataFrame of interacting residues ranges without 
+                combined DataFrame of interacting residues ranges without
                 duplicates
 
         Example:

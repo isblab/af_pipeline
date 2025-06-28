@@ -1,11 +1,10 @@
-import json
+import numpy as np
+import Bio.PDB.Structure
 from typing import Dict
+from Bio.PDB.Structure import Structure
 from af_pipeline.parser1.structure_parser1 import StructureParser
 from af_pipeline.parser1.data_parser import DataParser
-import Bio.PDB
-import Bio.PDB.Structure
-import numpy as np
-from af_pipeline.utils.obj_helpers import (
+from af_pipeline.tools.misc_tools import (
     get_duplicate_indices,
     update_matrix_row_col,
     symmetrize_matrix,
@@ -13,6 +12,7 @@ from af_pipeline.utils.obj_helpers import (
 )
 from af_pipeline.tools.structure_tools import RenumberResidues
 
+#TODO: Put this at appropriate place
 # rep_atom_dict is "res_name": "rep_atom_id"
 # average_token_pae will only take effect if state is "per_residue"
 # average_token_pae and average_token_plddt supersedes rep_atom_dict
@@ -97,9 +97,10 @@ class _Initialize:
         self.average_token_pae = average_token_pae
         self.average_token_plddt = average_token_plddt
         self.state = state
+        self.structure = None
 
         self.structure_parser = StructureParser(
-            struct_file_path=self.structure_file_path,
+            structure_file_path=self.structure_file_path,
             preserve_header_footer=True,
             which_parser="biopython",
         )
@@ -144,6 +145,15 @@ class _Initialize:
         self.pae = self.data_parser.get_pae(data)
 
         self.contact_probs = self.data_parser.get_contact_probs_mat(data)
+
+        if not isinstance(self.structure, Structure):
+            raise TypeError(
+                f"""
+
+                Structure should be a Bio.PDB.Structure.Structure object.
+                Got {type(self.structure)} instead. \n
+                """
+            )
 
         if state == "per_token":
 
@@ -262,7 +272,7 @@ class _Initialize:
         Example:
 
             >>> token_chain_ids = ['A', 'A', 'B', 'B', 'B']
-            >>> lengths_dict = AfParser.get_chain_lengths(token_chain_ids)
+            >>> lengths_dict = _Initialize.get_chain_lengths(token_chain_ids)
             >>> print(lengths_dict)
             {'total': 5, 'A': 2, 'B': 3}
         """
@@ -366,6 +376,15 @@ class _Initialize:
             keep_which=None,  # Keep all duplicates
         )
 
+        if not isinstance(dup_token_indices, dict):
+            raise TypeError(
+                f"""
+
+                Duplicate indices should be a dictionary.
+                Got {type(dup_token_indices)} instead. \n
+                """
+            )
+
         pae = update_matrix_row_col(
             matrix=self.pae,
             idxs_to_update=dup_token_indices,
@@ -415,6 +434,15 @@ class _Initialize:
             keep_which=None,  # Keep all duplicates
         )
 
+        if not isinstance(dup_token_indices, dict):
+            raise TypeError(
+                f"""
+
+                Duplicate indices should be a dictionary.
+                Got {type(dup_token_indices)} instead. \n
+                """
+            )
+
         contact_probs_mat = update_matrix_row_col(
             matrix=self.contact_probs,
             idxs_to_update=dup_token_indices,
@@ -428,17 +456,11 @@ class _Initialize:
         pae_matrix: np.ndarray,
         lengths_dict: Dict,
         along_axis: int | None = None,
-        hide_interactions: str = "intrachain",
         return_type: str = "array",
     ) -> np.ndarray | Dict[str, list] | list:
         """ Per-residue minimum PAE values.
 
         Given the PAE matrix, obtain minimum PAE values for each residue. \n
-
-        If `hide_interactions=="intrachain"`, only the interchain interactions
-        are considered. \n
-        If `hide_interactions=="interchain"`, only the intrachain interactions
-        are considered.
 
         If `return_type==dict`, a dictionary containing the min PAE values for
         each chain is returned. \n
@@ -458,9 +480,6 @@ class _Initialize:
                 Axis along which to get the min PAE values.
                 If None, average PAE is calculated and along_axis is set to 1.
 
-            hide_interactions (str):
-                Hide intrachain or interchain interactions.
-
             return_type (str):
                 Whether to return min_pae as dict or list or array.
 
@@ -474,37 +493,42 @@ class _Initialize:
 
         Examples:
 
-            >>> pae_matrix = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]])
+            >>> pae_matrix = np.array([
+            ... [0, 1, 1],
+            ... [1, 0, 3],
+            ... [2, 3, 0]
+            ... ])
             >>> lengths_dict = {"A": 2, "B": 1, "total": 3}
-            >>> min_pae = AfParser.get_min_pae(pae_matrix, lengths_dict)
-            >>> print(min_pae)
-            [0 1 2]
-            >>>
-            >>> min_pae = AfParser.get_min_pae(
-            ... pae_matrix, lengths_dict, along_axis=0
+            >>> _Initialize.get_min_pae(
+            ...     pae_matrix,
+            ...     lengths_dict
             ... )
-            >>> print(min_pae)
-            [0 1 0]
-            >>>
-            >>> min_pae = AfParser.get_min_pae(
-            ... pae_matrix, lengths_dict, return_type="dict"
+            array([1.5, 3. , 1.5])
+
+            >>> _Initialize.get_min_pae(
+            ... pae_matrix,
+            ... lengths_dict,
+            ... along_axis=0,
+            ... return_type="list"
             ... )
-            >>> print(min_pae)
-            {'A': [0, 1], 'B': [2]}
+            [2, 3, 1]
+
+            >>> _Initialize.get_min_pae(
+            ... pae_matrix,
+            ... lengths_dict,
+            ... along_axis=1,
+            ... return_type="dict"
+            ... )
+            {'A': [1, 3], 'B': [2]}
         """
 
         if along_axis is None:
             pae_matrix = symmetrize_matrix(matrix=pae_matrix)
             along_axis = 1
 
-        hide_keys = {
-            "intrachain": "intra_part",
-            "interchain": "inter_part",
-        }
-
         interchain_mask = create_mask(
             partition_dict=lengths_dict,
-            hide_interactions=hide_keys[hide_interactions],
+            hide_interactions="intra_part",
             masked_value=1,
             unmasked_value=0,
         )
@@ -543,3 +567,7 @@ class _Initialize:
                 Got '{return_type}' instead.
                 """
             )
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
