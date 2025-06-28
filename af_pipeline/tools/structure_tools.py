@@ -8,19 +8,139 @@ import Bio.PDB.Structure
 import Bio.PDB.Residue
 import Bio.PDB.Atom
 from af_pipeline.constants.af_constants import *
+from Bio.PDB import Select
+
+def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
+    """ Check if the residue has per-atom token.
+
+    Assuming the residue is decorated with the appropriate attributes.
+    - `is_modified`: True if the residue is modified.
+    - `is_ligand`: True if the residue is a ligand.
+    - `entityType`: None if the residue is not a protein, DNA, RNA, or ligand.
+
+    Args:
+
+        residue (Bio.PDB.Residue.Residue):
+            Biopython residue object.
+
+    Returns:
+
+        condition (bool):
+            True if the residue has per-atom token, False otherwise.
+    """
+
+    condition = (
+        residue.xtra.get("is_modified")
+        or residue.xtra.get("is_ligand")
+        or residue.xtra.get("entityType") is None
+    )
+
+    return condition
+
+def save_structure_obj(
+    structure: Bio.PDB.Structure,
+    out_file: str,
+    res_select_obj: Bio.PDB.Select = Select(),
+    save_type: str = "cif",
+    preserve_header_footer = False,
+):
+    """Save the selection in Biopython structure object as a PDB or CIF file.
+
+    Args:
+
+        structure (Bio.PDB.Structure):
+            Biopython Structure object to save.
+
+        out_file (str):
+            Path to the output file where the structure will be saved.
+
+        res_select_obj (Bio.PDB.Select):
+            Biopython Select object to filter the residues to save.
+            Defaults to `Select()` which saves all residues.
+
+        save_type (str):
+            Type of file to save the structure as.
+            Can be either "pdb" or "cif". Defaults to "cif".
+
+        preserve_header_footer (bool):
+            If True, the header and footer information from the structure
+            will be preserved in the saved file. Defaults to False.
+    """
+
+    if save_type == "pdb":
+
+        from Bio.PDB import PDBIO
+        io = PDBIO()
+        io.set_structure(structure)
+        io.save(out_file, res_select_obj)
+
+        if preserve_header_footer:
+            warnings.warn(
+                """
+
+                PDB files do not support headers and footers.
+                Saving without headers and footers.
+                """
+            )
+
+    elif save_type == "cif":
+
+        from Bio.PDB.mmcifio import MMCIFIO
+        io = MMCIFIO()
+        io.set_structure(structure)
+        io.save(out_file, res_select_obj)
+
+        if preserve_header_footer:
+
+            header_footer = structure.xtra.get("header_footer", {})
+
+            if {"header", "footer"}.issubset(set(header_footer.keys())):
+
+                with open(out_file, "r") as f:
+                    lines = f.readlines()
+
+                lines.insert(0, "\n")
+                lines.append("\n")
+
+                for header_line in header_footer["header"][::-1]:
+                    lines.insert(0, f"{header_line}")
+
+                for footer_line in header_footer["footer"][::-1]:
+                    lines.append(f"{footer_line}")
+
+                with open(out_file, "w") as f:
+                    for line in lines:
+                        f.write(line)
+
+            else:
+                warnings.warn(
+                    """
+
+                    No header or footer information found in the structure.
+                    Saving without headers and footers.
+                    """
+                )
 
 def add_header_footer(
     structure: Bio.PDB.Structure.Structure,
-    struct_file_path: str,
+    structure_file_path: str,
 ) -> Bio.PDB.Structure.Structure:
     """Add the header and footer information to the structure object.
+
+    While parsing the cif file using Biopython MMCIFParser,
+    the header and footer information information is not retained.
+    This function extracts the header and footer information from the
+    structure file and adds it to the structure object. \n
+
+    The information is stored in the `xtra` attribute of the structure
+    object under the key `header_footer`. \n
 
     Args:
 
         structure (Bio.PDB.Structure.Structure):
             Biopython Structure object.
 
-        struct_file_path (str):
+        structure_file_path (str):
             path to the structure file.
 
     Returns:
@@ -29,7 +149,7 @@ def add_header_footer(
             Biopython Structure object with 'header_footer'.
     """
 
-    with open(struct_file_path, "r") as f:
+    with open(structure_file_path, "r") as f:
         lines = f.readlines()
 
     header_info = []
@@ -58,7 +178,7 @@ def add_header_footer(
         if line.startswith("ATOM") or line.startswith("HETATM"):
             break
 
-    structure.header_footer = {
+    structure.xtra["header_footer"] = {
         "header": header_info,
         "footer": footer_info,
     }
@@ -70,11 +190,22 @@ def decorate_residue(
     xtra_field: str | None = None,
     xtra_value: Any = None,
 ):
-    """Decorate the residue with entity type based on its symbol.
+    """Decorate the residue.
 
-    #! decorate residue if modified
+    This function adds `entityType` attribute to the residue's `xtra` 
+    attribute depending on the type of entity. \n
 
-    Adds `entityType` to the residue's `xtra` attribute. \n
+    Allowed entity types are:
+    - proteinChain
+    - dnaSequence
+    - rnaSequence
+    - ligand
+    - ion
+    - None (if the residue does not belong to any of the above types)
+
+    It also adds `is_modified`, `is_ca_only`, `is_ligand`, `is_ion`,
+    `is_purine`, and `is_pyrimidine` attributes to the residue's `xtra`
+    attribute wherever applicable. \n
 
     Args:
 
@@ -117,7 +248,8 @@ def decorate_residue(
     else:
         warnings.warn(
             f"""
-            The residue {symbol} does not belong to any known entity types.
+
+            The residue "{symbol}" does not belong to any known entity types.
             Setting 'entityType' to None.
             """
         )
@@ -133,12 +265,12 @@ def decorate_residue(
         if xtra_field in residue.xtra:
             warnings.warn(
                 f"""
+
                 The field '{xtra_field}' already exists in the residue's xtra.
                 Overwriting the value.
                 """
             )
         residue.xtra[xtra_field] = xtra_value
-
 
 def decorate_atom(
     atom: Bio.PDB.Atom.Atom,
@@ -171,6 +303,7 @@ def decorate_atom(
         if xtra_field in atom.xtra:
             warnings.warn(
                 f"""
+
                 The field '{xtra_field}' already exists in the atom's xtra.
                 Overwriting the value.
                 """
@@ -188,7 +321,7 @@ class RenumberResidues:
             the predicted structure.
     """
 
-    def __init__(self, af_offset: Dict | None = None):
+    def __init__(self, af_offset: dict = {}):
         """Initialize the RenumberResidues class.
 
         Args:
@@ -257,7 +390,7 @@ class RenumberResidues:
                 renumbered residue number
         """
 
-        if self.af_offset is not None and chain_id in self.af_offset:
+        if chain_id in self.af_offset:
             chain_res_num += self.af_offset[chain_id][0] - 1
 
         return chain_res_num
@@ -294,7 +427,7 @@ class RenumberResidues:
 
             start, end = region_of_interest[chain_id]
 
-            if self.af_offset and chain_id in self.af_offset:
+            if chain_id in self.af_offset:
 
                 start = start - (self.af_offset[chain_id][0] - 1)
                 end = end - (self.af_offset[chain_id][0] - 1)
@@ -306,7 +439,8 @@ class RenumberResidues:
     def residue_map(
         self,
         token_chain_ids: list,
-        token_res_ids: list
+        token_res_ids: list,
+        token_atom_names: list,
     ):
         """Create a map of residue indices to residue numbers and vice-versa.
 
@@ -319,10 +453,13 @@ class RenumberResidues:
         Args:
 
             token_chain_ids (list):
-                Tokenized chain IDs.
+                Token chain IDs.
 
             token_res_ids (list):
-                Tokenized residue IDs.
+                Token residue IDs.
+
+            token_atom_names (list):
+                Token atom names.
 
         Returns:
 
@@ -337,24 +474,72 @@ class RenumberResidues:
         idx_to_num = {}
         num_to_idx = defaultdict(dict)
 
-        for res_idx, (chain_id, res_num) in enumerate(
-            zip(token_chain_ids, token_res_ids)
+        for token_idx, (chain_id, res_num, atom_name) in enumerate(
+            zip(token_chain_ids, token_res_ids, token_atom_names)
         ):
 
             res_num = self.renumber_chain_res_num(
                 chain_res_num=res_num,
                 chain_id=chain_id,
             )
-            # print(res_idx, res_num, chain_id)
 
-            idx_to_num[res_idx] = {
+            idx_to_num[token_idx] = {
                 "chain_id": chain_id,
                 "res_num": res_num,
+                "atom_name": atom_name,
             }
 
             if res_num not in num_to_idx[chain_id]:
-                num_to_idx[chain_id][res_num] = [res_idx]
+                num_to_idx[chain_id][res_num] = {
+                    atom_name: token_idx
+                }
             else:
-                num_to_idx[chain_id][res_num].append(res_idx)
+                num_to_idx[chain_id][res_num][atom_name] = token_idx
 
         return idx_to_num, num_to_idx
+
+
+class ResidueSelect(Select):
+    """Class to select residues in the structure based on the input dictionary.
+
+    Attributes:
+        confident_residues (Dict):
+            Dictionary containing the chain ID as key and a list of residue 
+            numbers as value. \n
+            e.g. {"A": [1, 2, 3], "B": [4, 5, 6]}
+    """
+
+    def __init__(
+        self,
+        confident_residues: Dict
+    ):
+        """Initialize the ResidueSelect class \n
+
+        Args:
+
+            confident_residues (Dict):
+                Dictionary containing the chain ID as key and a list of residue numbers as value.
+        """
+        self.confident_residues = confident_residues
+
+    def accept_residue(
+        self,
+        residue: Bio.PDB.Residue.Residue
+    ) -> bool:
+        """Accept the residue if it's in `self.confident_residues`.
+
+        Args:
+
+            residue (Bio.PDB.Residue.Residue):
+                Biopython residue object.
+
+        Returns:
+
+            bool:
+                True if the residue is in the `self.confident_residues`.
+        """
+
+        chain = residue.parent.id
+
+        return residue.id[1] in self.confident_residues[chain]
+
