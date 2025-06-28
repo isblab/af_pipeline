@@ -1,3 +1,4 @@
+import json
 from typing import Dict
 from af_pipeline.parser1.structure_parser1 import StructureParser
 from af_pipeline.parser1.data_parser import DataParser
@@ -13,31 +14,93 @@ from af_pipeline.utils.obj_helpers import (
 from af_pipeline.tools.structure_tools import RenumberResidues
 
 # rep_atom_dict is "res_name": "rep_atom_id"
-# average_atom_pae will only take effect if state is "per_residue"
-# average_atom_pae supersedes rep_atom_dict
+# average_token_pae will only take effect if state is "per_residue"
+# average_token_pae and average_token_plddt supersedes rep_atom_dict
 
 class _Initialize:
+    """
+
+    Attributes:
+
+        structure_file_path (str):
+            Path to the structure file (PDB or CIF).
+
+        data_file_path (str):
+            Path to the data file (json or pkl).
+
+        af_offset (dict):
+            Dictionary containing the offset for the prediction
+            Defaults to {}.
+
+        rep_atom_dict (dict):
+            Dictionary containing the representative atoms for residues.
+            Defaults to {}.
+
+        average_token_pae (bool):
+            If True, average PAE values for residues with per-atom tokens.
+            Defaults to True.
+
+        average_token_plddt (bool):
+            If True, average pLDDT values for residues with per-atom tokens.
+            Defaults to True.
+
+        state (str):
+            State of the parser, either "per_token" or "per_residue".
+            Defaults to "per_token".
+    """
 
     def __init__(
         self,
         data_file_path: str,
-        structure_file_path: str | None = None,
-        af_offset: dict | None = None,
-        rep_atom_dict: dict | None = None,
-        average_atom_pae: bool = True,
+        structure_file_path: str,
+        af_offset: dict = {},
+        rep_atom_dict: dict = {},
+        average_token_pae: bool = True,
+        average_token_plddt: bool = True,
         state: str = "per_token",
     ):
+        """ Initialize the _Initialize class.
+
+        Args:
+
+            data_file_path (str):
+                Path to the data file (json or pkl).
+
+            structure_file_path (str):
+                Path to the structure file (PDB or CIF).
+
+            af_offset (dict, optional):
+                Dictionary containing the offset for the prediction.
+                Defaults to {}.
+
+        rep_atom_dict (dict):
+            Dictionary containing the representative atoms for residues.
+            Defaults to {}.
+
+        average_token_pae (bool):
+            If True, average PAE values for residues with per-atom tokens.
+            Defaults to True.
+
+        average_token_plddt (bool):
+            If True, average pLDDT values for residues with per-atom tokens.
+            Defaults to True.
+
+        state (str):
+            State of the parser, either "per_token" or "per_residue".
+            Defaults to "per_token".
+        """
 
         self.structure_file_path = structure_file_path
         self.data_file_path = data_file_path
         self.af_offset = af_offset
         self.rep_atom_dict = rep_atom_dict
-        self.average_atom_pae = average_atom_pae
+        self.average_token_pae = average_token_pae
+        self.average_token_plddt = average_token_plddt
         self.state = state
 
         self.structure_parser = StructureParser(
             struct_file_path=self.structure_file_path,
-            preserve_header_footer=False,
+            preserve_header_footer=True,
             which_parser="biopython",
         )
 
@@ -45,112 +108,136 @@ class _Initialize:
             data_file_path=self.data_file_path,
         )
 
-        self.renumber = RenumberResidues(
-            af_offset=self.af_offset
-        )
+        self.get_attributes(state=self.state)
 
-        self.get_attributes(state=state)
-
-    def get_attributes(self, state: str):
-
-        data = self.data_parser.get_data_dict()
-        structure = self.structure_parser.get_structure(
-            parser=self.structure_parser.get_parser()
-        )
-
-        # get pae matrix
-        self.pae = data["pae"]
-
-        self.contact_probs = data["contact_probs"]
-
-        if state == "per_token":
-
-            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
-                structure=structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=False,
-            )
-            self.token_res_ids = self.structure_parser.get_token_res_ids(
-                structure=structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=False,
-            )
-
-            self.token_plddts = self.structure_parser.get_plddt(
-                structure=structure,
-                per_atom=False,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=False,
-            )
-
-            self.token_coords = self.structure_parser.get_coordinates(
-                structure=structure,
-                per_atom=False,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=False,
-           )
-
-        elif state == "per_residue":
-
-            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
-                structure=structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=True,
-            )
-
-            self.token_res_ids = self.structure_parser.get_token_res_ids(
-                structure=structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=True,
-            )
-
-            self.token_plddts = self.structure_parser.get_plddt(
-                structure=structure,
-                per_atom=False,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=True,
-            )
-
-            self.token_coords = self.structure_parser.get_coordinates(
-                structure=structure,
-                per_atom=False,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=True,
-            )
-
-            self.idxs_to_keep = self.get_idxs_to_keep(
-                structure=structure,
-                rep_atom_dict=self.rep_atom_dict,
-            )
-
-            self.pae = self.update_pae(
-                pae=self.pae,
-                token_res_ids=self.token_res_ids,
-                token_chain_ids=self.token_chain_ids,
-                average_atom_pae=self.average_atom_pae,
-                idxs_to_keep=self.idxs_to_keep,
-            )
-
-            self.contact_probs = self.update_contact_probs(
-                contact_probs_mat=self.contact_probs,
-                token_chain_ids=self.token_chain_ids,
-                token_res_ids=self.token_res_ids,
-                idxs_to_keep=self.idxs_to_keep,
-            )
-
-        else:
-            raise Exception(
-                "State should be either 'per_token' or 'per_residue'."
-            )
+        self.avg_pae = symmetrize_matrix(matrix=self.pae)
 
         self.lengths_dict = self.get_chain_lengths(
             token_chain_ids=self.token_chain_ids
         )
 
+        self.renumber = RenumberResidues(
+            af_offset=self.af_offset
+        )
+
         self.idx_to_num, self.num_to_idx = self.renumber.residue_map(
             token_chain_ids=self.token_chain_ids,
             token_res_ids=self.token_res_ids,
+            token_atom_names=self.token_atom_names,
         )
+
+    def get_attributes(self, state: str):
+        """ Get the attributes of the class based on the state.
+
+        ! Add description of the state here.
+
+        Args:
+            state (str):
+                State of the parser, either "per_token" or "per_residue".
+        """
+
+        data = self.data_parser.get_data_dict()
+        self.structure = self.structure_parser.get_structure(
+            parser=self.structure_parser.get_parser()
+        )
+
+        self.pae = self.data_parser.get_pae(data)
+
+        self.contact_probs = self.data_parser.get_contact_probs_mat(data)
+
+        if state == "per_token":
+
+            self.only_representative = False
+
+            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.token_res_ids = self.structure_parser.get_token_res_ids(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.token_plddts = self.structure_parser.get_plddt(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                average_token_plddt=False,
+                only_representative=self.only_representative,
+            )
+
+            self.token_coords = self.structure_parser.get_coordinates(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+           )
+
+            self.token_atom_names = self.structure_parser.get_token_atom_names(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+        elif state == "per_residue":
+
+            self.only_representative = True
+
+            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.token_res_ids = self.structure_parser.get_token_res_ids(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.token_plddts = self.structure_parser.get_plddt(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                average_token_plddt=self.average_token_plddt,
+                only_representative=self.only_representative,
+            )
+
+            self.token_coords = self.structure_parser.get_coordinates(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.token_atom_names = self.structure_parser.get_token_atom_names(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+                only_representative=self.only_representative,
+            )
+
+            self.idxs_to_keep = self.get_idxs_to_keep(
+                structure=self.structure,
+                rep_atom_dict=self.rep_atom_dict,
+            )
+
+            self.pae = self.update_pae(
+                token_res_ids=self.data_parser.get_token_res_ids(data),
+                token_chain_ids=self.data_parser.get_token_chain_ids(data),
+            )
+
+            self.contact_probs = self.update_contact_probs(
+                token_chain_ids= self.data_parser.get_token_chain_ids(data),
+                token_res_ids=self.data_parser.get_token_res_ids(data),
+            )
+
+        else:
+            raise Exception(
+                f"""
+
+                State should be either 'per_token' or 'per_residue'.
+                Got '{state}' instead. \n
+                """
+            )
 
     @staticmethod
     def get_chain_lengths(token_chain_ids: list) -> Dict[str, int]:
@@ -165,12 +252,12 @@ class _Initialize:
         Args:
 
             token_chain_ids (list):
-                tokenized chain IDs.
+                Token chain IDs.
 
         Returns:
 
             lengths_dict (Dict):
-                dict containing the chain lengths.
+                Dictionary containing the chain lengths and total length.
 
         Example:
 
@@ -197,24 +284,26 @@ class _Initialize:
         structure: Bio.PDB.Structure.Structure,
         rep_atom_dict: dict = {},
     ) -> dict:
-        """Get the indices to keep for the PAE matrix.
+        """Get the indices to keep in the PAE matrix.
 
         Args:
 
             token_chain_ids (list):
-                tokenized chain IDs.
+                Token chain IDs.
 
             token_res_ids (list):
-                tokenized residue IDs.
+                Token residue IDs.
 
             rep_atom_dict (dict, optional):
-                dictionary with representative atom IDs.
-                Defaults to {}.
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue.
 
         Returns:
 
             idxs_to_keep (dict):
-                dictionary with indices to keep.
+                Dictionary with indices to keep.
         """
 
         idxs_to_keep = {}
@@ -236,17 +325,14 @@ class _Initialize:
 
         return idxs_to_keep
 
-    @staticmethod
     def update_pae(
-        pae: np.ndarray,
+        self,
         token_res_ids: list,
         token_chain_ids: list,
-        average_atom_pae: bool = False,
-        idxs_to_keep: dict = {},
-    ) -> np.ndarray:
+    ):
         """Update the PAE matrix based on the keyword.
 
-        If average_atom_pae is set to True, the repeated residue
+        If average_token_pae is set to True, the repeated residue
         IDs are removed. \n
         PAE values for the repeated residue IDs are replaced with
         the mean of the PAE values. \n
@@ -257,20 +343,20 @@ class _Initialize:
                 PAE matrix.
 
             token_res_ids (list):
-                tokenized residue IDs.
+                Token residue IDs.
 
             token_chain_ids (list):
-                tokenized chain IDs.
-
-            **average_atom_pae (bool, optional):
-                If True, the repeated residue IDs are removed. \n
-                Defaults to False.
+                Token chain IDs.
 
         Returns:
 
             pae (np.ndarray):
-                updated PAE matrix.
+                Updated PAE matrix.
         """
+
+        if token_chain_ids is None or token_res_ids is None:
+
+            return self.pae
 
         token_ids = list(zip(token_chain_ids, token_res_ids))
 
@@ -281,23 +367,21 @@ class _Initialize:
         )
 
         pae = update_matrix_row_col(
-            matrix=pae,
+            matrix=self.pae,
             idxs_to_update=dup_token_indices,
-            replace_with_avg=average_atom_pae,
-            idxs_to_keep=idxs_to_keep,
+            replace_with_avg=self.average_token_pae,
+            idxs_to_keep=self.idxs_to_keep,
         )
         return pae
 
-    @staticmethod
     def update_contact_probs(
-        contact_probs_mat: np.ndarray,
+        self,
         token_chain_ids: list,
         token_res_ids: list,
-        idxs_to_keep: dict = {},
-    ) -> np.ndarray:
+    ):
         """Update the contact probabilities matrix based on the keyword.
 
-        If average_atom_pae is set to True, the repeated residue
+        If average_token_pae is set to True, the repeated residue
         IDs are removed. \n
         Contact probabilities for the repeated residue IDs are replaced with
         the mean of the contact probabilities. \n
@@ -308,20 +392,20 @@ class _Initialize:
                 Contact probabilities matrix.
 
             token_chain_ids (list):
-                tokenized chain IDs.
+                Token chain IDs.
 
             token_res_ids (list):
-                tokenized residue IDs.
-
-            **average_atom_pae (bool, optional):
-                If True, the repeated residue IDs are removed. \n
-                Defaults to False.
+                Token residue IDs.
 
         Returns:
 
             contact_probs_mat (np.ndarray):
-                updated contact probabilities matrix.
+                Updated contact probabilities matrix.
         """
+
+        if token_chain_ids is None or token_res_ids is None:
+
+            return self.contact_probs
 
         token_ids = list(zip(token_chain_ids, token_res_ids))
 
@@ -332,10 +416,10 @@ class _Initialize:
         )
 
         contact_probs_mat = update_matrix_row_col(
-            matrix=contact_probs_mat,
+            matrix=self.contact_probs,
             idxs_to_update=dup_token_indices,
             replace_with_avg=False,
-            idxs_to_keep=idxs_to_keep,
+            idxs_to_keep=self.idxs_to_keep,
         )
         return contact_probs_mat
 
@@ -453,5 +537,9 @@ class _Initialize:
 
         else:
             raise Exception(
-                "return_type should be either 'array', 'list' or 'dict'."
+                f"""
+
+                return_type should be either 'array', 'list' or 'dict'.
+                Got '{return_type}' instead.
+                """
             )
