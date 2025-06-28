@@ -83,7 +83,7 @@ class DataParser:
         return data
 
     @staticmethod
-    def get_token_chain_ids(data: Dict) -> list:
+    def get_token_chain_ids(data: Dict) -> list | None:
         """Get the token chain IDs from the data dictionary.
 
         This is specific to AF3: "token_chain_ids" key. \n
@@ -120,7 +120,7 @@ class DataParser:
         return token_chain_ids
 
     @staticmethod
-    def get_token_res_ids(data: Dict) -> list:
+    def get_token_res_ids(data: Dict) -> list | None:
         """Get the token residue IDs from the data dictionary.
 
         This is specific to AF3: "token_res_ids" key. \n
@@ -185,7 +185,7 @@ class DataParser:
         return pae
 
     @staticmethod
-    def get_contact_probs_mat(data: Dict) -> np.ndarray:
+    def get_contact_probs_mat(data: Dict) -> np.ndarray | None:
         """Get the contact probabilities from the data dictionary.
 
         This is specific to AF3: "contact_probs" key. \n
@@ -217,7 +217,7 @@ class DataParser:
         return contact_probs_mat
 
     @staticmethod
-    def get_atom_chain_ids(data: Dict) -> list:
+    def get_atom_chain_ids(data: Dict) -> list | None:
         """Get per atom chain IDs from the data dictionary.
 
         This is specific to AF3: "atom_chain_ids" key. \n
@@ -249,7 +249,7 @@ class DataParser:
         return atom_chain_ids
 
     @staticmethod
-    def get_atom_plddts(data: Dict) -> np.ndarray:
+    def get_atom_plddts(data: Dict) -> np.ndarray | None:
         """Get per atom pLDDT scores from the data dictionary.
 
         This is specific to AF3: "atom_plddts" key. \n

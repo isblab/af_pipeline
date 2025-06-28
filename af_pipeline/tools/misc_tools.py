@@ -105,7 +105,7 @@ def create_mask(
 
         return new_mask_
 
-def symmetrize_matrix(matrix: np.ndarray) -> np.ndarray:
+def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
     """Symmetrize a matrix by averaging it with its transpose
 
     Args:
@@ -445,7 +445,7 @@ def update_list(
     return li1.tolist()
 
 def update_matrix_row_col(
-    matrix: np.ndarray,
+    matrix: np.ndarray | None,
     idxs_to_update: dict,
     replace_with_avg: bool = False,
     idxs_to_keep: dict = {},
@@ -501,6 +501,11 @@ def update_matrix_row_col(
         array([[1, 3],
                [7, 9]])
     """
+
+    if matrix is None:
+        raise TypeError(
+            "Matrix must be a numpy array, not None."
+        )
 
     assert matrix.shape[0] == matrix.shape[1], "Matrix must be square (NxN)."
 

@@ -337,8 +337,8 @@ class _Initialize:
 
     def update_pae(
         self,
-        token_res_ids: list,
-        token_chain_ids: list,
+        token_res_ids: list | None,
+        token_chain_ids: list | None,
     ):
         """Update the PAE matrix based on the keyword.
 
@@ -395,8 +395,8 @@ class _Initialize:
 
     def update_contact_probs(
         self,
-        token_chain_ids: list,
-        token_res_ids: list,
+        token_chain_ids: list | None,
+        token_res_ids: list | None,
     ):
         """Update the contact probabilities matrix based on the keyword.
 

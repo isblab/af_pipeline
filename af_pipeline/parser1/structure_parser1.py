@@ -3,11 +3,14 @@ import warnings
 import numpy as np
 import Bio
 import Bio.PDB
-import Bio.PDB.PDBParser
 import Bio.PDB.Structure
 import Bio.PDB.Residue
 import Bio.PDB.Atom
-from Bio.PDB import PDBParser, MMCIFParser
+from Bio.PDB.Residue import Residue
+from Bio.PDB.Chain import Chain
+from Bio.PDB.Structure import Structure
+from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.constants.af_constants import *
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
@@ -16,6 +19,8 @@ from af_pipeline.tools.structure_tools import (
     has_per_atom_token,
 )
 
+#TODO
+# Remove which_parser argument/attribute
 
 class StructureParser:
     """ Class to parse structure files (.pdb or .cif) using Biopython.
@@ -66,7 +71,7 @@ class StructureParser:
 
         self.structure_file_path = structure_file_path
         self.preserve_header_footer = preserve_header_footer
-        self.which_parser = which_parser.lower()
+        self.which_parser = which_parser
 
 
     def get_parser(self):
@@ -83,6 +88,7 @@ class StructureParser:
                 Parser object.
         """
 
+        parser = None
         ext = os.path.splitext(self.structure_file_path)[1]
 
         if "pdb" in ext:
@@ -112,12 +118,18 @@ class StructureParser:
         else:
             raise Exception("Incorrect file format.. Suported .pdb/.cif only.")
 
+        if not isinstance(parser, (PDBParser, MMCIFParser)):
+            raise TypeError(
+                f"Parser should be either PDBParser or MMCIFParser. "
+                f"Got {type(parser)} instead."
+            )
+
         return parser
 
 
     def get_structure(
         self,
-        parser: Bio.PDB.PDBParser | Bio.PDB.MMCIFParser,
+        parser: PDBParser | MMCIFParser,
     ):
         """Return the Biopython Structure object for the structure file.
 
@@ -135,11 +147,20 @@ class StructureParser:
         basename = os.path.basename(self.structure_file_path)
 
         if (
-            isinstance(parser, Bio.PDB.PDBParser)
-            or isinstance(parser, Bio.PDB.MMCIFParser)
+            isinstance(parser, PDBParser)
+            or isinstance(parser, MMCIFParser)
         ):
 
             structure = parser.get_structure(basename, self.structure_file_path)
+
+            if not isinstance(structure, Structure):
+                raise TypeError(
+                    f"""
+
+                    Expected a Bio.PDB.Structure.Structure object.
+                    Got {type(structure)} instead.
+                    """
+                )
 
             if self.preserve_header_footer:
                 structure = add_header_footer(
@@ -255,9 +276,27 @@ class StructureParser:
             set(allowed_quantities)
         ), f"Allowed quantities are: {allowed_quantities}"
 
-        peratom_quantities = {
-            k: [] for k in quantities
-        }
+        peratom_quantities = {}
+
+        residue = atom.get_parent()
+        if not isinstance(residue, Residue):
+            raise TypeError(
+                f"""
+
+                Expected a Bio.PDB.Residue.Residue object.
+                Got {type(residue)} instead.
+                """
+            )
+
+        chain = residue.get_parent()
+        if not isinstance(chain, Chain):
+            raise TypeError(
+                f"""
+
+                Expected a Bio.PDB.Chain.Chain object.
+                Got {type(chain)} instead.
+                """
+            )
 
         for quantity in quantities:
             if quantity == "coord":
@@ -270,19 +309,19 @@ class StructureParser:
                 peratom_quantities["atom_name"] = atom.get_name()
 
             elif quantity == "res_pos":
-                peratom_quantities["res_pos"] = atom.get_parent().id[1]
+                peratom_quantities["res_pos"] = residue.id[1]
 
             elif quantity == "res_name":
-                peratom_quantities["res_name"] = atom.get_parent().get_resname()
+                peratom_quantities["res_name"] = residue.get_resname()
 
             elif quantity == "chain_id":
-                peratom_quantities["chain_id"] = atom.get_parent().get_parent().id[0]
+                peratom_quantities["chain_id"] = chain.id[0]
 
             elif quantity == "entity_type":
-                peratom_quantities["entity_type"] = atom.get_parent().xtra.get("entityType", None)
+                peratom_quantities["entity_type"] = residue.xtra.get("entityType", None)
 
             elif quantity == "atom_local_idx":
-                for idx, a in enumerate(atom.get_parent()):
+                for idx, a in enumerate(residue):
                     if a.get_name() == atom.get_name():
                         peratom_quantities["atom_local_idx"] = idx
                         break
@@ -293,7 +332,7 @@ class StructureParser:
     def extract_perresidue_quantities(
         residue: Bio.PDB.Residue.Residue,
         quantities: list = ["coord"],
-        rep_atom: str = None,
+        rep_atom: str | Bio.PDB.Atom.Atom | None = None,
     ):
         """ Extract per-residue quantities from a residue object.
 
@@ -345,9 +384,17 @@ class StructureParser:
             set(allowed_quantities)
         ), f"Allowed quantities are: {allowed_quantities}"
 
-        perresidue_quantities = {
-            k: None for k in quantities
-        }
+        chain = residue.get_parent()
+        if not isinstance(chain, Chain):
+            raise TypeError(
+                f"""
+
+                Expected a Bio.PDB.Chain.Chain object.
+                Got {type(chain)} instead.
+                """
+            )
+
+        perresidue_quantities = {}
 
         for quantity in quantities:
 
@@ -358,7 +405,7 @@ class StructureParser:
                 perresidue_quantities["res_name"] = residue.get_resname()
 
             elif quantity == "chain_id":
-                perresidue_quantities["chain_id"] = residue.get_parent().id[0]
+                perresidue_quantities["chain_id"] = chain.id[0]
 
             elif quantity == "entity_type":
                 perresidue_quantities["entity_type"] = residue.xtra.get(
@@ -399,8 +446,8 @@ class StructureParser:
                         raise TypeError(
                             f"""
 
-                            rep_atom should be a str or a Bio.PDB.Atom.Atom 
-                            object. Got {type(rep_atom)}.
+                            rep_atom should be a string.
+                            Got {type(rep_atom)} instead.
                             """
                         )
 
@@ -707,6 +754,7 @@ class StructureParser:
         """
 
         plddt_values = []
+        rep_atom = None
 
         if per_atom:
             for atom, _res, _ch_id in StructureParser.get_atoms(structure):
@@ -800,6 +848,7 @@ class StructureParser:
         """
 
         coords = []
+        rep_atom = None
 
         if per_atom:
 
