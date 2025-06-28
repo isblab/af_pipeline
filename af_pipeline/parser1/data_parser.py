@@ -6,12 +6,20 @@ import pickle as pkl
 from typing import Dict
 
 class DataParser:
-    """Class containing methods to parse the AF2/3 data file.
+    """Class with methods to parse the prediction data files.
+
+    Currently supports the following:
+    - AlphaFold2 data files (.pkl or .json)
+    - AlphaFold3 data files (.json)
+    - ColabFold data files (.json)
+
+    To be implemented:
+    - Boltz data files (.npy)
 
     Attributes:
 
         data_file_path (str):
-            Path to the AF2/3 data file.
+            Path to the data file.
     """
 
     def __init__(
@@ -22,23 +30,23 @@ class DataParser:
 
         Args:
             data_file_path (str):
-                Path to the AF2/3 data file.
+                Path to the data file.
         """
 
         self.data_file_path = data_file_path
 
     def get_data_dict(self) -> Dict:
-        """Parse the AF2/3 data file.
+        """Get the data from the data file.
 
         Args:
 
             data_file_path (str):
-                path to the data file.
+                Path to the data file.
 
         Returns:
 
             data (Dict):
-                data dict from the data file.
+                Data dictionary from the data file.
         """
 
         ext = os.path.splitext(self.data_file_path)[1]
@@ -48,7 +56,7 @@ class DataParser:
             with open(self.data_file_path, "rb") as f:
                 data = pkl.load(f)
 
-        # AF3 data file
+        # AF3 or ColabFold data file
         elif "json" in ext:
             with open(self.data_file_path, "r") as f:
                 data = json.load(f)
@@ -56,19 +64,30 @@ class DataParser:
             if isinstance(data, list):
                 data = data[0]
 
+        elif "npy" in ext:
+            raise NotImplementedError(
+                """
+
+                Boltz predictions are not supported yet.
+                """
+            )
+
         else:
             raise Exception(
-                "Incorrect file format.. Suported .pkl/.json only."
+                """
+
+                Incorrect file format.. Suported .pkl/.json only.
+                """
             )
 
         return data
 
     @staticmethod
     def get_token_chain_ids(data: Dict) -> list:
-        """Get the token chain IDs from the data dict.
+        """Get the token chain IDs from the data dictionary.
 
         This is specific to AF3: "token_chain_ids" key. \n
-        If data is AF2, None is returned. \n
+        For others, None is returned. \n
 
         In general, each token is a residue/nucleotide/ion in the chain.
         In case of modified residues or nucleotides or ions or glycan chains,
@@ -77,12 +96,12 @@ class DataParser:
         Args:
 
             data (Dict):
-                data dictionary from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
             token_chain_ids (list):
-                token chain IDs.
+                Token chain IDs.
         """
 
         if "token_chain_ids" in data:
@@ -91,6 +110,7 @@ class DataParser:
         else:
             warnings.warn(
                 """
+
                 Chain IDs not found, data file might be AF2.
                 Structure file is required for AF2.
                 """
@@ -101,20 +121,22 @@ class DataParser:
 
     @staticmethod
     def get_token_res_ids(data: Dict) -> list:
-        """Get the token residue IDs from the data dict.
+        """Get the token residue IDs from the data dictionary.
 
         This is specific to AF3: "token_res_ids" key. \n
-        If data is AF2, None is returned. \n
+        For others, None is returned. \n
+
+        Atom-level tokens have the same token residue IDs.
 
         Args:
 
             data (Dict):
-                data dictionary from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
             token_res_ids (list):
-                token residue IDs.
+                Token residue IDs.
         """
 
         if "token_res_ids" in data:
@@ -123,6 +145,7 @@ class DataParser:
         else:
             warnings.warn(
                 """
+
                 Residue IDs not found, data file might be AF2.
                 Structure file is required for AF2.
                 """
@@ -132,19 +155,19 @@ class DataParser:
         return token_res_ids
 
     @staticmethod
-    def get_pae(data: Dict):
-        """Return the PAE matrix from the data dict.
+    def get_pae(data: Dict) -> np.ndarray:
+        """Return the PAE matrix from the data dictionary.
 
         Size of the PAE matrix is NxN, where N is the number of tokens.
 
         Args:
 
             data (Dict):
-                data dictionary from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
-            pae (np.array):
+            pae (np.ndarray):
                 PAE matrix.
         """
 
@@ -162,18 +185,21 @@ class DataParser:
         return pae
 
     @staticmethod
-    def get_contact_probs_mat(data: Dict):
-        """Get the contact probabilities from the data dict.
+    def get_contact_probs_mat(data: Dict) -> np.ndarray:
+        """Get the contact probabilities from the data dictionary.
+
+        This is specific to AF3: "contact_probs" key. \n
+        For others, None is returned. \n
 
         Args:
 
             data (Dict):
-                data dictionary from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
-            contact_probs_mat (np.array):
-                contact probabilities matrix from AlphaFold3 output.
+            contact_probs_mat (np.ndarray):
+                Contact probabilities matrix from AlphaFold3 output.
         """
 
         if "contact_probs" in data:
@@ -181,7 +207,10 @@ class DataParser:
 
         else:
             warnings.warn(
-                "Contact probabilities not found, data file might not be AF3."
+                """
+
+                Contact probabilities not found, data file might not be AF3.
+                """
             )
             contact_probs_mat = None
 
@@ -189,20 +218,20 @@ class DataParser:
 
     @staticmethod
     def get_atom_chain_ids(data: Dict) -> list:
-        """Get per atom chain IDs from the data dict.
+        """Get per atom chain IDs from the data dictionary.
 
         This is specific to AF3: "atom_chain_ids" key. \n
-        If data is AF2, None is returned. \n
+        For others, None is returned. \n
 
         Args:
 
             data (Dict):
-                data dict from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
             atom_chain_ids (list):
-                per atom chain IDs.
+                Per atom chain IDs.
         """
 
         if "atom_chain_ids" in data:
@@ -220,23 +249,21 @@ class DataParser:
         return atom_chain_ids
 
     @staticmethod
-    def get_atom_plddts(data: Dict) -> np.array:
-        """Get per atom pLDDT scores from the data dict.
+    def get_atom_plddts(data: Dict) -> np.ndarray:
+        """Get per atom pLDDT scores from the data dictionary.
 
         This is specific to AF3: "atom_plddts" key. \n
         If data is AF2, None is returned. \n
-        However, similar information can be obtained from the structure file. \n
-        see :py:meth:`Parser.StructureParser.get_atom_plddts`.
 
         Args:
 
             data (Dict):
-                data dict from the data file.
+                Data dictionary from the data file.
 
         Returns:
 
-            atom_plddts (np.array):
-                per atom pLDDT scores.
+            atom_plddts (np.ndarray):
+                Per atom pLDDT scores.
         """
 
         if "atom_plddts" in data:
