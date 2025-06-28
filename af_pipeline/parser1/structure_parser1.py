@@ -1,40 +1,81 @@
+import os
 import warnings
+import numpy as np
+import Bio
 import Bio.PDB
 import Bio.PDB.PDBParser
-import Bio.PDB.Residue
 import Bio.PDB.Structure
-import os
-from af_pipeline.constants.af_constants import *
-import Bio
+import Bio.PDB.Residue
+import Bio.PDB.Atom
 from Bio.PDB import PDBParser, MMCIFParser
+from af_pipeline.constants.af_constants import *
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
     decorate_residue,
     decorate_atom,
+    has_per_atom_token,
 )
 
 
 class StructureParser:
+    """ Class to parse structure files (.pdb or .cif) using Biopython.
+
+    Attributes:
+
+        structure_file_path (str):
+            Path to the AF2/3 structure file (.pdb or .cif).
+
+        preserve_header_footer (bool):
+            If True, the header and footer information is preserved in the
+            structure object.
+            This is only applicable for .cif files. \n
+            (Default: False)
+
+        which_parser (str):
+            Which parser to use for the structure file. \n
+            "biopython" for Biopython's MMCIFParser, \n
+            "pdbe" for PDBe's CifFileReader (not implemented yet). \n
+            (Default: "biopython")
+    """
 
     def __init__(
         self,
-        struct_file_path: str,
+        structure_file_path: str,
         preserve_header_footer: bool = False,
         which_parser: str = "biopython",
     ):
+        """ Initialize the StructureParser.
 
-        self.struct_file_path = struct_file_path
+        Args:
+
+            structure_file_path (str):
+                Path to the AF2/3 structure file (.pdb or .cif).
+
+            preserve_header_footer (bool):
+                If True, the header and footer information is preserved in the
+                structure object.
+                This is only applicable for .cif files. \n
+                (Default: False)
+
+            which_parser (str):
+                Which parser to use for the structure file. \n
+                "biopython" for Biopython's MMCIFParser, \n
+                "pdbe" for PDBe's CifFileReader (not implemented yet). \n
+                (Default: "biopython")
+    """
+
+        self.structure_file_path = structure_file_path
         self.preserve_header_footer = preserve_header_footer
         self.which_parser = which_parser.lower()
 
 
     def get_parser(self):
-        """Get the required parser (PDB/CIF) for the input file.
+        """Get the required parser (PDB/CIF) for the input structure file.
 
         Args:
 
-            struct_file_path (str):
-                Path to the AF2/3 structure file (.pdb or .cif).
+            structure_file_path (str):
+                Path to the structure file (.pdb or .cif).
 
         Returns:
 
@@ -42,13 +83,20 @@ class StructureParser:
                 Parser object.
         """
 
-        ext = os.path.splitext(self.struct_file_path)[1]
+        ext = os.path.splitext(self.structure_file_path)[1]
 
         if "pdb" in ext:
+
             parser = PDBParser()
 
             if self.preserve_header_footer:
-                raise Exception("Header can only be preserved for CIF files.")
+                warnings.warn(
+                    """
+
+                    Header can only be preserved for CIF files.
+                    Output will not contain header/footer information.
+                    """
+                )
 
         elif "cif" in ext:
 
@@ -70,7 +118,7 @@ class StructureParser:
     def get_structure(
         self,
         parser: Bio.PDB.PDBParser | Bio.PDB.MMCIFParser,
-    ) -> Bio.PDB.Structure.Structure:
+    ):
         """Return the Biopython Structure object for the structure file.
 
         Args:
@@ -84,19 +132,19 @@ class StructureParser:
                 Biopython Structure object.
         """
 
-        basename = os.path.basename(self.struct_file_path)
+        basename = os.path.basename(self.structure_file_path)
 
         if (
             isinstance(parser, Bio.PDB.PDBParser)
             or isinstance(parser, Bio.PDB.MMCIFParser)
         ):
 
-            structure = parser.get_structure(basename, self.struct_file_path)
+            structure = parser.get_structure(basename, self.structure_file_path)
 
             if self.preserve_header_footer:
                 structure = add_header_footer(
                     structure=structure,
-                    struct_file_path=self.struct_file_path
+                    structure_file_path=self.structure_file_path
                 )
 
             # decorate residues with entity types and modifications
@@ -165,6 +213,33 @@ class StructureParser:
         atom: Bio.PDB.Atom.Atom,
         quantities: list = ["coord"]
     ):
+        """ Extract per-atom quantities from a Bio.PDB.Atom.Atom object.
+
+        Allowed quantities are:
+        - "coord": XYZ atom coordinates (numpy array).
+        - "plddt": pLDDT value (float).
+        - "atom_name": Atom name (str). e.g. "CA","CB",etc.
+        - "res_pos": Residue position (int).
+        - "res_name": Residue name (str). e.g. "ALA", "GLY", etc.
+        - "chain_id": Chain ID (str).
+        - "entity_type": Entity type (str). e.g. "proteinChain"
+        - "atom_local_idx": Local index of the atom in the residue (int).
+
+        Args:
+
+            atom (Bio.PDB.Atom.Atom):
+                Biopython Atom object.
+
+            quantities (list, optional):
+                List of quantities to extract. Defaults to ["coord"].
+
+        Returns:
+
+            peratom_quantities (dict):
+                Dictionary with extracted quantities. \n
+                Keys are the quantity names, values are the corresponding data.
+        """
+
         allowed_quantities = [
             "coord",
             "plddt",
@@ -220,6 +295,38 @@ class StructureParser:
         quantities: list = ["coord"],
         rep_atom: str = None,
     ):
+        """ Extract per-residue quantities from a residue object.
+
+        Following quantities are allowed:
+        - "res_pos": Residue position (int).
+        - "res_name": Residue name (str). e.g. "ALA", "GLY", etc.
+        - "coord": XYZ coordinates of the representative atom (numpy array).
+        - "plddt": pLDDT value of the representative atom (float).
+        - "chain_id": Chain ID (str).
+        - "entity_type": Entity type (str). e.g. "proteinChain"
+        - "atoms": Atom names in the residue (list).
+        - "atom_local_idxs": Local indices of atoms in the residue. (list)
+        - "rep_atom": Name of the representative atom (str).
+        - "rep_atom_local_idx": Local index of the representative atom (int)
+
+        Args:
+
+            residue (Bio.PDB.Residue.Residue):
+                Biopython Residue object.
+
+            quantities (list, optional):
+                List of quantities to extract. Defaults to ["coord"].
+
+            rep_atom (str, optional):
+                Representative atom to use for quantities that depend on it.
+                If None, the representative atom is determined based on the
+                entity type of the residue. Defaults to None.
+
+        Returns:
+            perresidue_quantities (dict):
+                Dictionary with extracted quantities. \n
+                Keys are the quantity names, values are the corresponding data.
+        """
 
         allowed_quantities = [
             "res_pos",
@@ -264,19 +371,36 @@ class StructureParser:
                 ]
 
             elif quantity == "atom_local_idxs":
-                perresidue_quantities["atom_local_idxs"] = list(range(len(residue)))
+                perresidue_quantities["atom_local_idxs"] = list(
+                    range(len(residue))
+                )
 
             else:
                 if rep_atom is None:
                     rep_atom = StructureParser.get_rep_atom(residue=residue)
                 else:
-                    try:
-                        rep_atom = residue[rep_atom]
-                    except KeyError:
-                        raise KeyError(
+                    if isinstance(rep_atom, str):
+                        try:
+                            rep_atom = residue[rep_atom]
+
+                        except KeyError:
+                            raise KeyError(
+                                f"""
+
+                                Representative atom {rep_atom} not found in
+                                residue {residue.get_resname()}.
+                                """
+                            )
+
+                    elif isinstance(rep_atom, Bio.PDB.Atom.Atom):
+                        rep_atom = rep_atom
+
+                    else:
+                        raise TypeError(
                             f"""
-                            Representative atom {rep_atom} not found in \
-                            residue {residue.get_resname()}.
+
+                            rep_atom should be a str or a Bio.PDB.Atom.Atom 
+                            object. Got {type(rep_atom)}.
                             """
                         )
 
@@ -299,9 +423,25 @@ class StructureParser:
 
 
     @staticmethod
-    def get_rep_atom(
-        residue: Bio.PDB.Residue.Residue,
-    ):
+    def get_rep_atom(residue: Bio.PDB.Residue.Residue):
+        """ Get the representative atom for a residue based on its entity type.
+
+        The representative atoms for the most common entity types are:
+        - Protein chain: "CA" (if only CA is present) or "CB" (if present).
+        - DNA/RNA sequence: "C4" for purines, "C2" for pyrimidines.
+        - Ions: Atom name is the residue name (e.g. "NA", "CL").
+        - Ligands: First atom in the residue.
+        - Unknown entity types: First atom in the residue.
+
+        Args:
+
+            residue (Bio.PDB.Residue.Residue):
+                Biopython Residue object.
+
+        Returns:
+            rep_atom (Bio.PDB.Atom.Atom):
+                Representative atom for the residue. \n
+        """
 
         symbol = residue.get_resname()
         rep_atom = ""
@@ -331,42 +471,120 @@ class StructureParser:
         elif residue.xtra.get("entityType") == "ligand":
             rep_atom = residue.child_list[0]  # Fallback to first atom
 
-        else:
+        elif residue.xtra.get("entityType") is None:
             warnings.warn(
-                f"Unknown entity type for residue {symbol}. "
-                "Skipping per-residue quantities extraction."
+                f"""
+
+                Unknown entity type for residue {symbol}.
+                Using first atom or user-specified atom as representative atom.
+                """
             )
             rep_atom = residue.child_list[0]  # Fallback to first atom
+
+        else:
+            raise NotImplementedError(
+                f"""
+
+                Entity type "{residue.xtra.get('entityType')}" not implemented.
+                """
+            )
 
         return rep_atom
 
     @staticmethod
-    def per_atom_token(
-        residue: Bio.PDB.Residue.Residue,
+    def get_token_atom_names(
+        structure: Bio.PDB.Structure.Structure,
+        rep_atom_dict: dict = {},
+        only_representative: bool = False,
     ):
-        condition = (
-            residue.xtra.get("is_modified")
-            or residue.xtra.get("is_ligand")
-            or residue.xtra.get("entityType") is None
-        )
+        """Get token atom IDs for the structure.
 
-        return condition
+        Token atom IDs is a list of atom names for each token. \n
+        If the residue has per-atom tokens, it token atom IDs are the atom
+        names for each atom in the residue. \n
+        Otherwise, it is the representative atom name for the residue.
+
+        Args:
+
+            structure (Bio.PDB.Structure.Structure):
+                Biopython Structure object.
+
+            rep_atom_dict (dict):
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue.
+
+            only_representative (bool):
+                If True, returns only representative atoms for all residues
+                irrespective of per-atom tokens.
+
+        Returns:
+
+            list: Token atom IDs.
+        """
+
+        token_atom_ids = []
+
+        for residue, _chain_id in StructureParser.get_residues(structure):
+
+            if has_per_atom_token(residue) and only_representative is False:
+                for atom in residue:
+                    quants = StructureParser.extract_peratom_quantities(
+                        atom=atom,
+                        quantities=["atom_name"]
+                    )
+                    token_atom_ids.append(quants["atom_name"])
+            else:
+                rep_atom = rep_atom_dict.get(
+                    residue.get_resname(),
+                    StructureParser.get_rep_atom(residue=residue)
+                )
+                quants = StructureParser.extract_perresidue_quantities(
+                    residue=residue,
+                    quantities=["rep_atom"],
+                    rep_atom=rep_atom
+                )
+                token_atom_ids.append(quants["rep_atom"])
+
+        return token_atom_ids
 
     @staticmethod
     def get_token_chain_ids(
         structure: Bio.PDB.Structure.Structure,
-        rep_atom_dict: dict | None = None,
+        rep_atom_dict: dict = {},
         only_representative: bool = False,
     ):
+        """ Get token chain IDs for the structure.
+
+        Args:
+
+            structure (Bio.PDB.Structure.Structure):
+                Biopython Structure object.
+
+            rep_atom_dict (dict, optional):
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue. \n
+                Defaults to {}.
+
+            only_representative (bool, optional):
+                If True, returns only representative chain IDs for all residues
+                irrespective of per-atom tokens. \n
+                Defaults to False.
+
+        Returns:
+
+            token_chain_ids (list):
+                Token chain IDs for the structure. \n
+        """
 
         token_chain_ids = []
 
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            if (
-                StructureParser.per_atom_token(residue)
-                and only_representative is False
-            ):
+            if has_per_atom_token(residue) and only_representative is False:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                             atom=atom,
@@ -376,8 +594,9 @@ class StructureParser:
             else:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
+                    StructureParser.get_rep_atom(residue=residue).id
                 )
+
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
                     quantities=["chain_id"],
@@ -385,26 +604,50 @@ class StructureParser:
                 )
                 token_chain_ids.append(quants["chain_id"])
 
+        return token_chain_ids
+
     @staticmethod
     def get_token_res_ids(
         structure: Bio.PDB.Structure.Structure,
         rep_atom_dict: dict = {},
         only_representative: bool = False,
     ):
+        """ Get token residue IDs for the structure.
+
+        Args:
+
+            structure (Bio.PDB.Structure.Structure):
+                Biopython Structure object.
+
+            rep_atom_dict (dict, optional):
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue. \n
+                Defaults to {}.
+
+            only_representative (bool, optional):
+                If True, returns only representative residue IDs for all
+                residues irrespective of per-atom tokens. \n
+                Defaults to False.
+
+        Returns:
+            token_res_ids (list):
+                Token residue IDs for the structure. \n
+        """
 
         token_res_ids = []
 
         for residue, _chain_id in StructureParser.get_residues(structure):
-            if (
-                StructureParser.per_atom_token(residue)
-                and only_representative is False
-            ):
+
+            if has_per_atom_token(residue) and only_representative is False:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
                         quantities=["res_pos"]
                     )
                     token_res_ids.append(quants["res_pos"])
+
             else:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
@@ -423,7 +666,8 @@ class StructureParser:
     def get_plddt(
         structure: Bio.PDB.Structure.Structure,
         per_atom: bool = False,
-        rep_atom_dict: dict | None = None,
+        rep_atom_dict: dict = {},
+        average_token_plddt: bool = False,
         only_representative: bool = False,
     ):
         """Get pLDDT values from the structure.
@@ -435,11 +679,31 @@ class StructureParser:
 
             per_atom (bool):
                 If True, returns pLDDT values for each atom.
-                If False, returns pLDDT values for each residue.
+                If False, returns pLDDT values for each residue/token.
+
+            rep_atom_dict (dict):
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue. \n
+                defaults to {}.
+
+            average_token_plddt (bool):
+                If True, averages pLDDT values for all atoms in the residue
+                with per-atom tokens and returns a single value per residue.
+
+            only_representative (bool):
+                If True, returns only representative pLDDT values for all
+                residues irrespective of per-atom tokens. \n
+                Defaults to False.
 
         Returns:
 
-            list: pLDDT values.
+            plddt_values (list):
+                List of pLDDT values. \n
+                If per_atom is True, it contains pLDDT values for each atom.
+                If per_atom is False, it contains pLDDT values for each residue
+                or token.
         """
 
         plddt_values = []
@@ -454,27 +718,45 @@ class StructureParser:
 
         else:
             for residue, _ch_id in StructureParser.get_residues(structure):
-                if (
-                    StructureParser.per_atom_token(residue)
-                    and only_representative is False
-                ):
-                    for atom in residue:
-                        quants = StructureParser.extract_peratom_quantities(
-                            atom=atom,
-                            quantities=["plddt"]
+
+                if has_per_atom_token(residue):
+
+                    if only_representative is False:
+                        for atom in residue:
+                            quants = StructureParser.extract_peratom_quantities(
+                                atom=atom,
+                                quantities=["plddt"]
+                            )
+                            plddt_values.append(quants["plddt"])
+
+                    elif average_token_plddt is True:
+                        # Average pLDDT for all atoms in the residue
+                        atom_plddt_values = [
+                            StructureParser.extract_peratom_quantities(
+                                atom=atom,
+                                quantities=["plddt"]
+                            )["plddt"] for atom in residue
+                        ]
+                        plddt_values.append(np.mean(atom_plddt_values))
+
+                    else:
+                        rep_atom = rep_atom_dict.get(
+                            residue.get_resname(),
+                            StructureParser.get_rep_atom(residue=residue)
                         )
-                        plddt_values.append(quants["plddt"])
+
                 else:
                     rep_atom = rep_atom_dict.get(
                         residue.get_resname(),
                         StructureParser.get_rep_atom(residue=residue)
                     )
-                    quants = StructureParser.extract_perresidue_quantities(
-                        residue=residue,
-                        quantities=["plddt"],
-                        rep_atom=rep_atom,
-                    )
-                    plddt_values.append(quants["plddt"])
+
+                quants = StructureParser.extract_perresidue_quantities(
+                    residue=residue,
+                    quantities=["plddt"],
+                    rep_atom=rep_atom,
+                )
+                plddt_values.append(quants["plddt"])
 
         return plddt_values
 
@@ -482,7 +764,7 @@ class StructureParser:
     def get_coordinates(
         structure: Bio.PDB.Structure.Structure,
         per_atom: bool = False,
-        rep_atom_dict: dict | None = None,
+        rep_atom_dict: dict = {},
         only_representative: bool = False,
     ):
         """Get coordinates from the structure.
@@ -494,16 +776,33 @@ class StructureParser:
 
             per_atom (bool):
                 If True, returns coordinates for each atom.
-                If False, returns coordinates for each residue.
+                If False, returns coordinates for each residue or token.
+
+            rep_atom_dict (dict):
+                Dictionary with residue names as keys and representative
+                atoms as values. \n
+                If only_representative is True, this dictionary is used to get
+                the representative atom for the specified residue. \n
+                Defaults to {}.
+
+            only_representative (bool):
+                If True, returns only representative coordinates for all
+                residues irrespective of per-atom tokens. \n
+                Defaults to False.
 
         Returns:
 
-            list: Coordinates.
+            coords (list):
+                List of coordinates. \n
+                If per_atom is True, it contains coordinates for each atom.
+                If per_atom is False, it contains coordinates for each residue
+                or token.
         """
 
         coords = []
 
         if per_atom:
+
             for atom, _res, _ch_id in StructureParser.get_atoms(structure):
                 quants = StructureParser.extract_peratom_quantities(
                     atom=atom,
@@ -513,26 +812,34 @@ class StructureParser:
 
         else:
             for residue, _ch_id in StructureParser.get_residues(structure):
-                if (
-                    StructureParser.per_atom_token(residue)
-                    and only_representative is False
-                ):
-                    for atom in residue:
-                        quants = StructureParser.extract_peratom_quantities(
-                            atom=atom,
-                            quantities=["coord"]
+
+                if has_per_atom_token(residue):
+
+                    if only_representative is False:
+
+                        for atom in residue:
+                            quants = StructureParser.extract_peratom_quantities(
+                                atom=atom,
+                                quantities=["coord"]
+                            )
+                            coords.append(quants["coord"])
+                    else:
+                        rep_atom = rep_atom_dict.get(
+                            residue.get_resname(),
+                            StructureParser.get_rep_atom(residue=residue)
                         )
-                        coords.append(quants["coord"])
+
                 else:
                     rep_atom = rep_atom_dict.get(
                         residue.get_resname(),
                         StructureParser.get_rep_atom(residue=residue)
                     )
-                    quants = StructureParser.extract_perresidue_quantities(
-                        residue=residue,
-                        quantities=["coord"],
-                        rep_atom=rep_atom,
-                    )
-                    coords.append(quants["coord"])
+
+                quants = StructureParser.extract_perresidue_quantities(
+                    residue=residue,
+                    quantities=["coord"],
+                    rep_atom=rep_atom,
+                )
+                coords.append(quants["coord"])
 
         return coords
