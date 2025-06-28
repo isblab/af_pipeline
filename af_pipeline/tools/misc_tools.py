@@ -183,12 +183,15 @@ def get_key_from_res_range(
     start = prev = res_range[0]
 
     for num in res_range[1:]:
+
         if num == prev + 1:
             prev = num
+
         else:
             ranges.append(
-                f"{start}-{prev}") if start != prev else ranges.append(str(start)
-            )
+                f"{start}-{prev}"
+            ) if start != prev else ranges.append(str(start))
+
             start = prev = num
 
     if start == prev:
@@ -1095,7 +1098,9 @@ class MatrixPatches:
         for i, row in df.iterrows():
 
             if not any(
-                MatrixPatches.is_subset(row, df.iloc[j], colname_1, colname_2)
+                MatrixPatches.is_subset(
+                    row, df.iloc[j], colname_1, colname_2
+                )
                 for j in range(len(df))
                 if i != j
             ):
@@ -1144,9 +1149,10 @@ class MatrixPatches:
             False
         """
 
-        return row[colname_1].issubset(other_row[colname_1]) and row[
-            colname_2
-        ].issubset(other_row[colname_2])
+        return (
+            row[colname_1].issubset(other_row[colname_1])
+            and row[colname_2].issubset(other_row[colname_2])
+        )
 
 if __name__ == "__main__":
 
