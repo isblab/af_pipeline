@@ -216,7 +216,7 @@ class AlphaFold2:
         job_info: Dict[str, Any],
         info_type: str,
         default_val: Any
-    ) -> List[Dict[str, Any]]:
+    ):
         """Get the entity information
 
         Get the required information for each entity in the job

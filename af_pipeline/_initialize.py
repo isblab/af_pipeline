@@ -1,16 +1,16 @@
 import numpy as np
-import Bio.PDB.Structure
 from typing import Dict
+import Bio.PDB.Structure
 from Bio.PDB.Structure import Structure
 from af_pipeline.parser1.structure_parser1 import StructureParser
 from af_pipeline.parser1.data_parser import DataParser
+from af_pipeline.tools.structure_tools import RenumberResidues
 from af_pipeline.tools.misc_tools import (
     get_duplicate_indices,
     update_matrix_row_col,
     symmetrize_matrix,
     create_mask,
 )
-from af_pipeline.tools.structure_tools import RenumberResidues
 
 #TODO: Put this at appropriate place
 # rep_atom_dict is "res_name": "rep_atom_id"
@@ -101,8 +101,7 @@ class _Initialize:
 
         self.structure_parser = StructureParser(
             structure_file_path=self.structure_file_path,
-            preserve_header_footer=True,
-            which_parser="biopython",
+            preserve_header_footer=False,
         )
 
         self.data_parser = DataParser(
@@ -127,7 +126,7 @@ class _Initialize:
             token_atom_names=self.token_atom_names,
         )
 
-    def get_attributes(self, state: str):
+    def get_attributes(self, state: str) -> None:
         """ Get the attributes of the class based on the state.
 
         ! Add description of the state here.
@@ -291,9 +290,9 @@ class _Initialize:
 
     @staticmethod
     def get_idxs_to_keep(
-        structure: Bio.PDB.Structure.Structure,
+        structure: Structure,
         rep_atom_dict: dict = {},
-    ) -> dict:
+    ) -> Dict[tuple, int]:
         """Get the indices to keep in the PAE matrix.
 
         Args:
@@ -339,7 +338,7 @@ class _Initialize:
         self,
         token_res_ids: list | None,
         token_chain_ids: list | None,
-    ):
+    ) -> np.ndarray:
         """Update the PAE matrix based on the keyword.
 
         If average_token_pae is set to True, the repeated residue
@@ -397,7 +396,7 @@ class _Initialize:
         self,
         token_chain_ids: list | None,
         token_res_ids: list | None,
-    ):
+    ) -> np.ndarray | None:
         """Update the contact probabilities matrix based on the keyword.
 
         If average_token_pae is set to True, the repeated residue

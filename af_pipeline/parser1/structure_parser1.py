@@ -1,4 +1,5 @@
 import os
+from typing import Any, Generator
 import warnings
 import numpy as np
 import Bio
@@ -6,6 +7,7 @@ import Bio.PDB
 import Bio.PDB.Structure
 import Bio.PDB.Residue
 import Bio.PDB.Atom
+from Bio.PDB.Atom import Atom
 from Bio.PDB.Residue import Residue
 from Bio.PDB.Chain import Chain
 from Bio.PDB.Structure import Structure
@@ -15,12 +17,8 @@ from af_pipeline.constants.af_constants import *
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
     decorate_residue,
-    decorate_atom,
     has_per_atom_token,
 )
-
-#TODO
-# Remove which_parser argument/attribute
 
 class StructureParser:
     """ Class to parse structure files (.pdb or .cif) using Biopython.
@@ -47,7 +45,6 @@ class StructureParser:
         self,
         structure_file_path: str,
         preserve_header_footer: bool = False,
-        which_parser: str = "biopython",
     ):
         """ Initialize the StructureParser.
 
@@ -71,10 +68,8 @@ class StructureParser:
 
         self.structure_file_path = structure_file_path
         self.preserve_header_footer = preserve_header_footer
-        self.which_parser = which_parser
 
-
-    def get_parser(self):
+    def get_parser(self) -> PDBParser | MMCIFParser:
         """Get the required parser (PDB/CIF) for the input structure file.
 
         Args:
@@ -106,22 +101,24 @@ class StructureParser:
 
         elif "cif" in ext:
 
-            if self.which_parser == "biopython":
-                parser = MMCIFParser()
-
-            elif self.which_parser == "pdbe":
-                raise NotImplementedError(
-                    "PDBe parser is not implemented yet. "
-                    "Please use Biopython parser."
-                )
+            parser = MMCIFParser()
 
         else:
-            raise Exception("Incorrect file format.. Suported .pdb/.cif only.")
+            raise Exception(
+                f"""
+
+                Unsupported file format: {ext}.
+                Supported formats are .pdb and .cif.
+                """
+            )
 
         if not isinstance(parser, (PDBParser, MMCIFParser)):
             raise TypeError(
-                f"Parser should be either PDBParser or MMCIFParser. "
-                f"Got {type(parser)} instead."
+                f"""
+
+                Parser should be either PDBParser or MMCIFParser.
+                f"Got {type(parser)} instead.
+                """
             )
 
         return parser
@@ -130,7 +127,7 @@ class StructureParser:
     def get_structure(
         self,
         parser: PDBParser | MMCIFParser,
-    ):
+    ) -> Structure:
         """Return the Biopython Structure object for the structure file.
 
         Args:
@@ -173,8 +170,6 @@ class StructureParser:
                 for chain in model:
                     for residue in chain:
                         decorate_residue(residue=residue)
-                        for atom in residue:
-                            decorate_atom(atom=atom)
 
         else:
             raise Exception(
@@ -184,7 +179,9 @@ class StructureParser:
         return structure
 
     @staticmethod
-    def get_residues(structure: Bio.PDB.Structure.Structure):
+    def get_residues(
+        structure: Structure
+    ) -> Generator[tuple[Residue, str], Any, None]:
         """Get residues in the structure.
 
         Args:
@@ -207,7 +204,9 @@ class StructureParser:
                     yield residue, chain_id
 
     @staticmethod
-    def get_atoms(structure: Bio.PDB.Structure.Structure):
+    def get_atoms(
+        structure: Structure
+    ) -> Generator[tuple[Atom, Residue, str], Any, None]:
         """Get atoms in the structure.
 
         Args:
@@ -227,13 +226,14 @@ class StructureParser:
                 chain_id = chain.id[0]
                 for residue in chain:
                     for atom in residue:
+
                         yield atom, residue, chain_id
 
     @staticmethod
     def extract_peratom_quantities(
-        atom: Bio.PDB.Atom.Atom,
+        atom: Atom,
         quantities: list = ["coord"]
-    ):
+    ) -> dict[str, Any]:
         """ Extract per-atom quantities from a Bio.PDB.Atom.Atom object.
 
         Allowed quantities are:
@@ -330,10 +330,10 @@ class StructureParser:
 
     @staticmethod
     def extract_perresidue_quantities(
-        residue: Bio.PDB.Residue.Residue,
+        residue: Residue,
         quantities: list = ["coord"],
         rep_atom: str | Bio.PDB.Atom.Atom | None = None,
-    ):
+    ) -> dict[str, Any]:
         """ Extract per-residue quantities from a residue object.
 
         Following quantities are allowed:
@@ -446,7 +446,7 @@ class StructureParser:
                         raise TypeError(
                             f"""
 
-                            rep_atom should be a string.
+                            `rep_atom` should be a string.
                             Got {type(rep_atom)} instead.
                             """
                         )
@@ -470,7 +470,9 @@ class StructureParser:
 
 
     @staticmethod
-    def get_rep_atom(residue: Bio.PDB.Residue.Residue):
+    def get_rep_atom(
+        residue: Residue
+    ) -> Bio.PDB.Atom.Atom:
         """ Get the representative atom for a residue based on its entity type.
 
         The representative atoms for the most common entity types are:
@@ -540,10 +542,10 @@ class StructureParser:
 
     @staticmethod
     def get_token_atom_names(
-        structure: Bio.PDB.Structure.Structure,
+        structure: Structure,
         rep_atom_dict: dict = {},
         only_representative: bool = False,
-    ):
+    ) -> list[str]:
         """Get token atom IDs for the structure.
 
         Token atom IDs is a list of atom names for each token. \n
@@ -598,10 +600,10 @@ class StructureParser:
 
     @staticmethod
     def get_token_chain_ids(
-        structure: Bio.PDB.Structure.Structure,
+        structure: Structure,
         rep_atom_dict: dict = {},
         only_representative: bool = False,
-    ):
+    ) -> list[str]:
         """ Get token chain IDs for the structure.
 
         Args:
@@ -655,10 +657,10 @@ class StructureParser:
 
     @staticmethod
     def get_token_res_ids(
-        structure: Bio.PDB.Structure.Structure,
+        structure: Structure,
         rep_atom_dict: dict = {},
         only_representative: bool = False,
-    ):
+    ) -> list[str]:
         """ Get token residue IDs for the structure.
 
         Args:
@@ -711,12 +713,12 @@ class StructureParser:
 
     @staticmethod
     def get_plddt(
-        structure: Bio.PDB.Structure.Structure,
+        structure: Structure,
         per_atom: bool = False,
         rep_atom_dict: dict = {},
         average_token_plddt: bool = False,
         only_representative: bool = False,
-    ):
+    ) -> list[float]:
         """Get pLDDT values from the structure.
 
         Args:
@@ -814,7 +816,7 @@ class StructureParser:
         per_atom: bool = False,
         rep_atom_dict: dict = {},
         only_representative: bool = False,
-    ):
+    ) -> list[np.ndarray]:
         """Get coordinates from the structure.
 
         Args:

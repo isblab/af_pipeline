@@ -507,11 +507,11 @@ class Entity:
         self.entity_type = entity_info["type"]
         self.entity_count = 1
         self.sanity_check_entity_type(entity_type=self.entity_type)
-        self.real_sequence = None
+        self.real_sequence = ""
         self.start = 1
         self.end = None
-        self.glycans = None
-        self.modifications = None
+        self.glycans = []
+        self.modifications = []
         self.fill_up_entity()
         self.sanity_check_glycans()
         self.sanity_check_modifications()
@@ -585,7 +585,7 @@ class Entity:
                 Amino acid or nucleic acid sequence of the entity
         """
 
-        real_sequence = None
+        real_sequence = ""
 
         if self.entity_type == "proteinChain":
 
@@ -605,11 +605,17 @@ class Entity:
 
             try:
                 nucleic_acid_id = self.entities_map[self.entity_name]
-                real_sequence = self.nucleic_acid_sequences[nucleic_acid_id]
+
+                if self.nucleic_acid_sequences is not None:
+                    real_sequence = self.nucleic_acid_sequences[nucleic_acid_id]
 
             except KeyError:
                 try:
-                    real_sequence = self.nucleic_acid_sequences[self.entity_name]
+                    if self.nucleic_acid_sequences is not None:
+                        real_sequence = self.nucleic_acid_sequences[
+                            self.entity_name
+                        ]
+
                 except KeyError:
                     raise Exception(
                         f"Could not find the entity sequence for {self.entity_name}"
@@ -647,7 +653,7 @@ class Entity:
 
         return start, end
 
-    def get_glycans(self)-> List[Dict[str, Any]]:
+    def get_glycans(self) -> List[Dict[str, Any]]:
         """Get the glycans of the protein chains
 
         - If glycans are provided, use those else return []
@@ -983,6 +989,8 @@ class AFSequence(Entity):
                     }
                 }
         """
+
+        af_sequence_dict = {}
 
         if self.type == "proteinChain":
             af_sequence_dict = {
