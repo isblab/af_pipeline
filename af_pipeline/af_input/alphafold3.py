@@ -4,29 +4,28 @@ import json
 import random
 from typing import List, Dict, Any, Final, Tuple
 import warnings
+from af_pipeline.tools.misc_tools import chain_id_gen
+import random
 
 # constants
-from af_pipeline.af_constants import (
+from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES
 )
-SEED_MULTIPLIER: Final[int] = 10
-
+SEED_MULTIPLIER: Final[int] = 100
+random.seed(47)  # for reproducibility in model seed generation
 
 class AlphaFold3:
     """Class to handle the creation of AlphaFold3 input files
 
     Attributes:
-
         input_yml (Dict[str, List[Dict[str, Any]]]):
-            Dictionary containing job cycles and their respective jobs.
+            Dictionary containing job cycles and their respective jobs in each 
+            job set.
             Usually loaded from a YAML file.
-
         protein_sequences (Dict[str, str]):
             Dictionary of protein sequences {uniprot_id: sequence}.
-
         nucleic_acid_sequences (Dict[str, str] | None):
             Dictionary of nucleic acid sequences {nucleic_acid_id: sequence}.
-
         entities_map (Dict[str, str]):
             Mapping of entity names to their identifiers (e.g., uniprot_id).
             Defaults to {}.
@@ -39,25 +38,6 @@ class AlphaFold3:
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
-        """ Initialize the AlphaFold3 input creator
-
-        Args:
-
-            input_yml (Dict[str, List[Dict[str, Any]]]):
-                Dictionary containing job cycles and their respective jobs.
-                Usually loaded from a YAML file.
-
-            protein_sequences (Dict[str, str]):
-                Dictionary of protein sequences {uniprot_id: sequence}.
-
-            nucleic_acid_sequences (Dict[str, str] | None, optional):
-                Dictionary of nucleic acid sequences
-                {nucleic_acid_id: sequence}. Defaults to None.
-
-            entities_map (Dict[str, str], optional):
-                Mapping of entity names to their identifiers.
-                Defaults to {}.
-        """
 
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
@@ -68,30 +48,33 @@ class AlphaFold3:
         """Create job cycles for AlphaFold3
 
         each job cycle is a list of jobs with each job being a dictionary
-        see :py:mod:`AFCycle.seed_jobs` or `AFJob.create_job` for the job dictionary format
+        see :py:mod:`AFCycle.seed_jobs` or `AFJob.create_job_set` for the job dictionary format
 
         Returns:
-
             job_cycles (dict):
                 Dictionary of job cycles {job_cycle: job_list}
         """
 
         job_cycles = {}
+        job_cycle_set_names = {}
+        job_cycle_af_offsets = {}
 
-        for job_cycle, jobs_info in self.input_yml.items():
+        for job_cycle, job_sets_info in self.input_yml.items():
 
             print("Creating job cycle", job_cycle, "\n")
 
             af_cycle = AFCycle(
-                jobs_info=jobs_info,
+                job_sets_info=job_sets_info,
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
             )
             af_cycle.update_cycle()
             job_cycles[job_cycle] = af_cycle.job_list
+            job_cycle_set_names[job_cycle] = af_cycle.job_set_names
+            job_cycle_af_offsets[job_cycle] = af_cycle.job_set_af_offsets
 
-        return job_cycles
+        return job_cycles, job_cycle_set_names, job_cycle_af_offsets
 
     def write_to_json(
         self,
@@ -102,27 +85,24 @@ class AlphaFold3:
         """Write the sets of n jobs to json files
 
         Args:
-
             sets_of_n_jobs (list):
                 List of lists, each list containing n jobs
-
             file_name (str):
                 Name of the file
-
             output_dir (str, optional):
                 Directory to save the job_files.
                 Defaults to "./output/af_input".
         """
 
         os.makedirs(output_dir, exist_ok=True)
-        for i, job_set in enumerate(sets_of_n_jobs):
+        for i, job in enumerate(sets_of_n_jobs):
 
             save_path = os.path.join(output_dir, f"{file_name}_set_{i}.json")
 
             with open(save_path, "w") as f:
-                json.dump(job_set, f, indent=4)
+                json.dump(job, f, indent=4)
 
-            print(f"{len(job_set)} jobs written for {file_name}_set_{i}")
+            print(f"{len(job)} jobs written for {file_name}_set_{i}")
 
     def write_job_files(
         self,
@@ -133,14 +113,11 @@ class AlphaFold3:
         """Write job files to the output directory
 
         Args:
-
             job_cycles (dict):
                 Dictionary of job cycles {job_cycle: job_list}
-
             output_dir (str, optional):
                 Directory to save the job_files.
                 Defaults to "./output/af_input".
-
             num_jobs_per_file (int, optional):
                 Number of jobs per file. Defaults to 20.
         """
@@ -161,120 +138,101 @@ class AlphaFold3:
                 output_dir=os.path.join(output_dir, job_cycle),
             )
 
-
 class AFCycle:
     """An AlphaFold cycle \n
     A cycle is a list of jobs
 
     Attributes:
-
-        jobs_info (List[Dict[str, Any]]):
-            List of dictionaries containing job information for each job.
-
+        job_sets_info (List[Dict[str, Any]]):
+            List of dictionaries containing job information for each job set.
         protein_sequences (Dict[str, str]):
             Dictionary of protein sequences {uniprot_id: sequence}.
-
         nucleic_acid_sequences (Dict[str, str] | None):
             Dictionary of nucleic acid sequences {nucleic_acid_id: sequence}.
-
         entities_map (Dict[str, str]):
             Mapping of entity names to their identifiers (e.g., uniprot_id).
-
         job_list (List[Dict[str, Any]]):
-            List of jobs created from the job information in `jobs_info`.
+            List of jobs created from the job information in `job_sets_info`.
     """
 
     def __init__(
         self,
-        jobs_info: List[Dict[str, Any]],
+        job_sets_info: List[Dict[str, Any]],
         protein_sequences: Dict[str, str],
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
-        """ Initialize the AlphaFold cycle
 
-        Args:
-
-        jobs_info (List[Dict[str, Any]]):
-            List of dictionaries containing job information for each job.
-
-        protein_sequences (Dict[str, str]):
-            Dictionary of protein sequences {uniprot_id: sequence}.
-
-        nucleic_acid_sequences (Dict[str, str] | None):
-            Dictionary of nucleic acid sequences {nucleic_acid_id: sequence}.
-
-        entities_map (Dict[str, str]):
-            Mapping of entity names to their identifiers (e.g., uniprot_id).
-            Defaults to {}.
-        """
-
-        self.jobs_info = jobs_info  # all jobs within the cycle
+        self.job_sets_info = job_sets_info  # all jobs within the cycle
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
         self.job_list = []
+        self.job_set_names = []
+        self.job_set_af_offsets = []  # offset for each job set in the cycle
 
     def update_cycle(self):
         """Update the cycle with the jobs
 
-        For each job in jobs_info, creates an AFJob instance and uses it to 
-        create a job dictionary. The job dictionary is then seeded to create 
-        multiple jobs based on model seeds.
+        For each job in job_sets_info, creates an AFJob instance and uses it to 
+        create a job dictionary. The job dictionary is then seeded using 
+        `seed_jobs` to create multiple jobs based on model seeds.
         """
 
-        for job_info in self.jobs_info:
-            af_job = AFJob(
-                job_info=job_info,
+        for job_set_info in self.job_sets_info:
+            af_job_set = AFJobSet(
+                job_set_info=job_set_info,
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
             )
 
-            job_dict = af_job.create_job()
-            self.seed_jobs(job_dict)
+            job_set_dict = af_job_set.create_job_set()
+            self.job_set_names.append(af_job_set.job_set_name)
+            self.job_set_af_offsets.append(af_job_set.job_set_af_offset)
+            self.seed_jobs(job_set_dict)
 
     def seed_jobs(
         self,
-        job_dict: Dict[str, Any],
+        job_set_dict: Dict[str, Any],
     ):
         """Create a job for each model seed
 
         Args:
-
-            job_dict (dict):
+            job_set_dict (dict):
                 job dictionary in the following format:
                     {
-                        "name": "job_name",
+                        "name": "job_set_name",
                         "modelSeeds": [1, 2],
                         "sequences": [... ]
                     }
 
         will lead to -->
             {
-                "name": "job_name",
+                "name": "job_set_name",
                 "modelSeeds": [1],
                 "sequences": [... ]
             },
             {
-                "name": "job_name",
+                "name": "job_set_name",
                 "modelSeeds": [2],
                 "sequences": [... ]
             }
         """
 
-        if len(job_dict["modelSeeds"]) == 0:
-            self.job_list.append(job_dict)
+        # this will lead to AF3 server deciding the seed
+        if len(job_set_dict["modelSeeds"]) == 0:
+            self.job_list.append(job_set_dict)
 
         else:
-            for seed in job_dict["modelSeeds"]:
-                job_copy = job_dict.copy()
+            for seed in job_set_dict["modelSeeds"]:
+                job_copy = job_set_dict.copy()
                 job_copy["modelSeeds"] = [seed]
-                job_copy["name"] = f"{job_dict['name']}_{seed}"
+                job_copy["name"] = f"{job_set_dict['name']}_{seed}"
                 self.job_list.append(job_copy)
 
 
-class AFJob:
+class AFJobSet:
     """AlphaFold job constructor \n
 
     A job is a dictionary with the following keys
@@ -283,85 +241,81 @@ class AFJob:
     - sequences
 
     Attributes:
-
-        job_info (Dict[str, Any]):
+        job_set_info (Dict[str, Any]):
             Dictionary containing job attributes such as name, modelSeeds, and entities.
-
         protein_sequences (Dict[str, str]):
             Dictionary of protein sequences {uniprot_id: sequence}.
-
         nucleic_acid_sequences (Dict[str, str] | None):
             Dictionary of nucleic acid sequences {nucleic_acid_id: sequence}.
-
         entities_map (Dict[str, str]):
             Mapping of entity names to their identifiers (e.g., uniprot_id).
-
-        job_name (str | None):
+        job_set_name (str | None):
             Name of the job.
             If not provided, it will be generated based on entity names.
-
         model_seeds (List[int]):
             List of model seeds for the job.
             If not provided, it will be generated.
-
         af_sequences (List[Dict[str, Any]]):
             List of AFSequence dictionaries.
             Each representing an entity in the job.
-
         name_fragments (List[str]):
             List of name fragments derived from the entities in the job.
     """
 
     def __init__(
         self,
-        job_info: Dict[str, Any],
+        job_set_info: Dict[str, Any],
         protein_sequences: Dict[str, str],
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
 
-        self.job_info = job_info
+        self.job_set_info = job_set_info
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.job_name = None
+        self.job_set_name = None
         self.model_seeds = []
         self.af_sequences = []
         self.name_fragments = []
+        self.job_set_af_offset = {}
 
-    def create_job(self) -> Dict[str, Any]:
+    def create_job_set(self) -> Dict[str, Any]:
         """Create a job from the job info
 
         Returns:
 
-            job_dict (dict):
+            job_set_dict (dict):
                 job dictionary in the following format:
                     {
-                        "name": "job_name",
+                        "name": "job_set_name",
                         "modelSeeds": [1, 2],
                         "sequences": [... ]
                     }
         """
 
-        self.update_job_name()
+        self.update_job_set_name()
         self.update_model_seeds()
         self.update_af_sequences()
 
-        if self.job_name is None:
-            self.generate_job_name()
+        if self.job_set_name is None:
+            self.generate_job_set_name()
 
-        job_dict = {
-            "name": self.job_name,
+        job_set_dict = {
+            "name": self.job_set_name,
             "modelSeeds": self.model_seeds,
             "sequences": self.af_sequences,
         }
 
-        return job_dict
+        return job_set_dict
 
-    def update_job_name(self):
-        """Create a job from the job info"""
+    def update_job_set_name(self):
+        """Create a job from the job info
 
-        self.job_name = self.job_info.get("name")
+        Tries to get the job name from the job_set_info dictionary.
+        """
+
+        self.job_set_name = self.job_set_info.get("name")
 
     def update_model_seeds(self):
         """Update the model seeds
@@ -371,9 +325,9 @@ class AFJob:
         - If modelSeeds is not provided, empty list (auto seed by AF3)
         """
 
-        model_seeds = self.job_info.get("modelSeeds")
+        model_seeds = self.job_set_info.get("modelSeeds")
 
-        if "modelSeeds" in self.job_info:
+        if "modelSeeds" in self.job_set_info:
 
             if isinstance(model_seeds, int):
                 self.model_seeds = self.generate_seeds(num_seeds=model_seeds)
@@ -391,9 +345,10 @@ class AFJob:
         - Get the name fragment for each entity
             (used in job name if job name is not provided)
         """
+        chainGen = chain_id_gen()
 
         # add af_sequence for each entity
-        for entity_info in self.job_info["entities"]:
+        for entity_info in self.job_set_info["entities"]:
             af_sequence = AFSequence(
                 entity_info=entity_info,
                 protein_sequences=self.protein_sequences,
@@ -402,14 +357,19 @@ class AFJob:
             )
             af_sequence_dict = af_sequence.create_af_sequence()
             self.af_sequences.append(af_sequence_dict)
-
+            for count in range(af_sequence.count):
+                entity_chain_id = next(chainGen)
+                print(entity_chain_id)
+                self.job_set_af_offset[entity_chain_id] = [
+                    af_sequence.start, af_sequence.end
+                ]
             self.name_fragments.append(af_sequence.get_name_fragment())
 
-    def generate_job_name(self):
+    def generate_job_set_name(self):
         """Generate a job name"""
 
-        job_name = "_".join(self.name_fragments)
-        self.job_name = job_name
+        job_set_name = "_".join(self.name_fragments)
+        self.job_set_name = job_set_name
 
     def generate_seeds(self, num_seeds: int) -> List[int]:
         """Generate model seeds"""
@@ -425,47 +385,34 @@ class Entity:
     See :py:mod:`AfSequence.create_af_sequence` to check attributes for each entity type
 
     Attributes:
-
         entity_info (Dict[str, Any]):
             Dictionary containing entity attributes such as name, type, count,
             range, glycans, and modifications.
-
         protein_sequences (Dict[str, str]):
             Dictionary of protein sequences {uniprot_id: sequence}.
-
         nucleic_acid_sequences (Dict[str, str] | None):
             Dictionary of nucleic acid sequences {nucleic_acid_id: sequence}.
-
         entities_map (Dict[str, str]):
             Mapping of entity names to their identifiers (e.g., uniprot_id).
-
         entity_name (str):
             Name of the entity.
-
         entity_type (str):
             Type of the entity.
             (e.g., proteinChain, dnaSequence, rnaSequence, ligand, ion).
-
         entity_count (int):
             Count or copy number of the entity (default: 1).
-
         real_sequence (str | None):
             Real sequence of the entity.
             Thi is the amino acid or nucleic acid sequence.
-
         start (int):
             Start position of the entity in the sequence (default: 1).
-
         end (int | None):
             End position of the entity in the sequence
             (default: None, meaning full sequence).
-
         glycans (List[Dict[str, Any]] | None):
             List of glycans associated with the entity, if applicable.
-
         modifications (List[Dict[str, Any]] | None):
             List of modifications associated with the entity, if applicable.
-
         template_settings (Dict[str, Any]):
             Template settings for the entity, used for proteinChain entities.
     """
@@ -1044,7 +991,7 @@ class AFSequence(Entity):
     def get_name_fragment(self)-> str:
         """Get the name fragments of the entity
 
-        Name format: "name_count_starttoend"
+        Name format: "name_count_start-end"
 
         Example:
 
@@ -1057,4 +1004,4 @@ class AFSequence(Entity):
                 Name fragment of the entity
         """
 
-        return f"{self.name}_{self.count}_{self.start}to{self.end}"
+        return f"{self.name}_{self.count}_{self.start}-{self.end}"

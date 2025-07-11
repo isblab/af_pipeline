@@ -1,4 +1,5 @@
 import copy
+import string
 import warnings
 import pandas as pd
 import numpy as np
@@ -6,6 +7,11 @@ from typing import Any, Dict
 from collections import Counter
 from collections import defaultdict
 
+def chain_id_gen():  # To sequentially generate 52 alphabets to use as Chain IDs
+    for i in (list(string.ascii_uppercase)):
+        yield i
+    for i in (list(string.ascii_lowercase)):
+        yield i
 
 def create_mask(
     partition_dict: Dict,
