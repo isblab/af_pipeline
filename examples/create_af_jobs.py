@@ -3,7 +3,12 @@ from argparse import ArgumentParser
 from af_pipeline.af_input.alphafold3 import AlphaFold3
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from af_pipeline.af_input.colabfold import ColabFold
-from af_pipeline.utils.file_utils import read_fasta, update_config, update_job_names_in_config, update_af_offsets_in_config
+from af_pipeline.utils.file_utils import (
+    read_fasta,
+    update_config,
+    update_job_names_in_config,
+    update_af_offsets_in_config
+)
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -67,7 +72,7 @@ if __name__ == "__main__":
     # the input yaml file if the proteins are not provided
 
     af_input = AlphaFold3(
-        input_yml=input_yml,
+        input_dict=input_yml,
         protein_sequences=protein_sequences,
         nucleic_acid_sequences=nucleic_acid_sequences,
         entities_map=protein_uniprot_map,

@@ -4,7 +4,8 @@ proteins:
   "Dp1": "P15924-1"
 
 af_input_jobs:
-  Lb2Cas12a_RNA_DNA_complex_8I54_targets: # job cycle
+  Lb2Cas12a_RNA_DNA_complex_8I54_targets: # job_cycle_id
+  # job_sets_list
   - name: "Lb2Cas12a_RNA_DNA_complex" # user provided job name
     modelSeeds: [1, 2] # 2 models with seeds 1 and 2
     entities:
