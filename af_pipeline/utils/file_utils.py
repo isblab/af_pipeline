@@ -139,7 +139,7 @@ def update_config(
 
 def update_job_names_in_config(
     input_file: str,
-    job_cycle_set_names: dict,
+    job_set_names: dict,
     mode: str = "replace",
 ):
 
@@ -147,7 +147,7 @@ def update_job_names_in_config(
 
     af_input_jobs = config_yaml.get("af_input_jobs", {})
 
-    for job_cycle, job_set_names in job_cycle_set_names.items():
+    for job_cycle, job_set_names in job_set_names.items():
         if job_cycle in af_input_jobs:
             for idx, job_set in enumerate(af_input_jobs[job_cycle]):
                 if "name" in job_set:
@@ -168,14 +168,14 @@ def update_job_names_in_config(
 
 def update_af_offsets_in_config(
     input_file: str,
-    job_cycle_af_offsets: dict,
+    af_offsets: dict,
     mode: str = "replace",
 ):
     """Update the af_offsets in the config file
 
     Args:
         input_file (str): Path to input config file
-        job_cycle_af_offsets (dict): Dictionary of job cycle offsets
+        af_offsets (dict): Dictionary of job cycle offsets
         mode (str, optional): Mode to update the config file.
             Defaults to "replace". ("append" or "replace")
     """
@@ -184,7 +184,7 @@ def update_af_offsets_in_config(
 
     af_input_jobs = config_yaml.get("af_input_jobs", {})
 
-    for job_cycle, job_set_offsets in job_cycle_af_offsets.items():
+    for job_cycle, job_set_offsets in af_offsets.items():
         if job_cycle in af_input_jobs:
             for idx, job_set in enumerate(af_input_jobs[job_cycle]):
                 if "af_offset" in job_set:

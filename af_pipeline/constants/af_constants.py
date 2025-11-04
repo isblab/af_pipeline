@@ -2,6 +2,8 @@
 
 MAX_TEMPLATE_DATE = "2021-09-30"
 
+JOB_LIMIT_PER_JSON = 100
+
 PTM = [
     "CCD_SEP",
     "CCD_TPO",
