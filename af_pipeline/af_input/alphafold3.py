@@ -9,7 +9,7 @@ import random
 
 # constants
 from af_pipeline.constants.af_constants import (
-    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES
+    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES, MAX_TEMPLATE_DATE
 )
 SEED_MULTIPLIER: Final[int] = 100
 random.seed(47)  # for reproducibility in model seed generation
@@ -18,7 +18,7 @@ class AlphaFold3:
     """Class to handle the creation of AlphaFold3 input files
 
     Attributes:
-        input_yml (Dict[str, List[Dict[str, Any]]]):
+        input_dict (Dict[str, List[Dict[str, Any]]]):
             Dictionary containing job cycles and their respective jobs in each 
             job set.
             Usually loaded from a YAML file.
@@ -33,8 +33,8 @@ class AlphaFold3:
 
     def __init__(
         self,
-        input_yml: Dict[str, List[Dict[str, Any]]],
-        protein_sequences: Dict[str, str],
+        input_dict: Dict[str, List[Dict[str, Any]]],
+        protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
@@ -42,7 +42,7 @@ class AlphaFold3:
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.input_yml = input_yml
+        self.input_dict = input_dict
 
     def create_af3_job_cycles(self) -> Dict[str, List[Dict[str, Any]]]:
         """Create job cycles for AlphaFold3
@@ -56,25 +56,25 @@ class AlphaFold3:
         """
 
         job_cycles = {}
-        job_cycle_set_names = {}
-        job_cycle_af_offsets = {}
+        job_set_names = {}
+        af_offsets = {}
 
-        for job_cycle, job_sets_info in self.input_yml.items():
+        for job_cycle_id, job_sets_list in self.input_dict.items():
 
-            print("Creating job cycle", job_cycle, "\n")
+            print("Creating job cycle", job_cycle_id, "\n")
 
             af_cycle = AFCycle(
-                job_sets_info=job_sets_info,
+                job_sets_list=job_sets_list,
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
             )
             af_cycle.update_cycle()
-            job_cycles[job_cycle] = af_cycle.job_list
-            job_cycle_set_names[job_cycle] = af_cycle.job_set_names
-            job_cycle_af_offsets[job_cycle] = af_cycle.job_set_af_offsets
+            job_cycles[job_cycle_id] = af_cycle.job_list
+            job_set_names[job_cycle_id] = af_cycle.job_set_names
+            af_offsets[job_cycle_id] = af_cycle.job_set_af_offsets
 
-        return job_cycles, job_cycle_set_names, job_cycle_af_offsets
+        return job_cycles, job_set_names, af_offsets
 
     def write_to_json(
         self,
@@ -143,7 +143,7 @@ class AFCycle:
     A cycle is a list of jobs
 
     Attributes:
-        job_sets_info (List[Dict[str, Any]]):
+        job_sets_list (List[Dict[str, Any]]):
             List of dictionaries containing job information for each job set.
         protein_sequences (Dict[str, str]):
             Dictionary of protein sequences {uniprot_id: sequence}.
@@ -152,18 +152,18 @@ class AFCycle:
         entities_map (Dict[str, str]):
             Mapping of entity names to their identifiers (e.g., uniprot_id).
         job_list (List[Dict[str, Any]]):
-            List of jobs created from the job information in `job_sets_info`.
+            List of jobs created from the job information in `job_sets_list`.
     """
 
     def __init__(
         self,
-        job_sets_info: List[Dict[str, Any]],
-        protein_sequences: Dict[str, str],
+        job_sets_list: List[Dict[str, Any]],
+        protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
 
-        self.job_sets_info = job_sets_info  # all jobs within the cycle
+        self.job_sets_list = job_sets_list  # all jobs within the cycle
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
@@ -174,12 +174,12 @@ class AFCycle:
     def update_cycle(self):
         """Update the cycle with the jobs
 
-        For each job in job_sets_info, creates an AFJob instance and uses it to 
+        For each job in job_sets_list, creates an AFJob instance and uses it to 
         create a job dictionary. The job dictionary is then seeded using 
         `seed_jobs` to create multiple jobs based on model seeds.
         """
 
-        for job_set_info in self.job_sets_info:
+        for job_set_info in self.job_sets_list:
             af_job_set = AFJobSet(
                 job_set_info=job_set_info,
                 protein_sequences=self.protein_sequences,
@@ -265,7 +265,7 @@ class AFJobSet:
     def __init__(
         self,
         job_set_info: Dict[str, Any],
-        protein_sequences: Dict[str, str],
+        protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
@@ -357,16 +357,23 @@ class AFJobSet:
             )
             af_sequence_dict = af_sequence.create_af_sequence()
             self.af_sequences.append(af_sequence_dict)
+
             for count in range(af_sequence.count):
                 entity_chain_id = next(chainGen)
-                print(entity_chain_id)
                 self.job_set_af_offset[entity_chain_id] = [
                     af_sequence.start, af_sequence.end
                 ]
             self.name_fragments.append(af_sequence.get_name_fragment())
 
     def generate_job_set_name(self):
-        """Generate a job name"""
+        """Generate a job name
+
+        Currently, the job name is generated by concatenating the name fragments
+        of each entity in the job, separated by underscores.
+
+        Two jobs that only differ by modifications or glycans can not be
+        distinguished by this naming scheme.
+        """
 
         job_set_name = "_".join(self.name_fragments)
         self.job_set_name = job_set_name
@@ -420,7 +427,7 @@ class Entity:
     def __init__(
         self,
         entity_info: Dict[str, Any],
-        protein_sequences: Dict[str, str],
+        protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
@@ -446,19 +453,22 @@ class Entity:
                 Defaults to {}.
         """
 
-        self.entity_info = entity_info
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.entity_name = entity_info["name"]
+
+        self.entity_info = entity_info
+        self.sanity_check_entity_type(entity_type=entity_info["type"])
         self.entity_type = entity_info["type"]
+        self.entity_name = entity_info["name"]
+
         self.entity_count = 1
-        self.sanity_check_entity_type(entity_type=self.entity_type)
         self.real_sequence = ""
         self.start = 1
         self.end = None
         self.glycans = []
         self.modifications = []
+
         self.fill_up_entity()
         self.sanity_check_glycans()
         self.sanity_check_modifications()
@@ -485,24 +495,40 @@ class Entity:
 
         template_dict = {}
 
-        if self.entity_type == "proteinChain":
-            if self.entity_info.get("useStructureTemplate", True):
-                template_dict = {
-                    "maxTemplateDate": self.entity_info.get(
-                        "maxTemplateDate", "2021-09-30"
-                    ),
-                    "useStructureTemplate": True
-                }
-            else:
-                if "maxTemplateDate" in self.entity_info:
-                    warnings.warn(
-                        f"maxTemplateDate is provided for {self.entity_name} \
-                        but useStructureTemplate is False. \
-                        Ignoring maxTemplateDate."
-                    )
-                template_dict = {
-                    "useStructureTemplate": False
-                }
+        if self.entity_type != "proteinChain":
+            return template_dict
+
+        max_template_date = self.entity_info.get(
+            "maxTemplateDate", MAX_TEMPLATE_DATE
+        )
+        use_structure_template = self.entity_info.get(
+            "useStructureTemplate", True
+        )
+
+        assert isinstance(use_structure_template, bool), \
+            "useStructureTemplate must be a boolean value."
+
+        template_dict_configs = {
+            True: {
+                "useStructureTemplate": True,
+                "maxTemplateDate": max_template_date,
+            },
+            False: {
+                "useStructureTemplate": False,
+            },
+        }
+
+        template_dict = template_dict_configs[use_structure_template]
+
+        if (
+            "maxTemplateDate" in self.entity_info
+            and use_structure_template is False
+        ):
+            warnings.warn(
+                f"maxTemplateDate is provided for {self.entity_name} \
+                but useStructureTemplate is False. \
+                Ignoring maxTemplateDate."
+            )
 
         return template_dict
 
@@ -536,32 +562,33 @@ class Entity:
 
         if self.entity_type == "proteinChain":
 
-            try:
+            try: # try with uniprot id as a key
                 uniprot_id = self.entities_map[self.entity_name]
                 real_sequence = self.protein_sequences[uniprot_id]
 
             except KeyError:
-                try:
+
+                try: # try with entity name as a key
                     real_sequence = self.protein_sequences[self.entity_name]
+
                 except KeyError:
                     raise Exception(
                         f"Could not find the entity sequence for {self.entity_name}"
                     )
 
-        elif self.entity_type in ["dnaSequence", "rnaSequence"]:
+        elif (
+            self.entity_type in ["dnaSequence", "rnaSequence"]
+            and self.nucleic_acid_sequences is not None
+        ):
 
-            try:
+            try: # try with nucleic acid id as a key
                 nucleic_acid_id = self.entities_map[self.entity_name]
-
-                if self.nucleic_acid_sequences is not None:
-                    real_sequence = self.nucleic_acid_sequences[nucleic_acid_id]
+                real_sequence = self.nucleic_acid_sequences[nucleic_acid_id]
 
             except KeyError:
-                try:
-                    if self.nucleic_acid_sequences is not None:
-                        real_sequence = self.nucleic_acid_sequences[
-                            self.entity_name
-                        ]
+
+                try: # try with entity name as a key
+                    real_sequence = self.nucleic_acid_sequences[self.entity_name]
 
                 except KeyError:
                     raise Exception(
@@ -592,11 +619,8 @@ class Entity:
 
             start, end = self.entity_info["range"]
 
-        else:
-            start, end = 1, 1
-
-            if self.real_sequence:
-                start, end = 1, len(self.real_sequence)
+        else: # use full sequence or [1, 1] for small molecules
+            start, end = 1, max(1, len(self.real_sequence))
 
         return start, end
 
@@ -645,33 +669,27 @@ class Entity:
 
         modifications = self.entity_info.get("modifications", [])
 
-        if "modifications" in self.entity_info:
+        if len(modifications) == 0:
+            return modifications
 
-            if self.entity_type == "proteinChain":
-                modifications = [
-                    {
-                        "ptmType": mod[0],
-                        "ptmPosition": mod[1] - self.start + 1,
-                    }
-                    for mod in modifications
-                ]
+        modification_keys = {
+            "proteinChain": ["ptmType", "ptmPosition"],
+            "dnaSequence": ["modificationType", "basePosition"],
+            "rnaSequence": ["modificationType", "basePosition"],
+        }
 
-            elif (
-                self.entity_type == "dnaSequence"
-                or self.entity_type == "rnaSequence"
-            ):
-                modifications = [
-                    {
-                        "modificationType": mod[0],
-                        "basePosition": mod[1] - self.start + 1,
-                    }
-                    for mod in modifications
-                ]
+        if self.entity_type not in modification_keys:
+            raise Exception(
+                "Modifications are not supported for this entity type"
+            )
 
-            else:
-                raise Exception(
-                    "Modifications are not supported for this entity type"
-                )
+        modifications = [
+            {
+                modification_keys[self.entity_type][0]: mod[0],
+                modification_keys[self.entity_type][1]: mod[1] - self.start + 1
+            }
+            for mod in modifications
+        ]
 
         return modifications
 
@@ -868,7 +886,7 @@ class AFSequence(Entity):
     def __init__(
         self,
         entity_info: Dict[str, Any],
-        protein_sequences: Dict[str, str],
+        protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
     ):
@@ -955,7 +973,7 @@ class AFSequence(Entity):
             af_sequence_dict = {
                 self.type: {
                     "sequence": self.real_sequence,
-                    "modifications": self.get_modifications(),
+                    "modifications": self.modifications,
                     "count": self.count,
                 }
             }
@@ -973,6 +991,8 @@ class AFSequence(Entity):
         real sequence is:
         - amino acid sequence for proteinChain
         - and nucleic acid sequence for dnaSequence and rnaSequence
+
+        If a range [start, end] is provided, slice the sequence accordingly
 
         Returns:
 
@@ -996,7 +1016,7 @@ class AFSequence(Entity):
         Example:
 
             For an entity "protA", count is 2, start is 1, and end is 100,
-            the name fragment will be "protA_2_1to100" \n
+            the name fragment will be "protA_2_1-100" \n
 
         Returns:
 

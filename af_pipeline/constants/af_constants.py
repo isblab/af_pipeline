@@ -1,5 +1,7 @@
 # some constants
 
+MAX_TEMPLATE_DATE = "2021-09-30"
+
 PTM = [
     "CCD_SEP",
     "CCD_TPO",
