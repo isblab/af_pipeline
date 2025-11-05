@@ -1,23 +1,55 @@
-from collections import defaultdict
+"""
+Rank AlphaFold Predictions
+===================================
+- This module provides functionality to rank AF3 predictions based on various metrics
+- Currently supports ranking of AlphaFold 3 (AF3) predictions from AlphaFold server.
+- Note the following directory structure for AF3 predictions:
+```
+master_directory
+    └── cycle/
+        └── job_set/
+            └── model_seed/
+                ├── summary_confidences_0.json
+                ├── summary_confidences_1.json
+                ├── summary_confidences_2.json
+                ├── summary_confidences_3.json
+                ├── summary_confidences_4.json
+                ├── job_request.json
+                ├── full_data_0.json
+                ├── full_data_1.json
+                ├── full_data_2.json
+                ├── full_data_3.json
+                ├── full_data_4.json
+                ├── model_0.cif
+                ├── model_1.cif
+                ├── model_2.cif
+                ├── model_3.cif
+                └── model_4.cif
+```
+- The best way to use this module is to provide the master directory containing all cycles.
+- To rank a subset of predictions, one can also provide a specific cycle directory or job set directory.
+"""
+
 import os
 import warnings
+from collections import defaultdict
 from af_pipeline.utils.file_utils import read_json
 from af_pipeline.tools.misc_tools import chain_id_gen
 
 def get_directory_level(pred_dir:str):
     """ Get the level of the prediction directory
 
-    level 0 is the job directory -> this will have 5 models
-    level 1 is the job set directory -> this will have n directories given n model seeds
-    level 2 is the cycle directory -> this will have m directories given m job sets
-    level 3 is the prediction directory -> this has all the cycles
+    **level 0** is the job directory -> this will have 5 models\n
+    **level 1** is the job set directory -> this will have `n` directories given `n` model seeds\n
+    **level 2** is the cycle directory -> this will have `m` directories given `m` job sets\n
+    **level 3** is the prediction directory -> this has all the cycles
 
     Args:
         pred_dir (str): Path to the prediction directory
 
     Returns:
-        int: Level of the prediction directory
-        None: If the directory does not exist or is not valid
+        `int`: Level of the prediction directory\n
+        `None`: If the directory does not exist or is not valid
     """
     if not os.path.isdir(pred_dir):
         print(f"Prediction directory {pred_dir} does not exist.")
@@ -42,14 +74,14 @@ def get_directory_level(pred_dir:str):
 def is_valid_job_dir(job_dir:str):
     """ Check if the job directory is valid
 
-    A valid job directory is one that is at level 0 and contains at least one
+    A valid job directory is one that is at **level 0** and contains at least one
     prediction file (either .cif or .pdb).
 
     Args:
         job_dir (str): Path to the job directory
 
     Returns:
-        bool: True if the job directory is valid, False otherwise
+        `bool`: `True` if the job directory is valid, `False` otherwise
     """
 
     dir_level = get_directory_level(job_dir)
@@ -64,14 +96,14 @@ def is_valid_job_dir(job_dir:str):
 def is_valid_job_set_dir(job_set_dir:str):
     """ Check if the job set directory is valid
 
-    A valid job set directory is one that is at level 1 and contains at least one
-    job directory that is valid (i.e., at level 0 and contains prediction files).
+    A valid job set directory is one that is at **level 1** and all its subdirectories
+    are valid job directories (i.e., at **level 0** and contains prediction files).
 
     Args:
         job_set_dir (str): Path to the job set directory
 
     Returns:
-        bool: True if the job set directory is valid, False otherwise
+        `bool`: `True` if the job set directory is valid, `False` otherwise
     """
 
     dir_level = get_directory_level(job_set_dir)
@@ -98,14 +130,14 @@ def is_valid_job_set_dir(job_set_dir:str):
 def is_valid_cycle_dir(cycle_dir:str):
     """ Check if the cycle directory is valid
 
-    A valid cycle directory is one that is at level 2 and contains at least one
-    job set directory that is valid
+    A valid cycle directory is one that is at **level 2** and all its subdirectories
+    are valid job set directories (i.e., at **level 1**).
 
     Args:
         cycle_dir (str): Path to the cycle directory
 
     Returns:
-        bool: True if the cycle directory is valid, False otherwise
+        `bool`: `True` if the cycle directory is valid, `False` otherwise
     """
 
     dir_level = get_directory_level(cycle_dir)
@@ -132,14 +164,14 @@ def is_valid_cycle_dir(cycle_dir:str):
 def is_valid_af_master_dir(af_master_dir:str):
     """ Check if the AF master directory is valid
 
-    A valid AF master directory is one that is at level 3 and contains at least one
-    cycle directory that is valid.
+    A valid AF master directory is one that is at **level 3** and all its subdirectories
+    are valid cycle directories (i.e., at **level 2**).
 
     Args:
         af_master_dir (str): Path to the AF master directory
 
     Returns:
-        bool: True if the AF master directory is valid, False otherwise
+        `bool`: `True` if the AF master directory is valid, `False` otherwise
     """
 
     dir_level = get_directory_level(af_master_dir)
@@ -165,9 +197,15 @@ def is_valid_af_master_dir(af_master_dir:str):
     print(f"AF master directory {af_master_dir} is valid.")
     return True
 
-def get_job_set_dirs(pred_dir:str):
+def get_job_set_dirs(pred_dir:str) -> list:
     """
-    Get the job set directories from the prediction directory.
+    Get the job set directories from the input prediction directory.
+
+    Args:
+        pred_dir (str): Path to the prediction directory
+
+    Returns:
+        `job_set_dirs (list)`: List of job set directories found in the prediction directory
     """
 
     if not os.path.isdir(pred_dir):
@@ -200,20 +238,38 @@ def get_job_set_dirs(pred_dir:str):
         job_set_dirs = [pred_dir]
 
     else:
-        raise ValueError(f"Prediction directory {pred_dir} is not a valid AF master directory, cycle directory, or job set directory.")
+        raise ValueError(f"Prediction directory {pred_dir} is not a valid AF \
+            master directory, cycle directory, or job set directory.")
 
     return job_set_dirs
 
 
 class RankAF3JobSet:
+    """ Class to rank AF3 predictions for a given job set directory
+    """
+
+    job_set_dir: str
+    """ Path to the job set directory"""
+
+    job_set_name: str
+    """ Name of the job set"""
+
+    cycle_name: str
+    """ Name of the cycle"""
+
+    job_set_id: int
+    """ ID of the job set in the cycle (1-indexed)"""
+
+    try_af_offset_from_path: bool
+    """ Whether to try to extract AF offset from the structure path"""
 
     def __init__(
         self,
         job_set_dir:str,
     ):
-        self.job_set_dir = job_set_dir
-        self.cycle_name = os.path.basename(os.path.dirname(job_set_dir))
-        self.job_set_name = os.path.basename(job_set_dir)
+        self.job_set_dir = os.path.abspath(job_set_dir)
+        self.cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
+        self.job_set_name = os.path.basename(self.job_set_dir)
         self.try_af_offset_from_path = False
 
     def extract_af3_best_pred_data(self, af_input_jobs: dict| None = None) -> list:
@@ -222,15 +278,9 @@ class RankAF3JobSet:
 
         Args:
             af_input_jobs (dict): Dictionary containing AF input data
-            af_predictions (dict): Dictionary containing paths to AF3 predictions
-            pred_key (str): Type of prediction to find best model for. This is the key
-                in the af_predictions dictionary
-            best_pred_info (list): List of dictionaries containing paths to the best model
-                and data for a given prediction directory
-            prediction_dir (str): Path to the prediction directory
 
         Returns:
-            best_pred_info (list): List of dictionaries containing paths to the best model and
+            `best_pred_info (list)`: List of dictionaries containing paths to the best model and
                 data for a given prediction directory along with offsets
         """
 
@@ -270,11 +320,8 @@ class RankAF3JobSet:
     def rank_seeds(self) -> tuple:
         """ Rank the AF3 predictions based on the ranking score
 
-        Args:
-            pred_key (str): Key for the predictions in the input dictionary
-
         Returns:
-            tuple: Model seed, ranking score, model path, model index
+            `tuple`: (Model seed, ranking score, model path, model index)
             corresponding to the best model
         """
 
@@ -342,21 +389,21 @@ class RankAF3JobSet:
         Reads the AF3 job set directory and extracts the model metrics for
         each seed.
         The directory structure is expected to be as follows:
-
-            job_cycle_pred_dir/
-              └── job_set_pred_dir/
-                    └── seed1/
-                        ├── summary_confidences_0.json
-                        ├── summary_confidences_1.json
-                        ├── summary_confidences_2.json
-                        ├── summary_confidences_3.json
-                        ├── summary_confidences_4.json
-                        ├── job_request.json
-                        ├── model_0001.cif
-                        ├── model_0002.cif
-                        ├── model_0003.cif
-                        ├── model_0004.cif
-                        └── model_0005.cif
+        ```
+        job_set_dir/
+        └── seed/
+            ├── summary_confidences_0.json
+            ├── summary_confidences_1.json
+            ├── summary_confidences_2.json
+            ├── summary_confidences_3.json
+            ├── summary_confidences_4.json
+            ├── job_request.json
+            ├── model_0.cif
+            ├── model_1.cif
+            ├── model_2.cif
+            ├── model_3.cif
+            └── model_4.cif
+        ```
 
         Each seed directory will contain 5 summary confidence files, one for each model.
 
@@ -376,7 +423,7 @@ class RankAF3JobSet:
             af_pred_key (str): Key for the predictions in the input dictionary
 
         Returns:
-            dict: Dictionary containing the best AF3 model metrics per seed
+            `dict`: Dictionary containing the best AF3 model metrics per seed
         """
 
         if not os.path.exists(self.job_set_dir):
@@ -472,8 +519,8 @@ class RankAF3JobSet:
 
     @staticmethod
     def parse_af3_summary_confidences(af3_summary_confidence_file: str) -> dict:
-        """Get AF3 model metrics from summary confidence file
-        Reads the summary confidence file and extracts the required metrics.
+        """Get AF3 model metrics from summary confidence file\n
+        Reads the summary confidence file and extracts the required metrics.\n
         The summary confidence file is expected to be in JSON format with the
         following keys:
 
@@ -488,7 +535,7 @@ class RankAF3JobSet:
             af3_summary_confidence_file (str): Path to AF3 summary confidence file
 
         Returns:
-            dict: Dictionary containing AF3 model metrics
+            `required_data (dict)`: Dictionary containing AF3 model metrics
         """
 
         metric_data = read_json(af3_summary_confidence_file)
@@ -512,7 +559,7 @@ class RankAF3JobSet:
             af3_job_request_file (str): Path to job request file
 
         Returns:
-            int: Seed of the model
+            `int`: Seed of the model
         """
 
         job_request_data = read_json(af3_job_request_file)
@@ -523,38 +570,40 @@ class RankAF3JobSet:
     def get_data_path_from_structure_path(structure_path: str) -> str:
         """ Get the data path from the structure path
 
-        Specific to AF3 predictions, where the structure file is in .cif format \n
-        and the data file is in .json format with a specific naming convention.
+        Specific to AF3, where the structure file is in MMCIF format
+        and the data file is in JSON format.
 
-        example structure path
+        example structure path -\n
             "/path/to/AF3_pred/p1_1_1to100_p2_2_101to200/model_0001.cif"
 
-        The output will be a path to the data file in the format
+        The output will be a path to the data file in the format -\n
             "/path/to/AF3_pred/p1_1_1to100_p2_2_101to200/full_data_0001.json"
 
         Args:
             structure_path (str): Path to the structure file
 
         Returns:
-            str: Path to the data file
+            `str`: Path to the data file
         """
 
         return structure_path.replace(".cif", ".json").replace("model_", "full_data_")
 
     def extract_af_offset_from_af_input_jobs(self, af_input_jobs: dict| None = None) -> dict:
         """ Extract the offsets for AF3 predictions from the AF jobs
-        dictionary in input yaml file
+        dictionary in the config yaml file.
 
         Args:
             af_input_jobs (dict): Dictionary containing AF input data
 
         Returns:
-            af_offset (dict): Dictionary containing the offsets for each chain in
-            the format
+            `af_offset (dict)`: Dictionary containing the offsets for each chain in
+            the format -
+            ```
             {
                 "A": [start, end],
                 "B": [start, end]
             }
+            ```
         """
 
         af_offset = {}
@@ -633,37 +682,31 @@ class RankAF3JobSet:
     def extract_af_offset_from_path(structure_path: str) -> dict:
         """ Extract the offset for AF3 prediction from the structure path
 
-        example structure path
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101to200_1234/model_0001.cif" or
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101to200/model_0001.cif"
+        example structure paths\n
+            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200_1234/model_0001.cif"
+            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200/model_0001.cif"
 
-        The directory name is expected to be in the format
-            p1_copy1_1to100_p2_copy2_101to200_seed
+        The directory name is expected to be in the format\n
+            p1_copy1_1-100_p2_copy2_101-200_seed
 
-        where p1, p2 are the chain ids, copy1, copy2 are the number of copies,
-        and 1to100, 101to200 are the residue ranges.
+        where `p1`, `p2` are the protein names, `copy1`, `copy2` are the number of copies,
+        and `1-100`, `101-200` are the residue ranges.
 
-        The output will be a dictionary with the chain ids as keys and the residue
-        ranges as values.
-
-        output:
-
-            {
-                "A": [1, 100],
-                "B": [101, 200],
-                "C": [101, 200]
-            }
+        The output will be a dictionary with the `chain_id` as key and
+        `residue_range` as values. For example -
+        ```
+        {
+            "A": [1, 100],
+            "B": [101, 200],
+            "C": [101, 200]
+        }
+        ```
 
         Args:
             structure_path (str): Path to the structure file
 
         Returns:
-            af_offset (dict): Dictionary containing the offset for each chain in the
-            format
-            {
-                "A": [start, end],
-                "B": [start, end]
-            }
+            `af_offset (dict)`: Dictionary containing the offset for each chain
         """
 
         dirname = os.path.basename(os.path.dirname(structure_path))
@@ -721,14 +764,14 @@ class RankAF3JobSet:
 
         return af_offset
 
-    def add_job_set_id(self, af_input_jobs: dict | None = None) -> int:
-        """ Get the job id from the AF input jobs dictionary
+    def add_job_set_id(self, af_input_jobs: dict | None = None, soft_match = False) -> int:
+        """ Get the `job_id` from the AF input jobs dictionary
 
         Args:
             af_input_jobs (dict): Dictionary containing AF input data
 
         Returns:
-            int: Job id for the current job set
+            `job_set_id (int)`: Job id for the current job set
         """
 
         if af_input_jobs is None:
@@ -748,4 +791,13 @@ class RankAF3JobSet:
             if job.get("name", "") == self.job_set_name:
                 job_set_id = idx + 1  # Job IDs are 1-indexed
 
+        if job_set_id == -1 and soft_match:
+            for idx, job in enumerate(job_sets):
+                if (
+                    self.job_set_name in job.get("name", "")
+                    or job.get("name", "") in self.job_set_name
+                ):
+                    job_set_id = idx + 1
+
         self.job_set_id = job_set_id
+        return job_set_id

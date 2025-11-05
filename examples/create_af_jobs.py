@@ -1,9 +1,14 @@
 import yaml
 from argparse import ArgumentParser
-from af_pipeline.af_input.alphafold3 import AlphaFold3
+from af_pipeline.af_input.alphafold3 import AlphaFoldServer
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from af_pipeline.af_input.colabfold import ColabFold
-from af_pipeline.utils.file_utils import read_fasta, update_config, update_job_names_in_config, update_af_offsets_in_config
+from af_pipeline.utils.file_utils import (
+    read_fasta,
+    update_config,
+    update_job_names_in_config,
+    update_af_offsets_in_config
+)
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -66,14 +71,14 @@ if __name__ == "__main__":
     # Although, headers in protein sequences should match the entity names in
     # the input yaml file if the proteins are not provided
 
-    af_input = AlphaFold3(
-        input_yml=input_yml,
+    af_input = AlphaFoldServer(
+        input_dict=input_yml,
         protein_sequences=protein_sequences,
         nucleic_acid_sequences=nucleic_acid_sequences,
         entities_map=protein_uniprot_map,
     )
 
-    job_cycles, job_cycle_set_names, job_cycle_af_offsets = af_input.create_af3_job_cycles()
+    job_cycles, job_set_names, af_offsets = af_input.create_af3_job_cycles()
     # pprint(job_cycles)
     af_input.write_job_files(
         job_cycles=job_cycles,
@@ -81,15 +86,17 @@ if __name__ == "__main__":
         num_jobs_per_file=20,
     )
 
-    # update_job_names_in_config(
-    #     input_file=args.input,
-    #     job_cycle_set_names=job_cycle_set_names,
-    #     mode="replace",
-    # )
+    # This replaces/adds the job names in the config file
+    update_job_names_in_config(
+        input_file=args.input,
+        job_set_names=job_set_names,
+        mode="replace",
+    )
 
+    # This replaces/adds the af_offsets in the config file
     update_af_offsets_in_config(
         input_file=args.input,
-        job_cycle_af_offsets=job_cycle_af_offsets,
+        af_offsets=af_offsets,
         mode="replace",
     )
 
