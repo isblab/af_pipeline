@@ -87,18 +87,18 @@ if __name__ == "__main__":
     )
 
     # This replaces/adds the job names in the config file
-    update_job_names_in_config(
-        input_file=args.input,
-        job_set_names=job_set_names,
-        mode="replace",
-    )
+    # update_job_names_in_config(
+    #     input_file=args.input,
+    #     job_set_names=job_set_names,
+    #     mode="replace",
+    # )
 
     # This replaces/adds the af_offsets in the config file
-    update_af_offsets_in_config(
-        input_file=args.input,
-        af_offsets=af_offsets,
-        mode="replace",
-    )
+    # update_af_offsets_in_config(
+    #     input_file=args.input,
+    #     af_offsets=af_offsets,
+    #     mode="replace",
+    # )
 
     # For AlphaFold2
     af_input = AlphaFold2(

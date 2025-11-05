@@ -208,7 +208,7 @@ class AFCycle:
         """Update the cycle with the jobs
 
         For each job in `job_sets_list`, creates an `AFJobSet` instance and uses
-        it to create a job dictionary. The job dictionary is then seeded using
+        it to create a `job_set_dict`. The `job_set_dict` is then seeded using
         `seed_jobs` to create multiple jobs per set based on `model_seeds`.
         """
 
