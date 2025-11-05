@@ -1,6 +1,10 @@
-from ruamel.yaml import YAML
+import ruamel.yaml
 import json
 import yaml
+
+class NonAliasingRTRepresenter(ruamel.yaml.representer.RoundTripRepresenter):
+    def ignore_aliases(self, data):
+        return True
 
 def write_json(
     file_path: str,
@@ -90,7 +94,8 @@ def update_config(
             Defaults to "replace". ("append" or "replace")
     """
 
-    yaml = YAML()
+    yaml = ruamel.yaml.YAML()
+    yaml.Representer = NonAliasingRTRepresenter
 
     update_fields = list(updates.keys()) if updates else []
 
