@@ -267,9 +267,9 @@ class RankAF3JobSet:
         self,
         job_set_dir:str,
     ):
-        self.job_set_dir = job_set_dir
-        self.cycle_name = os.path.basename(os.path.dirname(job_set_dir))
-        self.job_set_name = os.path.basename(job_set_dir)
+        self.job_set_dir = os.path.abspath(job_set_dir)
+        self.cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
+        self.job_set_name = os.path.basename(self.job_set_dir)
         self.try_af_offset_from_path = False
 
     def extract_af3_best_pred_data(self, af_input_jobs: dict| None = None) -> list:

@@ -1,6 +1,6 @@
 import pytest
 from af_pipeline.af_input.alphafold3 import (
-    AlphaFold3, AFCycle, AFJobSet, AFSequence, Entity
+    AlphaFoldServer, AFCycle, AFJobSet, AFSequence, Entity
 )
 from af_pipeline.constants.af_constants import MAX_TEMPLATE_DATE
 
@@ -1097,19 +1097,19 @@ def test_update_cycle(af_cycle: AFCycle):
 # AlphaFold3 class Fixtures and Tests
 ###############################################################################
 @pytest.fixture
-def alphafold3():
-    return AlphaFold3(
+def alphafoldserver():
+    return AlphaFoldServer(
         input_dict=input_dict,
         protein_sequences=protein_sequences_by_name,
         nucleic_acid_sequences=nucleic_acid_sequences,
     )
 
-def test_create_af3_job_cycles(alphafold3: AlphaFold3):
-    """Test AlphaFold3.create_af3_job_cycles method."""
+def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
+    """Test AlphaFoldServer.create_af3_job_cycles method."""
 
     assert_msg = "AF3 job cycles do not match expected outcome."
 
-    job_cycles, job_set_names, af_offsets = alphafold3.create_af3_job_cycles()
+    job_cycles, job_set_names, af_offsets = alphafoldserver.create_af3_job_cycles()
     expected_af3_job_cycles = {
         "cycle1": [
             {
