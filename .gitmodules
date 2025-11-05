@@ -1,3 +1,3 @@
 [submodule "af_pipeline/pae_to_domains"]
 	path = af_pipeline/pae_to_domains
-	url = https://github.com/tristanic/pae_to_domains.git
+	url = git@github.com:omgol411/pae_to_domains.git
