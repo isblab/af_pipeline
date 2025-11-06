@@ -1,3 +1,8 @@
+"""
+Miscellaneous tools
+===================
+Utility functions for various tasks.
+"""
 import copy
 import string
 import warnings
@@ -7,7 +12,15 @@ from typing import Any, Dict
 from collections import Counter
 from collections import defaultdict
 
-def chain_id_gen():  # To sequentially generate 52 alphabets to use as Chain IDs
+def chain_id_gen():
+    """ Generator to sequentially generate 52 alphabets to use as Chain IDs
+
+    TODO: Extend to more than 52 chains if needed
+
+    Yields:
+        `i (str)`: Chain ID
+    """
+
     for i in (list(string.ascii_uppercase)):
         yield i
     for i in (list(string.ascii_lowercase)):
@@ -21,34 +34,27 @@ def create_mask(
 ):
     """Create a binary 2D mask.
 
-    Create a binary 2D mask for selecting only inter_part or intra_part
-    interactions. \n
+    Create a binary 2D mask for selecting only inter_part or intra_part interactions. \n
     The mask is created by setting the values of the intra_part or
     inter_part interactions to masked values. \n
-    if `hide_interactions`=="intra_part"`, intra_part interactions masked.
+
+    if `hide_interactions=="intra_part"`, intra_part interactions masked.
+
     if `hide_interactions=="inter_part"`, inter_part interactions masked.
 
     Args:
-
         partition_dict (Dict):
-            Dictionary containing the chain lengths.
-
+            `{"chain_id":chain_length, ..., "total": total_length}`
         hide_interactions (str):
-            Hide intra_part or inter_part interactions.
-            Defaults to "intra_part".
-
+            Hide "intra_part" or "inter_part" interactions.
         masked_value (int):
             Value to set for the masked interactions.
-            Defaults to 1.
-
         unmasked_value (int):
             Value to set for the unmasked interactions.
-            Defaults to 0.
 
     Returns:
-
-        new_mask_ (np.ndarray):
-            binary 2D mask for selecting only inter_part interactions.
+        `new_mask_ (np.ndarray)`:
+            Binary 2D mask for selecting only "inter_part" or "intra_part" interactions.
 
     Examples:
 
@@ -115,14 +121,10 @@ def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
     """Symmetrize a matrix by averaging it with its transpose
 
     Args:
-
-        matrix (np.ndarray):
-            input matrix
+        matrix (np.ndarray): Input matrix
 
     Returns:
-
-        sym_matrix (np.ndarray):
-            symmetrized matrix
+        `sym_matrix (np.ndarray)`: Symmetrized matrix
 
     Example:
 
@@ -147,7 +149,7 @@ def fill_up_the_blanks(li: list) -> list:
         li (list): list with missing numbers
 
     Returns:
-        new_li (list): list with all the missing numbers filled
+        `new_li (list)`: list with all the missing numbers filled
             up between the minimum and maximum values
 
     Example:
@@ -172,7 +174,7 @@ def get_key_from_res_range(
         res_range (list): List of residue numbers, e.g., [1, 2, 3, 5, 6, 7]
 
     Returns:
-        str: Residue range string, e.g., "1-3,5-7"
+        `str`: Residue range string, e.g., "1-3,5-7"
 
     Example:
         >>> get_key_from_res_range([1, 2, 3, 5, 6, 7])
@@ -222,7 +224,7 @@ def get_res_range_from_key(
         res_range (str): residue range string
 
     Returns:
-        res_range_list (list): list of residue numbers
+        `res_range_list (list)`: list of residue numbers
 
     Example:
         >>> get_res_range_from_key("1-3,5-7")
@@ -257,16 +259,14 @@ def convert_false_to_true(
     A patch is defined as a sequence of consecutive False values
 
     Args:
-
         arr (list):
             binary array with False values
-
         threshold (int, optional):
             Threshold for patch length to convert False to True.
             Defaults to 5.
 
     Returns:
-        arr (np.ndarray):
+        `arr (np.ndarray)`:
             binary array with False values converted to True
             if the patch length is less than or equal to threshold
 
@@ -305,13 +305,10 @@ def get_duplicate_indices(
     """ Get the indices of duplicate elements in a list.
 
     Args:
-
         my_li (list):
             List of elements to check for duplicates.
-
         return_type (str, optional):
             Output type, either "list" or "dict".
-
         keep_which (None | str, optional):
             - If "first", keeps the first occurrence of the duplicate element.
             - If "last", keeps the last occurrence of the duplicate element.
@@ -319,12 +316,11 @@ def get_duplicate_indices(
             Defaults to "first".
 
     Returns:
-
-        duplicate_indices (list | dict):
+        `duplicate_indices (list | dict)`:\n
             - If return_type is "list", returns a list of indices of duplicate
-            elements.
+            elements.\n
             - If return_type is "dict", returns a dictionary with residue IDs
-            as keys and duplicate indices as values.
+            as keys and duplicate indices as values.\n
             - first or last occurrence of the duplicate element is excluded
             from the output list or dict based on the keep_which parameter.
 
@@ -383,30 +379,23 @@ def update_list(
     """ Update a list by replacing specified indices.
 
     Args:
-
         li (list):
             User-defined list to be updated.
-
         idxs_to_update (dict):
             Dictionary of indices to update.
-
         replace_with_avg (bool, optional):
-            If True, replaces the specified indices with the average value.
-            If False, replaces the specified indices with the values at the
-            specified indices in `idxs_to_keep`.
+            If `True`, replaces the specified indices with the average value.\n
+            If `False`, replaces the specified indices with the values at the
+            specified indices in `idxs_to_keep`.\n
             If `idxs_to_keep` is not provided, the first index in each
             list of `idxs_to_update` will be used to replace the indices.
-            Defaults to False.
-
         idxs_to_keep (dict, optional):
             Dictionary of indices to keep.
             If provided, the specified indices will be replaced with the
             values at the specified indices in `idxs_to_keep`.
 
     Returns:
-
-        li (list):
-            Updated list with specified indices replaced.
+        `li (list)`: Updated list with specified indices replaced.
 
     Example:
 
@@ -461,7 +450,7 @@ def update_matrix_row_col(
     This function updates a square matrix by replacing the specified rows and
     columns.
 
-    idxs_to_update is a dictionary which specifies the indices to update.
+    `idxs_to_update` is a dictionary which specifies the indices to update.\n
     For each key, a list of indices is provided. In the output matrix, the rows
     and columns corresponding to these indices will be replaced with the
     average if `replace_with_avg` is True.
@@ -473,27 +462,20 @@ def update_matrix_row_col(
     `idxs_to_update` will be used to replace the columns and rows.
 
     Args:
-
         matrix (np.ndarray):
             Square matrix to be updated.
-
         idxs_to_update (dict):
             Dictionary of indices to update.
             e.g. {token1: [idx1, idx2, ...], token2: [idx3, idx4, ...]}
-
         replace_with_avg (bool, optional):
-            If True, replaces the rows and columns with the average value.
-            Defaults to False.
-
+            If `True`, replaces the rows and columns with the average value.
         idxs_to_keep (dict, optional):
             Dictionary of indices to keep.
             If provided, the rows and columns will be replaced with the values
             at the specified indices in `idxs_to_keep`.
-            Defaults to {}.
 
     Returns:
-
-        matrix (np.ndarray):
+        `matrix (np.ndarray)`:
             Updated square matrix with specified rows and columns replaced.
 
     Example:
@@ -598,27 +580,22 @@ def update_matrix_row_col(
 class MatrixPatches:
     """Class to get interacting patches from a binary matrix"""
 
+    matrix: np.ndarray
+    """ Binary matrix where rows and columns represent different objects
+    (e.g., chains in a protein complex). """
+
+    row_obj: str
+    """ Identifier for the rows in the matrix. """
+
+    col_obj: str
+    """ Identifier for the columns in the matrix. """
+
     def __init__(
         self,
         matrix: np.ndarray,
         row_obj: str = "row_obj",
         col_obj: str = "col_obj",
     ):
-        """ Initialize the MatrixPatches class with a binary matrix.
-
-        Args:
-
-            matrix (np.ndarray):
-                Binary matrix where rows and columns represent different objects
-                (e.g., chains in a protein complex).
-
-            row_obj (str, optional):
-                Identifier for the rows in the matrix.
-
-            col_obj (str, optional):
-                Identifier for the columns in the matrix.
-        """
-
         self.matrix = matrix
         self.row_obj = row_obj
         self.col_obj = col_obj
@@ -627,21 +604,16 @@ class MatrixPatches:
         """Get all interacting patches from a binary matrix
 
         Args:
-
             matrix (np.ndarray):
                 Binary matrix where rows and columns represent different objects
                 (e.g., chains in a protein complex).
-
             row_obj (str):
                 Identifier for the rows in the matrix
-
             col_obj (str):
                 Identifier for the columns in the matrix
 
         Returns:
-
-            patches (dict):
-                Dictionary of interacting patches
+            `patches (dict)`: Dictionary of interacting patches
 
         Example:
 
@@ -703,19 +675,15 @@ class MatrixPatches:
         """Get the indices of 1s in a binary matrix rowwise or columnwise
 
         Args:
-
             matrix (np.ndarray):
                 Binary matrix where rows and columns represent different objects
                 (e.g., chains in a protein complex).
-
             axis (int, optional):
                 0 for rowwise, 1 for columnwise.
-                Defaults to 0.
 
         Returns:
-
-            one_sets (dict):
-                {k:v} where v is a set of indices of 1s for key k
+            `one_sets (dict)`:
+                `{k:v}` where `v` is a set of indices of 1s for key `k`
 
         Example:
 
@@ -750,16 +718,15 @@ class MatrixPatches:
         """Add the subsets of the sets in list_of_sets to the one_sets
 
         Args:
-
             one_sets (dict):
-                {k:v} where v is a set of indices of 1s for key k
+                `{k:v}` where `v` is a set of indices of 1s for key `k`
 
         Returns:
 
             new_one_sets (dict):
-                {k:v} where v is a list of sets of indices of 1s for key k
+                `{k:v}` where `v` is a list of sets of indices of 1s for key `k`
                 each set is a subset of the original set and is present in
-                the values of one_sets
+                the values of `one_sets`
 
         Example:
 
@@ -800,9 +767,8 @@ class MatrixPatches:
         each subset only contains consecutive indices
 
         Args:
-
             one_sets (dict):
-                {k:v} where v is a set of indices of 1s for key k
+                `{k:v}` where `v` is a set of indices of 1s for key `k`
 
         Returns:
             new_one_sets (dict):
@@ -834,14 +800,11 @@ class MatrixPatches:
         each subset only contains consecutive indices
 
         Args:
-
-            one_set (set | list):
-                set of indices of 1s
+            one_set (set | list): Set of indices of 1s
 
         Returns:
-
-            sub_sets (list):
-                list of lists where each list contains the indices of 1s
+            `sub_sets (list)`:
+                List of lists where each list contains the indices of 1s
 
         Example:
 
@@ -891,16 +854,11 @@ class MatrixPatches:
         """Convert a dictionary to a pandas DataFrame
 
         Args:
-
-            one_sets (dict):
-                Dictionary to convert
-
-            columns (list):
-                Column names
+            one_sets (dict): Dictionary to convert
+            columns (list): Column names
 
         Returns:
-
-            df (pd.DataFrame):
+            `df (pd.DataFrame)`:
                 DataFrame with the dictionary keys as first column and values
                 as second column in columns
 
@@ -943,20 +901,13 @@ class MatrixPatches:
         """Group a DataFrame by a column and aggregate another column
 
         Args:
-
-            df (pd.DataFrame):
-                DataFrame with groupby_col and agg_col
-
-            groupby_col (str):
-                column to group by (each value is a set)
-
-            agg_col (str):
-                column to aggregate (each value is a string)
+            df (pd.DataFrame): DataFrame with groupby_col and agg_col
+            groupby_col (str): Column to group by (each value is a set)
+            agg_col (str): Column to aggregate (each value is a string)
 
         Returns:
-
-            df_group (pd.DataFrame):
-                grouped DataFrame with both columns as a set
+            `df_group (pd.DataFrame)`:
+                Grouped DataFrame with both columns as a set
 
         Example:
 
@@ -998,23 +949,14 @@ class MatrixPatches:
         into a new DataFrame with interacting residues ranges without duplicates
 
         Args:
-
-            df1 (pd.DataFrame):
-                DataFrame 1
-
-            df2 (pd.DataFrame):
-                DataFrame 2
-
-            colname_1 (str):
-                column name 1
-
-            colname_2 (str):
-                column name 2
+            df1 (pd.DataFrame): DataFrame 1
+            df2 (pd.DataFrame): DataFrame 2
+            colname_1 (str): Column name 1
+            colname_2 (str): Column name 2
 
         Returns:
-
-            new_df (pd.DataFrame):
-                combined DataFrame of interacting residues ranges without
+            `new_df (pd.DataFrame)`:
+                Combined DataFrame of interacting residues ranges without
                 duplicates
 
         Example:
@@ -1073,20 +1015,12 @@ class MatrixPatches:
         (from chatgpt)
 
         Args:
-
-            df (pd.DataFrame):
-                DataFrame with columns colname_1 and colname_2
-
-            colname_1 (str):
-                column name 1
-
-            colname_2 (str):
-                column name 2
+            df (pd.DataFrame): DataFrame with columns `colname_1` and `colname_2`
+            colname_1 (str): column name 1
+            colname_2 (str): column name 2
 
         Returns:
-
-            filtered_df (pd.DataFrame):
-                DataFrame with subset rows removed
+            `filtered_df (pd.DataFrame)`: DataFrame with subset rows removed
 
         Example:
 
@@ -1130,23 +1064,13 @@ class MatrixPatches:
         """Check if row is a subset of other_row for two specified columns
 
         Args:
-
-            row (pd.Series):
-                Row to check if it is a subset of other_row
-
-            other_row (pd.Series):
-                Row to check against
-
-            colname_1 (str):
-                Column name 1
-
-            colname_2 (str):
-                Column name 2
+            row (pd.Series): Row to check if it is a subset of other_row
+            other_row (pd.Series): Row to check against
+            colname_1 (str): Column name 1
+            colname_2 (str): Column name 2
 
         Returns:
-
-            bool:
-                True if row is a subset of other_row, False otherwise
+            `bool`: `True` if row is a subset of `other_row`, `False` otherwise.
 
         Example:
 
