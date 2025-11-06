@@ -96,7 +96,7 @@ class StructureParser:
         return parser
 
 
-    def get_structure(
+    def get_structure_obj(
         self,
         parser: PDBParser | MMCIFParser,
     ) -> Structure:
