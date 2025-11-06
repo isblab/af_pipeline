@@ -1,3 +1,12 @@
+"""
+Tools to work with structure files
+==================================
+- This module provides utility functions and classes to work with structure files (PDB or CIF)
+- Uses `Biopython` for structure manipulation and parsing.
+- The structure object refers to `Bio.PDB.Structure.Structure` object from Biopython.
+- The residue object refers to `Bio.PDB.Residue.Residue` object from Biopython.
+Hence, the "residue" term is used for both amino acids and nucleotides.
+"""
 import warnings
 import Bio
 import Bio.PDB
@@ -15,20 +24,20 @@ from af_pipeline.constants.af_constants import *
 def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     """ Check if the residue has per-atom token.
 
-    Assuming the residue is decorated with the appropriate attributes.
-    - `is_modified`: True if the residue is modified.
-    - `is_ligand`: True if the residue is a ligand.
-    - `entityType`: None if the residue is not a protein, DNA, RNA, or ligand.
+    TODO: add reference to tokenization in AF3.
+
+    Assuming the `residue` is decorated with the appropriate attributes.
+    - `is_modified`: `True` if the `residue` is modified.
+    - `is_ligand`: `True` if the `residue` is a ligand.
+    - `entityType`: `None` if the `residue` is not a protein, DNA, RNA, or ligand.
 
     Args:
-
         residue (Bio.PDB.Residue.Residue):
             Biopython residue object.
 
     Returns:
-
-        condition (bool):
-            True if the residue has per-atom token, False otherwise.
+        `condition (bool)`:
+            `True` if the residue has per-atom token, `False` otherwise.
     """
 
     condition = (
@@ -51,7 +60,7 @@ def save_structure_obj(
     Args:
 
         structure (Bio.PDB.Structure.Structure):
-            Biopython Structure object to save.
+            Biopython structure object to save.
 
         out_file (str):
             Path to the output file where the structure will be saved.
@@ -65,8 +74,9 @@ def save_structure_obj(
             Can be either "pdb" or "cif". Defaults to "cif".
 
         preserve_header_footer (bool):
-            If True, the header and footer information from the structure
-            will be preserved in the saved file. Defaults to False.
+            If `True`, the header and footer information from the structure
+            will be preserved in the saved file. Defaults to `False`.
+            Only applicable for CIF files.
     """
 
     if save_type == "pdb":
@@ -127,7 +137,7 @@ def add_header_footer(
 ) -> Bio.PDB.Structure.Structure:
     """Add the header and footer information to the structure object.
 
-    While parsing the cif file using Biopython MMCIFParser,
+    While parsing the cif file using Biopython `MMCIFParser`,
     the header and footer information information is not retained.
     This function extracts the header and footer information from the
     structure file and adds it to the structure object. \n
@@ -138,15 +148,15 @@ def add_header_footer(
     Args:
 
         structure (Bio.PDB.Structure.Structure):
-            Biopython Structure object.
+            Biopython structure object.
 
         structure_file_path (str):
-            path to the structure file.
+            Path to the structure file.
 
     Returns:
 
-        structure (Bio.PDB.Structure.Structure):
-            Biopython Structure object with 'header_footer'.
+        `structure (Bio.PDB.Structure.Structure)`:
+            Biopython Structure object with `header_footer` added in `xtra`.
     """
 
     with open(structure_file_path, "r") as f:
@@ -193,22 +203,29 @@ def decorate_residue(
     """Decorate the residue.
 
     This function adds `entityType` attribute to the residue's `xtra`
-    attribute depending on the type of entity. \n
+    attribute depending on the type of entity.
 
     Allowed entity types are:
-    - proteinChain
-    - dnaSequence
-    - rnaSequence
-    - ligand
-    - ion
-    - None (if the residue does not belong to any of the above types)
+    ```python
+    - "proteinChain"
+    - "dnaSequence"
+    - "rnaSequence"
+    - "ligand"
+    - "ion"
+    - None #(if the residue does not belong to any of the above types)
+    ```
 
-    It also adds `is_modified`, `is_ca_only`, `is_ligand`, `is_ion`,
-    `is_purine`, and `is_pyrimidine` attributes to the residue's `xtra`
-    attribute wherever applicable. \n
+    It also adds the following flags to the residue's `xtra` wherever applicable -
+    ```python
+    - "is_modified" # True if the residue is a modified residue.
+    - "is_ca_only" # True if the residue has only CA atom and no CB atom.
+    - "is_ligand" # True if the residue is a ligand.
+    - "is_ion" # True if the residue is an ion.
+    - "is_purine" # True if the nucleotide is a purine.
+    - "is_pyrimidine" # True if the nucleotide is a pyrimidine.
+    ```
 
     Args:
-
         residue (Bio.PDB.Residue.Residue):
             Biopython residue object.
     """
@@ -276,6 +293,16 @@ def decorate_atom(
     xtra_field: str | None = None,
     xtra_value: Any = None,
 ):
+    """ Decorate the atom.
+
+    This function adds `is_representative` attribute to the atom's `xtra`
+
+    Args:
+        atom (Bio.PDB.Atom.Atom): Biopython atom object.
+        xtra_field (str | None, optional): field to add to the atom's `xtra`.
+        xtra_value (Any, optional): value of the field to add to the atom's `xtra`.
+    """
+
     symbol = atom.get_name()
     residue = atom.get_parent()
 
@@ -289,21 +316,17 @@ def decorate_atom(
 
     residue = residue.get_resname()
 
-    if residue in PROTEIN_ENTITIES and residue not in ONLY_CA_RESIDUES:
-        if symbol == "CB":
-            atom.xtra["is_representative"] = True
+    if residue in PROTEIN_ENTITIES and residue not in ONLY_CA_RESIDUES and symbol == "CB":
+        atom.xtra["is_representative"] = True
 
-    elif residue in ONLY_CA_RESIDUES:
-        if symbol == "CA":
-            atom.xtra["is_representative"] = True
+    elif residue in ONLY_CA_RESIDUES and symbol == "CA":
+        atom.xtra["is_representative"] = True
 
-    elif residue in PURINES:
-        if symbol == "C4":
-            atom.xtra["is_representative"] = True
+    elif residue in PURINES and symbol == "C4":
+        atom.xtra["is_representative"] = True
 
-    elif residue in PURINES:
-        if symbol == "C2":
-            atom.xtra["is_representative"] = True
+    elif residue in PURINES and symbol == "C2":
+        atom.xtra["is_representative"] = True
 
     else:
         atom.xtra["is_representative"] = False
@@ -323,27 +346,27 @@ def decorate_atom(
 class RenumberResidues:
     """Class to renumber the residues based on the offset.
 
-    Attributes:
+    If the input sequence to the AlphFold does not start from the first residue,
+    the residue numbering in the predicted structure will be different from
+    the original (UniProt) numbering.
 
-        af_offset (dict):
-            Offset describing start and end residue number for each chain in
-            the predicted structure.
+    This class renumbers the residues in the structure based on the provided `offset`.
+
+    The `offset` is a dictionary with chain IDs as keys and a list of two integers
+    defining the `start` and `end` residue numbers for that chain in the predicted structure.
+
+    NOTE: Although written with the purpose for AlphFold predicted structures,
+    this class can be used to renumber residues in any structure file.
     """
 
-    def __init__(self, af_offset: dict = {}):
-        """Initialize the RenumberResidues class.
+    offset: dict
+    """ Offset describing start and end residue number for each chain in
+    the predicted structure.\n
+    example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
-        Args:
+    def __init__(self, offset: dict = {}):
 
-            af_offset (dict, optional):
-                Offset describing start and end residue number for each chain
-                in the predicted structure.
-                (Default: None) \n
-                example: `{'A': [1, 100], 'B': [101, 200]}`. \n
-                If None, no renumbering is done.
-        """
-
-        self.af_offset = af_offset
+        self.offset = offset
 
     def renumber_structure(
         self,
@@ -352,13 +375,12 @@ class RenumberResidues:
         """Renumber the residues in the structure based on the offset.
 
         Args:
-
             structure (Bio.PDB.Structure.Structure):
-                Biopython Structure object.
+                Biopython structure object.
 
         Returns:
-            structure (Bio.PDB.Structure.Structure):
-                Biopython Structure object with renumbered residues.
+            `structure (Bio.PDB.Structure.Structure)`:
+                Biopython structure object with renumbered residues.
         """
 
         for model in structure:
@@ -383,50 +405,46 @@ class RenumberResidues:
     ):
         """Renumber the residue number based on the offset.
 
+        Given a residue index (1-indexed) in a chain, this function renumbers it
+        based on the offset provided for that chain.
+
         Args:
 
             chain_res_num (int):
-                Residue number in the predicted structure.
+                Residue index (1-indexed) within the chain in the predicted structure.
 
-            af_offset (dict):
-                Offset describing start and end residue number for each chain
-                in the predicted structure.
-                e.g. `{'A': [1, 100], 'B': [101, 200]}`. \n
-                If `None`, no renumbering is done.
+            chain_id (str):
+                Chain ID of the residue.
 
         Returns:
-
-            chain_res_num (int):
-                renumbered residue number
+            `chain_res_num (int)`: Renumbered residue number
         """
 
-        if chain_id in self.af_offset:
-            chain_res_num += self.af_offset[chain_id][0] - 1
+        if chain_id in self.offset:
+            chain_res_num += self.offset[chain_id][0] - 1
 
         return chain_res_num
 
     def renumber_region_of_interest(
         self,
-        region_of_interest: Dict,
+        region_of_interest: Dict[str, list],
     ):
-        """Offset the interacting region to the AF2/3 numbering.
+        """Offset the region of interest to the AF2/3 numbering.
 
-        Interacting region defined by user is as per the original numbering
+        Region of interest is defined by the user is as per the original numbering
         (UniProt in case of proteins). \n
         However, if the prediction is done on a fragment of the protein, the
-        numbering will be different. \n
-        This function offsets the interacting region to the numbering of the
-        predicted structure. \n
-        By default, the offset is assumed to be 0.
+        residue numbering in the predicted structure will be different compared to
+        the one provided by the user. \n
+        This function renumbers the region of interest to the numbering of the
+        predicted structure based on the `offset`. \n
 
         Args:
-
-            region_of_interest (Dict):
+            region_of_interest (dict):
                 Dictionary containing the region of interest for each chain.
 
         Returns:
-
-            renumbered_region_of_interest (Dict):
+            `renumbered_region_of_interest (dict)`:
                 Dictionary containing the renumbered region of interest for
                 each chain.
         """
@@ -437,10 +455,10 @@ class RenumberResidues:
 
             start, end = region_of_interest[chain_id]
 
-            if chain_id in self.af_offset:
+            if chain_id in self.offset:
 
-                start = start - (self.af_offset[chain_id][0] - 1)
-                end = end - (self.af_offset[chain_id][0] - 1)
+                start = start - (self.offset[chain_id][0] - 1)
+                end = end - (self.offset[chain_id][0] - 1)
 
             renumbered_region_of_interest[chain_id] = [start, end]
 
@@ -454,30 +472,83 @@ class RenumberResidues:
     ):
         """Create a map of residue indices to residue numbers and vice-versa.
 
-        res_idx is essentially token index. \n
-        res_num is the residue number. \n
-        res_num = res_idx + 1 if af_offset is not provided. \n
-        res_num = res_idx + af_offset if af_offset is provided. \n
-        af_offset informs what is the starting residue number for each chain.
+        `res_idx` is essentially the token index. \n
+        `res_num` is the residue number in the chain which will be same as UniProt
+        numbering if the `offset` is provided correctly or full-length sequences
+        were used in the prediction. \n
+        `offset` informs what is the starting residue number for each chain.
+
+        For example, if the input is as follows: \n
+        ```python
+        token_chain_ids = ['A', 'A', 'A', 'B', 'B']
+        token_res_ids = [1, 1, 2, 1, 2]
+        token_atom_names = ['N', 'CA', 'N', 'N', 'CA']
+        ```
+        The output will be: \n
+        ```python
+        idx_to_num = {
+            0: {'chain_id': 'A', 'res_num': 1, 'atom_name': 'N'},
+            1: {'chain_id': 'A', 'res_num': 1, 'atom_name': 'CA'},
+            2: {'chain_id': 'A', 'res_num': 2, 'atom_name': 'N'},
+            3: {'chain_id': 'B', 'res_num': 1, 'atom_name': 'N'},
+            4: {'chain_id': 'B', 'res_num': 2, 'atom_name': 'CA'},
+        }
+        num_to_idx = {
+            'A': {
+                1: {'N': 0, 'CA': 1},
+                2: {'N': 2},
+            },
+            'B': {
+                1: {'N': 3},
+                2: {'CA': 4},
+            },
+        }
+        ```
+
+        If the offset is provided as: \n
+        ```python
+        offset = {
+            'A': [10, 11],
+            'B': [30, 31],
+        }
+        ```
+        The output will be: \n
+        ```python
+        idx_to_num = {
+            0: {'chain_id': 'A', 'res_num': 10, 'atom_name': 'N'},
+            1: {'chain_id': 'A', 'res_num': 10, 'atom_name': 'CA'},
+            2: {'chain_id': 'A', 'res_num': 11, 'atom_name': 'N'},
+            3: {'chain_id': 'B', 'res_num': 30, 'atom_name': 'N'},
+            4: {'chain_id': 'B', 'res_num': 31, 'atom_name': 'CA'},
+        }
+        num_to_idx = {
+            'A': {
+                10: {'N': 0, 'CA': 1},
+                11: {'N': 2},
+            },
+            'B': {
+                30: {'N': 3},
+                31: {'CA': 4},
+            },
+        }
+        ```
 
         Args:
-
             token_chain_ids (list):
-                Token chain IDs.
+                Token chain IDs. Same as provided in the AF3 JSON output.
 
             token_res_ids (list):
-                Token residue IDs.
+                Token residue IDs. Same as provided in the AF3 JSON output.
 
             token_atom_names (list):
                 Token atom names.
 
         Returns:
-
-            tuple (idx_to_num, num_to_idx):
-                idx_to_num (Dict):
+            `tuple (idx_to_num, num_to_idx)`:\n
+                `idx_to_num (Dict)`:
                     Dictionary mapping residue indices to residue numbers.
 
-                num_to_idx (Dict):
+                `num_to_idx (Dict)`:
                     Dictionary mapping residue numbers to residue indices.
         """
 
@@ -512,24 +583,20 @@ class RenumberResidues:
 class ResidueSelect(Select):
     """Class to select residues in the structure based on the input dictionary.
 
-    Attributes:
-        confident_residues (Dict):
-            Dictionary containing the chain ID as key and a list of residue
-            numbers as value. \n
-            e.g. {"A": [1, 2, 3], "B": [4, 5, 6]}
+    This is achieved by overriding the `Bio.PDB.Select.accept_residue` method
+    from Biopython.
+    """
+
+    confident_residues: Dict
+    """ Dictionary containing the chain ID as key and a list of residue
+    numbers as value.\n
+    e.g. `{"A": [1, 2, 3], "B": [4, 5, 6]}`
     """
 
     def __init__(
         self,
         confident_residues: Dict
     ):
-        """Initialize the ResidueSelect class \n
-
-        Args:
-
-            confident_residues (Dict):
-                Dictionary containing the chain ID as key and a list of residue numbers as value.
-        """
         self.confident_residues = confident_residues
 
     @overload
@@ -537,17 +604,14 @@ class ResidueSelect(Select):
         self,
         residue: Bio.PDB.Residue.Residue
     ) -> bool:
-        """Accept the residue if it's in `self.confident_residues`.
+        """Accept the residue if it's in `confident_residues`.
 
         Args:
-
             residue (Bio.PDB.Residue.Residue):
                 Biopython residue object.
 
         Returns:
-
-            bool:
-                True if the residue is in the `self.confident_residues`.
+            `bool`: `True` if the residue is in the `confident_residues`.
         """
 
         chain = residue.parent
@@ -568,17 +632,14 @@ class ResidueSelect(Select):
         self,
         residue: Bio.PDB.Residue.Residue
     ) -> bool:
-        """Accept the residue if it's in `self.confident_residues`.
+        """Accept the residue if it's in `confident_residues`.
 
         Args:
-
             residue (Bio.PDB.Residue.Residue):
                 Biopython residue object.
 
         Returns:
-
-            bool:
-                True if the residue is in the `self.confident_residues`.
+            `bool`: `True` if the residue is in the `confident_residues`.
         """
 
         chain = residue.parent
