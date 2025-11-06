@@ -117,7 +117,7 @@ class _Initialize:
         )
 
         self.renumber = RenumberResidues(
-            af_offset=self.af_offset
+            offset=self.af_offset
         )
 
         self.idx_to_num, self.num_to_idx = self.renumber.residue_map(

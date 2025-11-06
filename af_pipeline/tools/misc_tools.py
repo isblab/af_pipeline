@@ -141,7 +141,6 @@ def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
 
     return sym_matrix
 
-
 def fill_up_the_blanks(li: list) -> list:
     """Fill up the blanks in a list
 
