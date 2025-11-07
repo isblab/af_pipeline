@@ -531,16 +531,31 @@ class StructureParser:
 
         token_atom_ids = []
 
+        # (only_representative, has_per_atom_token)
+        handle_dict = {
+            "rep_atom": [
+                (True, False),
+                (True, True),
+                (False, False),
+            ],
+            "per_atom": [
+                (False, True),
+            ],
+        }
+
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            if has_per_atom_token(residue) and only_representative is False:
+            handle = (only_representative, has_per_atom_token(residue))
+
+            if handle in handle_dict["per_atom"]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
                         quantities=["atom_name"]
                     )
                     token_atom_ids.append(quants["atom_name"])
-            else:
+
+            elif handle in handle_dict["rep_atom"]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
@@ -580,21 +595,35 @@ class StructureParser:
 
         token_chain_ids = []
 
+        # (only_representative, has_per_atom_token)
+        handle_dict = {
+            "rep_atom": [
+                (True, False),
+                (True, True),
+                (False, False),
+            ],
+            "per_atom": [
+                (False, True),
+            ],
+        }
+
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            if has_per_atom_token(residue) and only_representative is False:
+            handle = (only_representative, has_per_atom_token(residue))
+
+            if handle in handle_dict["per_atom"]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
-                            atom=atom,
-                            quantities=["chain_id"]
-                        )
+                        atom=atom,
+                        quantities=["chain_id"]
+                    )
                     token_chain_ids.append(quants["chain_id"])
-            else:
+
+            elif handle in handle_dict["rep_atom"]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue).id
+                    StructureParser.get_rep_atom(residue=residue)
                 )
-
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
                     quantities=["chain_id"],
@@ -630,9 +659,23 @@ class StructureParser:
 
         token_res_ids = []
 
+        # (only_representative, has_per_atom_token)
+        handle_dict = {
+            "rep_atom": [
+                (True, False),
+                (True, True),
+                (False, False),
+            ],
+            "per_atom": [
+                (False, True),
+            ],
+        }
+
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            if has_per_atom_token(residue) and only_representative is False:
+            handle = (only_representative, has_per_atom_token(residue))
+
+            if handle in handle_dict["per_atom"]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
@@ -640,7 +683,7 @@ class StructureParser:
                     )
                     token_res_ids.append(quants["res_pos"])
 
-            else:
+            elif handle in handle_dict["rep_atom"]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
@@ -670,6 +713,7 @@ class StructureParser:
             per_atom (bool):
                 If `True`, returns pLDDT values for each atom.
                 If `False`, returns pLDDT values for each residue/token.
+                This option supersedes all other options.
             rep_atom_dict (dict):
                 Dictionary with residue names as keys and representative
                 atoms as values.
@@ -678,6 +722,7 @@ class StructureParser:
             average_token_plddt (bool):
                 If `True`, averages pLDDT values for all atoms in the residue
                 with per-atom tokens and returns a single value per residue.
+                This option only has effect if `only_representative` is also `True`.
             only_representative (bool):
                 If `True`, returns only representative pLDDT values for all
                 residues irrespective of per-atom tokens.
@@ -700,47 +745,78 @@ class StructureParser:
                 )
                 plddt_values.append(quants["plddt"])
 
-        else:
-            for residue, _ch_id in StructureParser.get_residues(structure):
+            return plddt_values
 
-                if has_per_atom_token(residue):
+        # (only_representative, average_token_plddt, has_per_atom_token)
+        handle_dict = {
+            "rep_atom_plddt": [
+                (True, False, True),
+                (True, False, False),
+                (False, True, False),
+                (False, False, False),
+            ],
+            "avg_atom_plddt": [
+                (True, True, True),
+                (True, True, False),
+            ],
+            "all_atom_plddt": [
+                (False, True, True),
+                (False, False, True),
+            ]
+        }
 
-                    if only_representative is False:
-                        for atom in residue:
-                            quants = StructureParser.extract_peratom_quantities(
-                                atom=atom,
-                                quantities=["plddt"]
-                            )
-                            plddt_values.append(quants["plddt"])
+        for residue, _ch_id in StructureParser.get_residues(structure):
 
-                    elif average_token_plddt is True:
-                        # Average pLDDT for all atoms in the residue
-                        atom_plddt_values = [
-                            StructureParser.extract_peratom_quantities(
-                                atom=atom,
-                                quantities=["plddt"]
-                            )["plddt"] for atom in residue
-                        ]
-                        plddt_values.append(np.mean(atom_plddt_values))
+            handle = (
+                only_representative,
+                average_token_plddt,
+                has_per_atom_token(residue)
+            )
 
-                    else:
-                        rep_atom = rep_atom_dict.get(
-                            residue.get_resname(),
-                            StructureParser.get_rep_atom(residue=residue)
-                        )
+            if handle in handle_dict["rep_atom_plddt"]:
 
-                else:
-                    rep_atom = rep_atom_dict.get(
-                        residue.get_resname(),
-                        StructureParser.get_rep_atom(residue=residue)
-                    )
-
+                rep_atom = rep_atom_dict.get(
+                    residue.get_resname(),
+                    StructureParser.get_rep_atom(residue=residue)
+                )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
                     quantities=["plddt"],
                     rep_atom=rep_atom,
                 )
                 plddt_values.append(quants["plddt"])
+
+            elif handle in handle_dict["avg_atom_plddt"]:
+                # Average pLDDT for all atoms in the residue
+                atom_plddt_values = [
+                    StructureParser.extract_peratom_quantities(
+                        atom=atom,
+                        quantities=["plddt"]
+                    )["plddt"] for atom in residue
+                ]
+                plddt_values.append(np.mean(atom_plddt_values))
+
+            elif handle in handle_dict["all_atom_plddt"]:
+
+                for atom in residue:
+                    quants = StructureParser.extract_peratom_quantities(
+                        atom=atom,
+                        quantities=["plddt"]
+                    )
+                    plddt_values.append(quants["plddt"])
+
+            else:
+                raise Exception(
+                    f"""
+
+                    Unexpected combination of flags:
+                    only_representative={only_representative},
+                    average_token_plddt={average_token_plddt},
+                    has_per_atom_token={has_per_atom_token(residue)}.
+
+                    Expected booleans for all three flags.
+                    """
+                )
 
         return plddt_values
 
@@ -788,31 +864,39 @@ class StructureParser:
                 )
                 coords.append(quants["coord"])
 
-        else:
-            for residue, _ch_id in StructureParser.get_residues(structure):
+            return coords
 
-                if has_per_atom_token(residue):
+        # (only_representative, has_per_atom_token)
+        handle_dict = {
+            "rep_atom_coord": [
+                (True, True),
+                (True, False),
+                (False, False),
+            ],
+            "all_atom_coord": [
+                (False, True),
+            ]
+        }
 
-                    if only_representative is False:
+        for residue, _ch_id in StructureParser.get_residues(structure):
 
-                        for atom in residue:
-                            quants = StructureParser.extract_peratom_quantities(
-                                atom=atom,
-                                quantities=["coord"]
-                            )
-                            coords.append(quants["coord"])
-                    else:
-                        rep_atom = rep_atom_dict.get(
-                            residue.get_resname(),
-                            StructureParser.get_rep_atom(residue=residue)
-                        )
+            handle = (only_representative, has_per_atom_token(residue))
 
-                else:
-                    rep_atom = rep_atom_dict.get(
-                        residue.get_resname(),
-                        StructureParser.get_rep_atom(residue=residue)
+            if handle in handle_dict["all_atom_coord"]:
+
+                for atom in residue:
+                    quants = StructureParser.extract_peratom_quantities(
+                        atom=atom,
+                        quantities=["coord"]
                     )
+                    coords.append(quants["coord"])
 
+            elif handle in handle_dict["rep_atom_coord"]:
+
+                rep_atom = rep_atom_dict.get(
+                    residue.get_resname(),
+                    StructureParser.get_rep_atom(residue=residue)
+                )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
                     quantities=["coord"],
