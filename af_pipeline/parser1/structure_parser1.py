@@ -19,7 +19,6 @@ from Bio.PDB.Chain import Chain
 from Bio.PDB.Structure import Structure
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBParser import PDBParser
-from af_pipeline.constants.af_constants import *
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
     decorate_residue,

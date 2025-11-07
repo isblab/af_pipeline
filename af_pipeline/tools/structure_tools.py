@@ -18,7 +18,19 @@ from Bio.PDB.mmcifio import MMCIFIO
 from Bio.PDB.PDBIO import Select, PDBIO
 from collections import defaultdict
 from typing import Dict, Any, overload
-from af_pipeline.constants.af_constants import *
+from af_pipeline.constants.af_constants import (
+    PROTEIN_ENTITIES,
+    DNA_ENTITIES,
+    RNA_ENTITIES,
+    ION,
+    PURINES,
+    PYRIMIDINES,
+    ALLOWED_PTMS,
+    ALLOWED_DNA_MODS,
+    ALLOWED_RNA_MODS,
+    ALLOWED_LIGANDS,
+    ONLY_CA_RESIDUES,
+)
 
 
 def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:

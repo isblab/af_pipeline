@@ -1,4 +1,6 @@
-""" Data Parser module.
+"""
+Data Parser module
+==================
 DataParser class with methods to parse the JSON or PKL data files
 
 Currently supports the following:

@@ -13,12 +13,8 @@ def write_json(
     """Write data to a json file
 
     Args:
-
-        file_path (str):
-            Path to json file
-
-        data (dict):
-            Data to write
+        file_path (str): Path to json file
+        data (dict): Data to write
     """
 
     with open(file_path, "w") as f:
@@ -29,14 +25,10 @@ def read_json(file_path: str):
     """Load a json file
 
     Args:
-
-        file_path (str):
-            Path to json file
+        file_path (str): Path to json file
 
     Returns:
-
-        data:
-            Data from json file
+    - **data (dict|list)**: Data from json file
     """
 
     with open(file_path, "r") as f:
@@ -50,14 +42,10 @@ def read_fasta(fasta_file: str) -> dict:
     Read a fasta file and return a dictionary of sequences
 
     Args:
-
-        fasta_file (str):
-            Path to fasta file
+        fasta_file (str): Path to fasta file
 
     Returns:
-
-        all_sequences (dict):
-            Dictionary in the format {sequence_header: sequence}
+    - **all_sequences (dict)**: `{sequence_header: sequence}`
     """
 
     all_sequences = {}
@@ -89,9 +77,7 @@ def update_config(
     Args:
         input_file (str): Path to input config file
         updates (dict, optional): Fields to update in the config file.
-            Defaults to None.
-        mode (str, optional): Mode to update the config file.
-            Defaults to "replace". ("append" or "replace")
+        mode (str, optional): Mode to update the config file. ("append" or "replace")
     """
 
     yaml = ruamel.yaml.YAML()
@@ -147,6 +133,13 @@ def update_job_names_in_config(
     job_set_names: dict,
     mode: str = "replace",
 ):
+    """ Update the job names in the config file
+
+    Args:
+        input_file (str): Path to input config file
+        job_set_names (dict): Dictionary of job cycle names
+        mode (str, optional): Mode to update the config file.
+    """
 
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)
 
@@ -176,13 +169,12 @@ def update_af_offsets_in_config(
     af_offsets: dict,
     mode: str = "replace",
 ):
-    """Update the af_offsets in the config file
+    """Update the `af_offsets` in the config file
 
     Args:
         input_file (str): Path to input config file
         af_offsets (dict): Dictionary of job cycle offsets
         mode (str, optional): Mode to update the config file.
-            Defaults to "replace". ("append" or "replace")
     """
 
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)

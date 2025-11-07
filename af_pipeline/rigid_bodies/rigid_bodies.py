@@ -1,3 +1,8 @@
+"""
+Rigid Bodies extraction module
+==============================
+RigidBodies class with methods to extract rigid bodies from AlphaFold predictions.
+"""
 import os
 import copy
 import warnings
@@ -24,20 +29,53 @@ from af_pipeline.tools.misc_tools import (
 )
 
 class RigidBodies(_Initialize):
-    """ Class to extract rigid bodies from AlphaFold prediction.
+    """ Class to extract rigid bodies from AlphaFold prediction."""
 
-    Attributes:
+    data_file_path: str
+    """ Path to AF2/AF3 data file (e.g. .json, .pkl)"""
 
-        data_file_path (str):
-            Path to AF2/AF3 data file (e.g. .json, .pkl)
+    structure_file_path: str
+    """ Path to AF2/AF3 structure file (e.g. .pdb, .cif)"""
 
-        structure_file_path (str):
-            Path to AF2/AF3 structure file (e.g. .pdb, .cif)
+    af_offset: dict | None
+    """ Dictionary containing the offset for AF2/AF3 numbering."""
 
-        af_offset (dict | None):
-            Dictionary containing the offset for AF2/AF3 numbering.
-            If None, the default numbering is used.
-    """
+    idr_chains: list
+    """ List of chain IDs that represent IDR protein chains."""
+
+    rep_atom_dict: dict
+    """ Dictionary of representative atoms for a residue/token."""
+
+    average_token_pae: bool
+    """ Whether to average the PAE in case of per atom tokens."""
+
+    average_token_plddt: bool
+    """ Whether to average the pLDDT in case of per atom tokens."""
+
+    state: str
+    """ State of the instance. Can be "per_token" or "per_residue"."""
+
+    library: str
+    """ Library to use for graph-based community detection.
+    ('igraph' or 'networkx' or 'label_propagation')"""
+
+    pae_power: int
+    """ Exponent to raise the PAE matrix to."""
+
+    pae_cutoff: float
+    """ PAE cutoff to consider an edge between two tokens."""
+
+    resolution: float
+    """ Resolution parameter for graph-based community detection."""
+
+    plddt_cutoff: float
+    """ pLDDT cutoff to filter residues in rigid bodies."""
+
+    plddt_cutoff_idr: float
+    """ pLDDT cutoff to filter residues in rigid bodies for IDR chains."""
+
+    random_seed: int
+    """ Random seed for label propagation method."""
 
     def __init__(
         self,
@@ -50,37 +88,6 @@ class RigidBodies(_Initialize):
         average_token_plddt: bool = True,
         state: str = "per_token",
     ):
-        """ Initialize the RigidBodies class.
-
-        Args:
-
-            data_file_path (str):
-                Path to AF2/AF3 data file (e.g. .json, .pkl)
-
-            structure_file_path (str):
-                Path to AF2/AF3 structure file (e.g. .pdb, .cif)
-
-            af_offset (dict | None, optional):
-                Dictionary containing the offset for AF2/AF3 numbering.
-                If None, the numbering is 1 to len(chain). Defaults to None.
-
-            idr_chains (list, optional):
-                List of chain that are disordered. Defaults to [].
-
-            rep_atom_dict (dict, optional):
-                Dictionary of representative atoms for a residue.
-                e.g. {"BMA": "C2"} for BMA, C2 is the representative atom.
-
-            average_token_pae (bool, optional):
-                Whether to average the PAE in case of per atom tokens.
-
-            average_token_plddt (bool, optional):
-                Whether to average the pLDDT in case of per atom tokens.
-
-            state (str, optional):
-                State of the instance. Can be "per_token" or "per_residue".
-                Defaults to "per_token".
-        """
 
         super().__init__(
             data_file_path=data_file_path,
@@ -92,13 +99,13 @@ class RigidBodies(_Initialize):
             state=state,
         )
 
-        self.library = "igraph"
+        self.library = "networkx"
         self.pae_power = 1
         self.pae_cutoff = 12
         self.resolution = 0.5
         self.plddt_cutoff = 70
         self.plddt_cutoff_idr = 50
-        self.random_seed = 99
+        self.random_seed = 47
         self.idr_chains = idr_chains
 
     def extract_rigid_bodies(
@@ -108,26 +115,19 @@ class RigidBodies(_Initialize):
         plddt_filter: bool = True
     ) -> list[dict[str, list[tuple[str, int]]]]:
         """Extract Rigid bodies from a PAE file.
-        - Three implementations are available:
+
+        Three implementations are available:
             1. igraph based
             2. networkx based
             3. label_propagation based
 
         Args:
-
-            num_res (int):
-                Minimum number of residues in a rigid body
-
-            num_proteins (int):
-                Minimum number of proteins in a rigid body
-
-            plddt_filter (bool):
-                Filter the residues based on the pLDDT cutoff
+            num_res (int): Minimum number of residues in a rigid body
+            num_proteins (int): Minimum number of proteins in a rigid body
+            plddt_filter (bool): Filter the residues based on the pLDDT cutoff
 
         Returns:
-
-            Rigid bodies (list):
-                List of Rigid bodies
+            `rigid_bodies (list)`: List of extracted rigid bodies
         """
 
         print("Extracting rigid bodies...")
@@ -212,6 +212,15 @@ class RigidBodies(_Initialize):
         rb: list
     ) -> dict[str, list[tuple[str, int]]]:
         """Convert the domain list to a dictionary of rigid bodies.
+
+        Args:
+            rb (list): List of token indices in a rigid body.
+
+        Returns:
+            `rb_dict (dict)`:
+                Dictionary of rigid bodies with chain IDs as keys and
+                a list of tuples containing atom names and residue numbers
+                as values.
         """
 
         rb_dict = defaultdict(list)
@@ -234,16 +243,15 @@ class RigidBodies(_Initialize):
         rb_dict: dict,
     ) -> dict[str, list[tuple[str, int]]]:
         """Filter the residues in the rigid bodies based on the pLDDT cutoff.
-        - If the pLDDT score of a residue is less than the cutoff, it is removed from the rigid body.
+
+        If the pLDDT score of a residue is less than the cutoff, it is removed
+        from the rigid body.
 
         Args:
-            rb_dict (dict):
-                Dictionary of rigid bodies
+            rb_dict (dict): Dictionary of rigid bodies
 
         Returns:
-
-            rb_dict (dict):
-                pLDDT filtered dictionary of rigid bodies.
+        - **rb_dict (dict)**: pLDDT filtered dictionary of rigid bodies.
         """
 
         # Filter the residues in each chain in the rigid body based on the pLDDT cutoff
@@ -294,25 +302,23 @@ class RigidBodies(_Initialize):
         """ Convert the rigid bodies to a list of residue numbers only.
 
         By default, the rigid body is in the following format:
-        {"A": [("CA", 1), ("CB", 2)]}
+        `{"A": [("CA", 1), ("CB", 2)]}`
         where the key is the chain ID and the value is a list of tuples
         containing the atom name and residue number.
 
         This function converts the rigid body to a list of residue numbers only:
-        {"A": [1, 2]}
+        `{"A": [1, 2]}`
 
         Args:
-
             rigid_bodies (list[dict[str, list[tuple[str, int]]]] | list):
                 List of rigid bodies, where each rigid body is a dictionary
                 with chain IDs as keys and a list of tuples containing
                 atom names and residue numbers as values.
 
         Returns:
-
-            list[dict[str, list[int]]] | list:
-                List of rigid bodies, where each rigid body is a dictionary
-                with chain IDs as keys and a list of residue numbers as values.
+        - **rigid_bodies (list[dict[str, list[int]]] | list)**:
+            List of rigid bodies, where each rigid body is a dictionary
+            with chain IDs as keys and a list of residue numbers as values.
         """
 
         if len(rigid_bodies) == 0:
@@ -350,11 +356,28 @@ class RigidBodies(_Initialize):
     ) -> dict[str, str]:
         """ Extract the protein chain mapping from the provided dictionary.
 
+        For e.g., if the user provides the following mapping:
+        ```python
+        {
+            "ProteinA": "A,B",
+            "ProteinB": "C"
+        }
+        ```
+        The function will return the following dictionary:
+        ```python
+        {
+            "A": "ProteinA",
+            "B": "ProteinA",
+            "C": "ProteinB"
+        }
+        ```
+
         Args:
-            protein_chain_mapping (dict): _description_
+            protein_chain_mapping (dict): Protein-to-chain map.
 
         Returns:
-            _type_: _description_
+        - **protein_chain_map (dict)**:
+            Dictionary with chain IDs as keys and protein names as values.
         """
 
         protein_chain_map = {}
@@ -383,18 +406,24 @@ class RigidBodies(_Initialize):
         rb_assessment: dict | None = None,
         protein_chain_map: dict | None = None,
     ):
-        """ Save the rigid bodies to a file and/or save the structure of the rigid bodies and assess the rigid bodies.
-        - The rigid bodies are saved in a plain text format with the chain IDs and residue numbers.
-        - The structure of the rigid bodies can be saved in PDB or CIF format. For rigid bodies with modifications, it is recommended to use PDB format.
+        """ Save the rigid bodies to a file and/or save the structure of the
+        rigid bodies and assess the rigid bodies.
+
+        Output options:
+        - The rigid bodies are saved in a plain text format with the chain IDs
+          and residue numbers.
+        - The structure of the rigid bodies can be saved in PDB or CIF format.
+          For rigid bodies with modifications, it is recommended to use PDB format.
         - The PAE plot can be saved to visualize the rigid bodies in the PAE matrix.
-        - The rigid bodies can be assessed based on the interface residues, number of contacts, interface PAE and pLDDT, average PAE and plDDT and minimum PAE.
+        - The rigid bodies can be assessed based on the interface residues,
+          number of contacts, interface PAE and pLDDT, average PAE and plDDT and minimum PAE.
         - The assessment is saved in an Excel file.
 
         parameters for rigid body assessment:\n
-        - `as_average`: \n
-        whether to report only the average of assessment metric to the output file. Defaults to False. \n
-        - `symmetric_pae`: \n
-        whether to report a single average PAE value or assymetric PAE value for PAE assessment metrics. Defaults to False. \n
+        - `as_average`:
+        whether to report only the average of assessment metric to the output file. \n
+        - `symmetric_pae`:
+        whether to report a single average PAE value or assymetric PAE value for PAE assessment metrics. \n
 
         Args:
             domains (list): list of rigid bodies, where each rigid body is a dictionary with chain IDs as keys and residue numbers as values.
@@ -405,6 +434,7 @@ class RigidBodies(_Initialize):
             no_plddt_filter_for_structure (bool, optional): Whether to save the structure without filtering based on pLDDT. Defaults to False.
             pae_plot (bool, optional): Whether to save the PAE plot for the rigid bodies. Defaults to False.
             rb_assessment (dict | None, optional): Dictionary containing parameters for rigid body assessment.
+            protein_chain_map (dict | None, optional): Protein-to-chain mapping dictionary.
         """
 
         dir_name = os.path.basename(self.structure_file_path).split(".")[0]

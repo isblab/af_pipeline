@@ -18,36 +18,29 @@ from af_pipeline.tools.misc_tools import (
 # average_token_pae and average_token_plddt supersedes rep_atom_dict
 
 class _Initialize:
+    """ Initialize the parser.
     """
 
-    Attributes:
+    structure_file_path: str
+    """ Path to the structure file (PDB or CIF). """
 
-        structure_file_path (str):
-            Path to the structure file (PDB or CIF).
+    data_file_path: str
+    """ Path to the data file (json or pkl). """
 
-        data_file_path (str):
-            Path to the data file (json or pkl).
+    af_offset: dict
+    """ Dictionary containing the offset for the prediction. """
 
-        af_offset (dict):
-            Dictionary containing the offset for the prediction
-            Defaults to {}.
+    rep_atom_dict: dict
+    """ Dictionary containing the representative atoms for residues. """
 
-        rep_atom_dict (dict):
-            Dictionary containing the representative atoms for residues.
-            Defaults to {}.
+    average_token_pae: bool
+    """ If True, average PAE values for residues with per-atom tokens. """
 
-        average_token_pae (bool):
-            If True, average PAE values for residues with per-atom tokens.
-            Defaults to True.
+    average_token_plddt: bool
+    """ If True, average pLDDT values for residues with per-atom tokens. """
 
-        average_token_plddt (bool):
-            If True, average pLDDT values for residues with per-atom tokens.
-            Defaults to True.
-
-        state (str):
-            State of the parser, either "per_token" or "per_residue".
-            Defaults to "per_token".
-    """
+    state: str
+    """ State of the parser, either "per_token" or "per_residue". """
 
     def __init__(
         self,
@@ -59,36 +52,6 @@ class _Initialize:
         average_token_plddt: bool = True,
         state: str = "per_token",
     ):
-        """ Initialize the _Initialize class.
-
-        Args:
-
-            data_file_path (str):
-                Path to the data file (json or pkl).
-
-            structure_file_path (str):
-                Path to the structure file (PDB or CIF).
-
-            af_offset (dict, optional):
-                Dictionary containing the offset for the prediction.
-                Defaults to {}.
-
-        rep_atom_dict (dict):
-            Dictionary containing the representative atoms for residues.
-            Defaults to {}.
-
-        average_token_pae (bool):
-            If True, average PAE values for residues with per-atom tokens.
-            Defaults to True.
-
-        average_token_plddt (bool):
-            If True, average pLDDT values for residues with per-atom tokens.
-            Defaults to True.
-
-        state (str):
-            State of the parser, either "per_token" or "per_residue".
-            Defaults to "per_token".
-        """
 
         self.structure_file_path = structure_file_path
         self.data_file_path = data_file_path
@@ -259,14 +222,11 @@ class _Initialize:
         lengths_dict = {"A": 100, "B": 50, "total": 150} \n
 
         Args:
-
-            token_chain_ids (list):
-                Token chain IDs.
+            token_chain_ids (list): Token chain IDs.
 
         Returns:
-
-            lengths_dict (Dict):
-                Dictionary containing the chain lengths and total length.
+        - **lengths_dict (Dict)**:
+            Dictionary containing the chain lengths and total length.
 
         Example:
 
@@ -296,23 +256,18 @@ class _Initialize:
         """Get the indices to keep in the PAE matrix.
 
         Args:
-
             token_chain_ids (list):
                 Token chain IDs.
-
             token_res_ids (list):
                 Token residue IDs.
-
             rep_atom_dict (dict, optional):
                 Dictionary with residue names as keys and representative
                 atoms as values. \n
-                If only_representative is True, this dictionary is used to get
-                the representative atom for the specified residue.
+                If `only_representative` is `True`, this dictionary is used to
+                get the representative atom for the specified residue.
 
         Returns:
-
-            idxs_to_keep (dict):
-                Dictionary with indices to keep.
+        - **idxs_to_keep (dict)**: Dictionary with indices to keep.
         """
 
         idxs_to_keep = {}
@@ -341,26 +296,18 @@ class _Initialize:
     ) -> np.ndarray:
         """Update the PAE matrix based on the keyword.
 
-        If average_token_pae is set to True, the repeated residue
+        If `average_token_pae` is set to `True`, the repeated residue
         IDs are removed. \n
         PAE values for the repeated residue IDs are replaced with
         the mean of the PAE values. \n
 
         Args:
-
-            pae (np.ndarray):
-                PAE matrix.
-
-            token_res_ids (list):
-                Token residue IDs.
-
-            token_chain_ids (list):
-                Token chain IDs.
+            pae (np.ndarray): PAE matrix.
+            token_res_ids (list): Token residue IDs.
+            token_chain_ids (list): Token chain IDs.
 
         Returns:
-
-            pae (np.ndarray):
-                Updated PAE matrix.
+            - **pae (np.ndarray)**: Updated PAE matrix.
         """
 
         if token_chain_ids is None or token_res_ids is None:
@@ -399,26 +346,18 @@ class _Initialize:
     ) -> np.ndarray | None:
         """Update the contact probabilities matrix based on the keyword.
 
-        If average_token_pae is set to True, the repeated residue
+        If `average_token_pae` is set to `True`, the repeated residue
         IDs are removed. \n
         Contact probabilities for the repeated residue IDs are replaced with
         the mean of the contact probabilities. \n
 
         Args:
-
-            contact_probs_mat (np.ndarray):
-                Contact probabilities matrix.
-
-            token_chain_ids (list):
-                Token chain IDs.
-
-            token_res_ids (list):
-                Token residue IDs.
+            contact_probs_mat (np.ndarray): Contact probabilities matrix.
+            token_chain_ids (list): Token chain IDs.
+            token_res_ids (list): Token residue IDs.
 
         Returns:
-
-            contact_probs_mat (np.ndarray):
-                Updated contact probabilities matrix.
+            - **contact_probs_mat (np.ndarray)**: Updated contact probabilities matrix.
         """
 
         if token_chain_ids is None or token_res_ids is None:
@@ -461,34 +400,28 @@ class _Initialize:
 
         Given the PAE matrix, obtain minimum PAE values for each residue. \n
 
-        If `return_type==dict`, a dictionary containing the min PAE values for
+        If `return_type=="dict"`, a dictionary containing the min PAE values for
         each chain is returned. \n
         If `return_type=="array"` or `return_type=="list"`, a numpy array or a
         list containing the min PAE values for all residues is returned
         respectively. \n
 
         Args:
-
             pae_matrix (np.ndarray):
                 Average PAE matrix.
-
             lengths_dict (Dict):
                 Dictionary containing the chain lengths.
-
             along_axis (int | None):
                 Axis along which to get the min PAE values.
                 If None, average PAE is calculated and along_axis is set to 1.
-
             return_type (str):
                 Whether to return min_pae as dict or list or array.
 
         Returns:
-
-            min_pae_dict (Dict):
-                Dictionary containing the min PAE values for each chain.
-
-            min_pae (np.ndarray):
-                Minimum PAE values for all residues in a 2D numpy array.
+        - **min_pae_dict (Dict)**:
+            Dictionary containing the min PAE values for each chain.
+        - **min_pae (np.ndarray)**:
+            Minimum PAE values for all residues in a 2D numpy array.
 
         Examples:
 
