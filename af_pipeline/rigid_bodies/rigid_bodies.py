@@ -8,6 +8,7 @@ import copy
 import warnings
 import time
 import numpy as np
+from typing import Dict, List
 from collections import defaultdict
 from Bio.PDB.Structure import Structure
 from af_pipeline._initialize import _Initialize
@@ -24,8 +25,9 @@ from af_pipeline.rigid_bodies.output_rigid_bodies import (
     save_rigid_bodies_txt,
     save_rigid_bodies_json
 )
-from af_pipeline.tools.misc_tools import (
+from af_pipeline.utils.misc_utils import (
     fill_up_the_blanks,
+    extract_protein_chain_mapping,
 )
 
 class RigidBodies(_Initialize):
@@ -52,8 +54,8 @@ class RigidBodies(_Initialize):
     average_token_plddt: bool
     """ Whether to average the pLDDT in case of per atom tokens."""
 
-    state: str
-    """ State of the instance. Can be "per_token" or "per_residue"."""
+    metric_level: str
+    """ Metric level of the instance. Can be "per_token" or "representative_token"."""
 
     library: str
     """ Library to use for graph-based community detection.
@@ -86,7 +88,7 @@ class RigidBodies(_Initialize):
         rep_atom_dict: dict = {},
         average_token_pae: bool = True,
         average_token_plddt: bool = True,
-        state: str = "per_token",
+        metric_level: str = "per_token",
     ):
 
         super().__init__(
@@ -96,7 +98,7 @@ class RigidBodies(_Initialize):
             rep_atom_dict=rep_atom_dict,
             average_token_pae=average_token_pae,
             average_token_plddt=average_token_plddt,
-            state=state,
+            metric_level=metric_level,
         )
 
         self.library = "networkx"
@@ -117,9 +119,16 @@ class RigidBodies(_Initialize):
         """Extract Rigid bodies from a PAE file.
 
         Three implementations are available:
-            1. igraph based
-            2. networkx based
-            3. label_propagation based
+        ```python
+        - igraph # (community detection using Leiden algorithm)
+        - networkx # (community detection using Clauset-Newman-Moore greedy modularity maximization)
+        - label_propagation # (community detection using fast label propagation algorithm)
+        ```
+
+        Based on the PAE matrix, a graph is constructed where the nodes are
+        the residues/tokens and the edges are formed based on the PAE cutoff.
+        Communities are detected using the specified implementation.
+        Each community is considered as a pseudo-domain.
 
         Args:
             num_res (int): Minimum number of residues in a rigid body
@@ -127,11 +136,10 @@ class RigidBodies(_Initialize):
             plddt_filter (bool): Filter the residues based on the pLDDT cutoff
 
         Returns:
-            `rigid_bodies (list)`: List of extracted rigid bodies
+        - **rigid_bodies (list)**: List of extracted rigid bodies
         """
 
         print("Extracting rigid bodies...")
-        start_time = time.time()
 
         pae_matrix = self.pae
 
@@ -171,152 +179,205 @@ class RigidBodies(_Initialize):
         # each list contains token indices in a domain
         rigid_bodies = []
 
-        for rb in pseudo_domains:
+        for pseudo_domain in pseudo_domains:
 
-            # rb_dict is a dictionary of rigid bodies
+            # domain_dict is a dictionary of rigid bodies
             # each rigid body is represented as a dictionary with chain_id as
             # the key and a list of residue numbers as the value
-            rb_dict = self.rb_to_rb_dict(rb=rb)
+            domain_dict = self.convert_domain_to_dict(pseudo_domain=pseudo_domain)
 
             # removing residues with pLDDT score below the cutoff
+            # different cutoffs can be used for IDR and non-IDR chains
             if plddt_filter:
-                rb_dict = self.filter_by_plddt(rb_dict=rb_dict)
+                rb_dict = self.filter_by_plddt(domain_dict=domain_dict)
+            else:
+                rb_dict = domain_dict
 
-            rigid_bodies.append(rb_dict)
+            # Remove domains with number of proteins less than certain size
+            # The size is determind by `num_res` or `num_proteins`
+            rb_dict = self.filter_by_domain_size(
+                rb_dict=rb_dict,
+                num_res=num_res,
+                num_proteins=num_proteins,
+            )
 
-        # Remove domains with number of proteins less than `num_proteins`
-        rigid_bodies = [
-            rb_dict
-            for rb_dict in rigid_bodies
-            if len(rb_dict) >= num_proteins
-        ]
-
-        # Remove domains with number of residues less than `num_res`
-        rigid_bodies = [
-            rb_dict
-            for rb_dict in rigid_bodies
-            if sum([len(res_list) for res_list in rb_dict.values()]) >= num_res
-        ]
-
-        end_time = time.time()
-
-        print(
-            f"Done extracting rigid bodies in \
-            {end_time - start_time:.2f} seconds"
-        )
+            if len(rb_dict) > 0:
+                rigid_bodies.append(rb_dict)
 
         return rigid_bodies
 
-    def rb_to_rb_dict(
+    def convert_domain_to_dict(
         self,
-        rb: list
+        pseudo_domain: list
     ) -> dict[str, list[tuple[str, int]]]:
-        """Convert the domain list to a dictionary of rigid bodies.
+        """Convert the pseudo-domain list to a dictionary format.
+
+        Example:
+        ```python
+        pseudo_domain = [0, 1, 5, 6, 8] # these represent token indices
+        ```
+        will be converted to:
+        ```python
+        domain_dict = {
+            "A": [("CA", 1), ("CB", 2)], # for token indices 0, 1
+            "B": [("CA", 1), ("CB", 2), ("CB", 4)] # for token indices 5, 6, 8
+        }
+        ```
+        Where, the tuple is `(atom_name, token_num)`.\n
+        The `atom_name` corresponds to the representative atom for the token.\n
+        The `token_num` corresponds to the token number within the chain,
+        In case of protein, it corresponds to the residue number as per the
+        UniProt sequence (provided the `offset`) in case of protein.
+
+        *(See :py:class:`af_pipeline.tools.structure_tools.RenumberResidues` to
+        check how the residue numbering is done based on the `offset`.)*
 
         Args:
-            rb (list): List of token indices in a rigid body.
+            pseudo_domain (list): Token indices in a rigid body.
 
         Returns:
-            `rb_dict (dict)`:
-                Dictionary of rigid bodies with chain IDs as keys and
-                a list of tuples containing atom names and residue numbers
-                as values.
+        - **domain_dict (dict)**:
+            `{chain_id: [(atom_name, token_num), ...]}`
         """
 
-        rb_dict = defaultdict(list)
+        domain_dict = defaultdict(list)
 
-        for token_idx in rb:
+        for token_idx in pseudo_domain:
 
-            res_num = self.idx_to_num[token_idx].get("res_num")
+            token_num = self.idx_to_num[token_idx].get("token_num")
             chain_id = self.idx_to_num[token_idx].get("chain_id")
             atom_name = self.idx_to_num[token_idx].get("atom_name")
 
-            if chain_id not in rb_dict:
-                rb_dict[chain_id] = [(atom_name, res_num)]
+            if chain_id not in domain_dict:
+                domain_dict[chain_id] = [(atom_name, token_num)]
             else:
-                rb_dict[chain_id].append((atom_name, res_num))
+                domain_dict[chain_id].append((atom_name, token_num))
 
-        return rb_dict
+        return domain_dict
 
     def filter_by_plddt(
         self,
-        rb_dict: dict,
+        domain_dict: dict,
     ) -> dict[str, list[tuple[str, int]]]:
-        """Filter the residues in the rigid bodies based on the pLDDT cutoff.
+        """Filter the residues in the pseudo-domains based on the pLDDT cutoff.
 
-        If the pLDDT score of a residue is less than the cutoff, it is removed
-        from the rigid body.
+        Only keep the residues with pLDDT >= cutoff in the `domain_dict`.
+        Different cutoffs can be used for IDR and non-IDR chains.\n
+        *(See :py:attr:`plddt_cutoff_idr` and :py:attr:`plddt_cutoff`.)*
 
         Args:
-            rb_dict (dict): Dictionary of rigid bodies
+            domain_dict (dict): Dictionary of pseudo-domains
 
         Returns:
         - **rb_dict (dict)**: pLDDT filtered dictionary of rigid bodies.
         """
 
-        # Filter the residues in each chain in the rigid body based on the pLDDT cutoff
-        for rb_ch_id, rb_ch_res_num_list in rb_dict.items():
+        rb_dict = {}
 
-            confident_residues = []
+        # Filter each chain in the pseudo-domain based on the pLDDT cutoff
+        for chain_id, atom_name_token_list in domain_dict.items():
 
-            plddt_res_num_arr = np.array([
-                self.num_to_idx[rb_ch_id][res_num][atom_name]
-                for atom_name, res_num in rb_ch_res_num_list
+            plddt_cutoff = self.plddt_cutoff
+
+            # pLDDT is indexed by token indices
+            chain_token_idxs = np.array([
+                self.num_to_idx[chain_id][token_num][atom_name]
+                for atom_name, token_num in atom_name_token_list
             ])
 
-            if rb_ch_id in self.idr_chains:
-                tf_plddt_filtered = np.array(self.token_plddts)[
-                    plddt_res_num_arr
-                ] >= self.plddt_cutoff_idr
-            else:
-                tf_plddt_filtered = np.array(self.token_plddts)[
-                    plddt_res_num_arr
-                ] >= self.plddt_cutoff
+            if chain_id in self.idr_chains:
+                plddt_cutoff = self.plddt_cutoff_idr
 
-            confident_residues = plddt_res_num_arr[tf_plddt_filtered]
-            confident_residues = [
-                (self.idx_to_num[token_idx].get("atom_name"),
-                 self.idx_to_num[token_idx].get("res_num"))
-                for token_idx in confident_residues
+            chain_plddt_mask = np.array(self.token_plddts)[
+                chain_token_idxs
+            ] >= plddt_cutoff
+
+            confident_tokens = [
+                (
+                    self.idx_to_num[token_idx].get("atom_name"),
+                    self.idx_to_num[token_idx].get("token_num")
+                )
+                for token_idx in chain_token_idxs[chain_plddt_mask]
             ]
 
             # Update the rigid body dictionary with the confident residues
-            rb_dict[rb_ch_id] = confident_residues
+            domain_dict[chain_id] = confident_tokens
 
-        # Remove chains which have no confident residues
-        empty_chains = []
+        for chain_id, confident_tokens in domain_dict.items():
 
-        for chain_id, confident_residues in rb_dict.items():
-            if len(confident_residues) == 0:
-                empty_chains.append(chain_id)
+            # Remove chains which have no confident residues
+            if len(confident_tokens) == 0:
+                continue
 
-        for chain_id in empty_chains:
-            del rb_dict[chain_id]
+            rb_dict[chain_id] = confident_tokens
+
+        return rb_dict
+
+    def filter_by_domain_size(
+        self,
+        rb_dict: dict,
+        num_res: int,
+        num_proteins: int,
+    ) -> dict:
+        """Filter the domain based on the size of the domain.
+
+        Only keep the domain if it exceeds certain size.
+        The size is determined by `num_res` or `num_proteins`.
+        ```python
+        - num_res # Minimum number of residues in a rigid body.
+        - num_proteins # Minimum number of proteins in a rigid body.
+        ```
+
+        Args:
+            rb_dict (dict): Dictionary of a rigid body
+            num_res (int): Minimum number of residues in a rigid body
+            num_proteins (int): Minimum number of proteins in a rigid body
+
+        Returns:
+        - **rb_dict (dict)**: Filtered dictionary of a rigid body
+        """
+
+        if len(rb_dict) < num_proteins:
+            return {}
+
+        # total_residues = sum([len(res_list) for res_list in rb_dict.values()])
+
+        total_residues = 0
+        for chain_id, chain_atom_res_list in rb_dict.items():
+            chain_res_set = set()
+            for atom_name, res_num in chain_atom_res_list:
+                chain_res_set.add(res_num)
+            total_residues += len(chain_res_set)
+
+        if total_residues < num_res:
+            return {}
 
         return rb_dict
 
     @staticmethod
     def keep_residue_numbers_only(
-        rigid_bodies: list[dict[str, list[tuple[str, int]]]] | list
-    ) -> list[dict[str, list[int]]] | list:
+        rigid_bodies: list[dict[str, list[tuple[str, int]]]]
+    ) -> list[dict[str, list[int]]]:
         """ Convert the rigid bodies to a list of residue numbers only.
 
-        By default, the rigid body is in the following format:
-        `{"A": [("CA", 1), ("CB", 2)]}`
-        where the key is the chain ID and the value is a list of tuples
-        containing the atom name and residue number.
+        By default, the rigid body is in the following format.
 
-        This function converts the rigid body to a list of residue numbers only:
-        `{"A": [1, 2]}`
+            {"A": [("CA", 1), ("CB", 2)]}
+
+        where the key is the chain ID and the value is a list of tuples
+        containing the `atom_name` and `res_num`.
+        This function converts the rigid body to the following format.
+
+            {"A": [1, 2]}
 
         Args:
-            rigid_bodies (list[dict[str, list[tuple[str, int]]]] | list):
+            rigid_bodies (list):
                 List of rigid bodies, where each rigid body is a dictionary
                 with chain IDs as keys and a list of tuples containing
                 atom names and residue numbers as values.
 
         Returns:
-        - **rigid_bodies (list[dict[str, list[int]]] | list)**:
+        - **rigid_bodies (list)**:
             List of rigid bodies, where each rigid body is a dictionary
             with chain IDs as keys and a list of residue numbers as values.
         """
@@ -335,64 +396,19 @@ class RigidBodies(_Initialize):
         for idx, rb_dict in enumerate(rigid_bodies):
             # Convert the rigid body dictionary to a list of residue numbers
 
-            for chain_id, res_num_list in rb_dict.items():
+            for chain_id, chain_res_num_list in rb_dict.items():
 
-                rb_list = []
-                for atom_name, res_num in res_num_list:
-                    rb_list.append(res_num)
+                only_res_num_list = []
+                for atom_name, res_num in chain_res_num_list:
+                    only_res_num_list.append(res_num)
 
-                # Sort the list of residue numbers
-                rb_list.sort()
+                only_res_num_list.sort()
 
-                rb_dict[chain_id] = list(set(rb_list))
+                rb_dict[chain_id] = list(set(only_res_num_list))
             # Update the rigid body dictionary with the sorted list
             rigid_bodies[idx] = rb_dict
 
         return rigid_bodies
-
-    def extract_protein_chain_mapping(
-        self,
-        protein_chain_mapping: dict | None = None
-    ) -> dict[str, str]:
-        """ Extract the protein chain mapping from the provided dictionary.
-
-        For e.g., if the user provides the following mapping:
-        ```python
-        {
-            "ProteinA": "A,B",
-            "ProteinB": "C"
-        }
-        ```
-        The function will return the following dictionary:
-        ```python
-        {
-            "A": "ProteinA",
-            "B": "ProteinA",
-            "C": "ProteinB"
-        }
-        ```
-
-        Args:
-            protein_chain_mapping (dict): Protein-to-chain map.
-
-        Returns:
-        - **protein_chain_map (dict)**:
-            Dictionary with chain IDs as keys and protein names as values.
-        """
-
-        protein_chain_map = {}
-
-        if protein_chain_mapping is None:
-            return protein_chain_map
-
-        for p_c_maps in protein_chain_mapping:
-            protein_name, chain_ids = p_c_maps.split(":")
-            chain_ids = chain_ids.split(",")
-            for chain_id in chain_ids:
-                if chain_id not in protein_chain_map:
-                    protein_chain_map[chain_id] = protein_name
-
-        return protein_chain_map
 
     def save_rigid_bodies(
         self,
@@ -445,7 +461,7 @@ class RigidBodies(_Initialize):
             os.path.basename(self.structure_file_path).split(".")[0] + "_rigid_bodies"
         )
 
-        protein_chain_map = self.extract_protein_chain_mapping(
+        protein_chain_map = extract_protein_chain_mapping(
             protein_chain_mapping=protein_chain_map
         )
 
