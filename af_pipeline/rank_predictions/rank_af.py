@@ -34,7 +34,7 @@ import os
 import warnings
 from collections import defaultdict
 from af_pipeline.utils.file_utils import read_json
-from af_pipeline.tools.misc_tools import chain_id_gen
+from af_pipeline.utils.misc_utils import chain_id_gen
 
 def get_directory_level(pred_dir:str):
     """ Get the level of the prediction directory

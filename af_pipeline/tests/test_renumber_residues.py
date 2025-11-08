@@ -1,5 +1,5 @@
 from af_pipeline.tools.structure_tools import RenumberResidues
-from af_pipeline.parser1.structure_parser import StructureParser
+from af_pipeline.parser1.structure_parser1 import StructureParser
 import pytest
 
 struct_file1 = "./tests/data/af_predictions/af3/dp1_2_1021to1950_4/fold_dp1_2_1021to1950_4_model_0.cif"
@@ -74,12 +74,12 @@ def test_residue_map():
         token_res_ids=token_res_ids,
     )
     expected_idx_to_num = {
-        0: {"chain_id": "A", "res_num": 1021},
-        1: {"chain_id": "A", "res_num": 1021},
-        2: {"chain_id": "A", "res_num": 1022},
-        3: {"chain_id": "B", "res_num": 1},
-        4: {"chain_id": "B", "res_num": 1},
-        5: {"chain_id": "C", "res_num": 1},
+        0: {"chain_id": "A", "token_num": 1021},
+        1: {"chain_id": "A", "token_num": 1021},
+        2: {"chain_id": "A", "token_num": 1022},
+        3: {"chain_id": "B", "token_num": 1},
+        4: {"chain_id": "B", "token_num": 1},
+        5: {"chain_id": "C", "token_num": 1},
     }
     expected_num_to_idx = {
         "A": {1021: [0, 1], 1022:[2]},

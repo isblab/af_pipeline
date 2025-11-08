@@ -58,6 +58,14 @@ def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
         or residue.xtra.get("entityType") is None
     )
 
+    if isinstance(condition, bool) is False:
+        raise TypeError(
+            f"""
+
+            Expected a boolean value for condition, got {type(condition)}
+            """
+        )
+
     return condition
 
 def save_structure_obj(
@@ -567,27 +575,27 @@ class RenumberResidues:
         idx_to_num = {}
         num_to_idx = defaultdict(dict)
 
-        for token_idx, (chain_id, res_num, atom_name) in enumerate(
+        for token_idx, (chain_id, token_num, atom_name) in enumerate(
             zip(token_chain_ids, token_res_ids, token_atom_names)
         ):
 
-            res_num = self.renumber_chain_res_num(
-                chain_res_num=res_num,
+            token_num = self.renumber_chain_res_num(
+                chain_res_num=token_num,
                 chain_id=chain_id,
             )
 
             idx_to_num[token_idx] = {
                 "chain_id": chain_id,
-                "res_num": res_num,
+                "token_num": token_num,
                 "atom_name": atom_name,
             }
 
-            if res_num not in num_to_idx[chain_id]:
-                num_to_idx[chain_id][res_num] = {
+            if token_num not in num_to_idx[chain_id]:
+                num_to_idx[chain_id][token_num] = {
                     atom_name: token_idx
                 }
             else:
-                num_to_idx[chain_id][res_num][atom_name] = token_idx
+                num_to_idx[chain_id][token_num][atom_name] = token_idx
 
         return idx_to_num, num_to_idx
 

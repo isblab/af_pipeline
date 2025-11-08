@@ -27,7 +27,7 @@ import random
 import warnings
 from typing import List, Dict, Any, Final, Tuple
 
-from af_pipeline.tools.misc_tools import chain_id_gen
+from af_pipeline.utils.misc_utils import chain_id_gen
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES, MAX_TEMPLATE_DATE,
     JOB_LIMIT_PER_JSON

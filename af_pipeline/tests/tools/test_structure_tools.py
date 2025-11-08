@@ -57,14 +57,14 @@ def test_residue_map(
         token_atom_names=token_atom_names,
     )
     expected_idx_to_num = {
-        0: {"chain_id": "A", "res_num": 1, "atom_name": "CB"},
-        1: {"chain_id": "A", "res_num": 2, "atom_name": "CB"},
-        2: {"chain_id": "A", "res_num": 3, "atom_name": "O"},
-        3: {"chain_id": "A", "res_num": 3, "atom_name": "CB"},
-        4: {"chain_id": "A", "res_num": 4, "atom_name": "CB"},
-        5: {"chain_id": "B", "res_num": 1, "atom_name": "O"},
-        6: {"chain_id": "B", "res_num": 2, "atom_name": "N"},
-        7: {"chain_id": "B", "res_num": 3, "atom_name": "C"},
+        0: {"chain_id": "A", "token_num": 1, "atom_name": "CB"},
+        1: {"chain_id": "A", "token_num": 2, "atom_name": "CB"},
+        2: {"chain_id": "A", "token_num": 3, "atom_name": "O"},
+        3: {"chain_id": "A", "token_num": 3, "atom_name": "CB"},
+        4: {"chain_id": "A", "token_num": 4, "atom_name": "CB"},
+        5: {"chain_id": "B", "token_num": 1, "atom_name": "O"},
+        6: {"chain_id": "B", "token_num": 2, "atom_name": "N"},
+        7: {"chain_id": "B", "token_num": 3, "atom_name": "C"},
     }
     expected_num_to_idx = {
         "A": {
@@ -88,14 +88,14 @@ def test_residue_map(
         token_atom_names=token_atom_names,
     )
     expected_idx_to_num = {
-        0: {"chain_id": "A", "res_num": 10, "atom_name": "CB"},
-        1: {"chain_id": "A", "res_num": 11, "atom_name": "CB"},
-        2: {"chain_id": "A", "res_num": 12, "atom_name": "O"},
-        3: {"chain_id": "A", "res_num": 12, "atom_name": "CB"},
-        4: {"chain_id": "A", "res_num": 13, "atom_name": "CB"},
-        5: {"chain_id": "B", "res_num": 3, "atom_name": "O"},
-        6: {"chain_id": "B", "res_num": 4, "atom_name": "N"},
-        7: {"chain_id": "B", "res_num": 5, "atom_name": "C"},
+        0: {"chain_id": "A", "token_num": 10, "atom_name": "CB"},
+        1: {"chain_id": "A", "token_num": 11, "atom_name": "CB"},
+        2: {"chain_id": "A", "token_num": 12, "atom_name": "O"},
+        3: {"chain_id": "A", "token_num": 12, "atom_name": "CB"},
+        4: {"chain_id": "A", "token_num": 13, "atom_name": "CB"},
+        5: {"chain_id": "B", "token_num": 3, "atom_name": "O"},
+        6: {"chain_id": "B", "token_num": 4, "atom_name": "N"},
+        7: {"chain_id": "B", "token_num": 5, "atom_name": "C"},
     }
     expected_num_to_idx = {
         "A": {

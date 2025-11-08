@@ -1,6 +1,6 @@
 import json
 import os
-from af_pipeline.tools.misc_tools import get_key_from_res_range
+from af_pipeline.utils.misc_utils import get_key_from_res_range
 
 def save_rigid_bodies_txt(
     output_dir: str,
