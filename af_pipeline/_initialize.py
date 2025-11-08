@@ -5,7 +5,7 @@ from Bio.PDB.Structure import Structure
 from af_pipeline.parser1.structure_parser1 import StructureParser
 from af_pipeline.parser1.data_parser import DataParser
 from af_pipeline.tools.structure_tools import RenumberResidues
-from af_pipeline.tools.misc_tools import (
+from af_pipeline.utils.misc_utils import (
     get_duplicate_indices,
     update_matrix_row_col,
     symmetrize_matrix,
@@ -14,7 +14,7 @@ from af_pipeline.tools.misc_tools import (
 
 #TODO: Put this at appropriate place
 # rep_atom_dict is "res_name": "rep_atom_id"
-# average_token_pae will only take effect if state is "per_residue"
+# average_token_pae will only take effect if metric_level is "representative_token"
 # average_token_pae and average_token_plddt supersedes rep_atom_dict
 
 class _Initialize:
@@ -39,8 +39,8 @@ class _Initialize:
     average_token_plddt: bool
     """ If True, average pLDDT values for residues with per-atom tokens. """
 
-    state: str
-    """ State of the parser, either "per_token" or "per_residue". """
+    metric_level: str
+    """ Metric level for the parser, either "per_token" or "representative_token". """
 
     def __init__(
         self,
@@ -50,7 +50,7 @@ class _Initialize:
         rep_atom_dict: dict = {},
         average_token_pae: bool = True,
         average_token_plddt: bool = True,
-        state: str = "per_token",
+        metric_level: str = "per_token",
     ):
 
         self.structure_file_path = structure_file_path
@@ -59,7 +59,7 @@ class _Initialize:
         self.rep_atom_dict = rep_atom_dict
         self.average_token_pae = average_token_pae
         self.average_token_plddt = average_token_plddt
-        self.state = state
+        self.metric_level = metric_level
         self.structure = None
 
         self.structure_parser = StructureParser(
@@ -71,8 +71,10 @@ class _Initialize:
             data_file_path=self.data_file_path,
         )
 
-        self.get_attributes(state=self.state)
+        # Get attributes based on metric_level
+        self.get_attributes(metric_level=self.metric_level)
 
+        # Following attributes are not metric_level-specific, hence outside get_attributes
         self.avg_pae = symmetrize_matrix(matrix=self.pae)
 
         self.lengths_dict = self.get_chain_lengths(
@@ -89,14 +91,14 @@ class _Initialize:
             token_atom_names=self.token_atom_names,
         )
 
-    def get_attributes(self, state: str) -> None:
-        """ Get the attributes of the class based on the state.
+    def get_attributes(self, metric_level: str) -> None:
+        """ Get the attributes of the class based on the metric_level.
 
-        ! Add description of the state here.
+        ! Add description of the metric_level here.
 
         Args:
-            state (str):
-                State of the parser, either "per_token" or "per_residue".
+            metric_level (str):
+                Metric level for the parser, either "per_token" or "representative_token".
         """
 
         data = self.data_parser.get_data_dict()
@@ -112,12 +114,12 @@ class _Initialize:
             raise TypeError(
                 f"""
 
-                Structure should be a Bio.PDB.Structure.Structure object.
+                Structure should be a `Bio.PDB.Structure.Structure` object.
                 Got {type(self.structure)} instead. \n
                 """
             )
 
-        if state == "per_token":
+        if metric_level == "per_token":
 
             self.only_representative = False
 
@@ -152,7 +154,7 @@ class _Initialize:
                 only_representative=self.only_representative,
             )
 
-        elif state == "per_residue":
+        elif metric_level == "representative_token":
 
             self.only_representative = True
 
@@ -206,8 +208,8 @@ class _Initialize:
             raise Exception(
                 f"""
 
-                State should be either 'per_token' or 'per_residue'.
-                Got '{state}' instead. \n
+                Metric level should be either 'per_token' or 'representative_token'.
+                Got '{metric_level}' instead. \n
                 """
             )
 
