@@ -1,55 +1,60 @@
+"""
+ColabFold input file creator
+============================
+- Create input `FASTA` files for ColabFold jobs.
+- For ColabFold, only `proteinChain` entities are supported.
+- Since most of the code is similar to AlphaFold2 input file creator,
+  this class inherits from `af_pipeline.af_input.alphafold2.AlphaFold2`.
+"""
 
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from typing import Any, Dict, List, Tuple
 
 class ColabFold(AlphaFold2):
-    """Class to handle the creation of ColabFold input files
+    """Class to create FASTA files for ColabFold jobs."""
 
-    Attributes:
+    input_dict: Dict[str, List[Dict[str, Any]]]
+    """Dictionary with:<br />
 
-        input_yml (dict):
-            Input dictionary containing job cycles and jobs.
-            Usually loaded from a YAML file.
+    - `key` -> `job_cycle_id` <br />
+      Unique string identifier for the job cycle.<br />
 
-        protein_sequences (dict):
-            Dictionary containing protein sequences.
-            Format: {header: sequence}
+    - `val` -> `job_sets_list` <br />
+      List of `AFJobSet.job_set_info`s, each of which specifies
+      the entities, model seeds, job name, etc."""
 
-        entities_map (dict):
-            Mapping of entity headers to their corresponding sequences.
-            Format: {protein: header}
+    protein_sequences: Dict[str, str] | None
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
     """
+
+    entities_map: Dict[str, str]
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     def __init__(
         self,
-        input_yml: Dict[str, List[Dict[str, Any]]],
+        input_dict: Dict[str, List[Dict[str, Any]]],
         protein_sequences: Dict[str, str],
         entities_map: Dict[str, str] = {},
     ):
-        """ Initialize the ColabFold class.
-
-        Args:
-
-            input_yml (dict):
-                Input dictionary containing job cycles and jobs.
-                Usually loaded from a YAML file.
-
-            protein_sequences (dict):
-                Dictionary containing protein sequences.
-                Format: {header: sequence}
-
-            entities_map (dict):
-                Mapping of entity headers to their corresponding sequences.
-                Format: {protein: header}
-                Defaults to {}.
-        """
 
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
-        self.input_yml = input_yml
+        self.input_dict = input_dict
 
         super().__init__(
-            input_yml=input_yml,
+            input_dict=input_dict,
             protein_sequences=protein_sequences,
             entities_map=entities_map,
         )
@@ -59,19 +64,29 @@ class ColabFold(AlphaFold2):
     ) -> Dict[str, List[Tuple[Dict[str, str], str]]]:
         """Create job cycles for ColabFold
 
-        each job cycle is a list of jobs. \n
-        each job is a tuple of `sequences_to_add` and `job_name`. \n
-        `sequences_to_add` is a dictionary of fasta sequences {header: sequence} \n
+        Convert the input information into the format required by
+        the ColabFold.
+
+        Each job within a cycle is a tuple -> (`fasta_dict`, `job_name`)<br />
+        where, `fasta_dict` = `{job_name: all_sequence_str}`.
+
+        `all_sequence_str` is concatenation of all sequences in the job
+        joined by ":".
 
         Returns:
 
-            job_cycles (dict):
-                Dictionary of job cycles {job_cycle: job_list}
+        - **job_cycles (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_list` <br />
         """
 
         job_cycles = {}
 
-        for job_cycle, jobs_info in self.input_yml.items():
+        for job_cycle, jobs_info in self.input_dict.items():
 
             job_list = []
 

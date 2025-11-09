@@ -2,23 +2,31 @@
 AlphaFold server input file creator
 ===================================
 - Create input `JSON` files for AlphaFold server (https://alphafoldserver.com)
-- Note the following hierarchy:
+
+<details>
+    <summary>
+        <b>Note to the maintainer:</b>
+    </summary>
+- Keep in mind the following hierarchy:
 ```
     job_cycle
     └── job_sets_list or job_list
-        └── job (seeded from job_set)
+        └── job (based on model_seeds)
             └── entities (list of AFSequence)
 ```
-- A `job_cycle` contains a list of job sets.
-- Each `job_set` is converted to multiple `jobs` based on the `model_seeds`.
-- Each `job` contains a list of entities.
+- A `job_cycle` contains
+    - a list of job sets (in the config file) OR
+    - a list of jobs (in the output `job_cycles` dictionary).
+- `job_set` --> `job` conversion is based on the `model_seeds`.
+- Each `job` or `job_set` contains a list of entities.
 - An entity can be of one of the following types:
     - `proteinChain`
     - `dnaSequence`
     - `rnaSequence`
     - `ligand`
     - `ion`
-- Each entity is an instance of :py:class:`AFSequence`.
+- Each entity in the `job` is an instance of :py:class:`AFSequence`.
+</details>
 """
 
 import os
@@ -34,25 +42,51 @@ from af_pipeline.constants.af_constants import (
 )
 
 SEED_MULTIPLIER: Final[int] = 100
+""" Multiplier to generate model seeds."""
+
 random.seed(47)  # for reproducibility in model seed generation
 
 class AlphaFoldServer:
-    """Class to handle the creation of AlphaFold server input JSON files"""
+    """Class to help create JSON files for AlphaFold server jobs."""
 
     input_dict: Dict[str, List[Dict[str, Any]]]
-    """`{cycle_id : job_sets_list}`.\n
-    `cycle_id` is a string identifier for the job cycle.\n
-    `job_sets_list` is a list of `job_set`."""
+    """Dictionary with:<br />
+
+    - `key` -> `job_cycle_id` <br />
+      Unique string identifier for the job cycle.<br />
+
+    - `val` -> `job_sets_list` <br />
+      List of `AFJobSet.job_set_info`s, each of which specifies
+      the entities, model seeds, job name, etc."""
 
     protein_sequences: Dict[str, str] | None
-    """`{uniprot_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
+    """
 
     nucleic_acid_sequences: Dict[str, str] | None
-    """`{nucleic_acid_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+      `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Nucleotide sequence of the nucleic acid.
+    """
 
     entities_map: Dict[str, str]
-    """`{entity_name: identifier}`.
-    `identifier` can be `uniprot_id` or `nucleic_acid_id`."""
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     def __init__(
         self,
@@ -68,14 +102,45 @@ class AlphaFoldServer:
         self.input_dict = input_dict
 
     def create_af3_job_cycles(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Create job cycles
+        """Create job cycles for AlphaFold server.
 
-        Each `job_cycle` is a list of jobs with each job being a dictionary.\n
-        See :py:mod:`AFCycle.seed_jobs` or :py:mod:`AFJobSet.create_job_set`
-        for the job dictionary format
+        Convert the input information into the dictionary format required by
+        the AlphaFold server.
+
+        <a href="https://github.com/google-deepmind/alphafold/blob/main/server/example.json">
+        Check example JSON file.</a>
 
         Returns:
-            `job_cycles (dict)`:`{job_cycle: job_list}`.
+
+        - **job_cycles (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_list` <br />
+                Each `job_list` contains the jobs in their final form.
+
+        - **job_set_names (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_set_names` <br />
+                Template names for each job set in the cycle.
+                (not including the "modelSeeds" information.)
+
+        - **af_offsets (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_set_af_offsets` <br />
+                Chain-wise offset for each job set in the cycle.<br />
+                It is defined as `[start, end]` positions of the chain.<br />
+                Only useful when the entities are fragments of the full sequences.
         """
 
         job_cycles = {}
@@ -99,22 +164,24 @@ class AlphaFoldServer:
 
         return job_cycles, job_set_names, af_offsets
 
+    @staticmethod
     def write_to_json(
-        self,
         sets_of_n_jobs: List[List[Dict[str, Any]]],
         file_name: str,
-        output_dir: str = "./output/af_input",
+        output_dir: str,
     ):
-        """Write the sets of n jobs to json files
+        """Write the sets of "n" jobs to `JSON` files.
 
-        Args:
-            sets_of_n_jobs (list):
-                List of lists, each list containing n jobs
-            file_name (str):
-                Name of the file
-            output_dir (str, optional):
-                Directory to save the job_files.
-                Defaults to "./output/af_input".
+        Arguments:
+
+        - **sets_of_n_jobs (list)**:<br />
+            List of lists, each list containing n jobs.
+
+        - **file_name (str)**:<br />
+            Name of the file.
+
+        - **output_dir (str, optional)**:<br />
+            Directory to save the `JSON` files.
         """
 
         os.makedirs(output_dir, exist_ok=True)
@@ -127,25 +194,48 @@ class AlphaFoldServer:
 
             print(f"{len(job)} jobs written for {file_name}_set_{i}")
 
+    @staticmethod
     def write_job_files(
-        self,
         job_cycles: Dict[str, List[Dict[str, Any]]],
-        output_dir: str = "./output/af_input",
+        output_dir: str,
         num_jobs_per_file: int = 20,
     ):
-        """Write job files to the output directory
+        """Write job files to the output directory in `JSON` format.
 
-        Args:
-            job_cycles (dict): `{job_cycle: job_list}`
-            output_dir (str, optional): Directory to save the job_files.
-            num_jobs_per_file (int, optional): Number of jobs per file.
+        For each cycle in `job_cycles`, split the jobs into `sets_of_n_jobs`
+        (depending on `num_jobs_per_file`) and write `JSON` files in
+        cycle-specific directory.
+
+        The files are stored as:\n
+            {output_dir}/{job_cycle_id}/{job_cycle_id}_set_{i}.json
+        where, `i` denotes the index.
+
+        There is a upper limit of 100 jobs per `JSON` file imposed by
+        AlphaFold server.
+
+        Arguments:
+
+        - **job_cycles (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_list` <br />
+                Each `job_list` contains the jobs in their final form.<br />
+
+        - **output_dir (str)**:<br />
+            Directory to save the `JSON` files.
+
+        - **num_jobs_per_file (int, optional)**:<br />
+            Number of jobs per file.
         """
 
         assert JOB_LIMIT_PER_JSON + 1 > num_jobs_per_file > 0; (
             "Number of jobs per file must be within 1 and 100"
         )
 
-        for job_cycle, job_list in job_cycles.items():
+        for job_cycle_id, job_list in job_cycles.items():
 
             sets_of_n_jobs = [
                 job_list[i : i + num_jobs_per_file]
@@ -153,40 +243,64 @@ class AlphaFoldServer:
             ]
             os.makedirs(output_dir, exist_ok=True)
 
-            self.write_to_json(
+            AlphaFoldServer.write_to_json(
                 sets_of_n_jobs=sets_of_n_jobs,
-                file_name=job_cycle,
-                output_dir=os.path.join(output_dir, job_cycle),
+                file_name=job_cycle_id,
+                output_dir=os.path.join(output_dir, job_cycle_id),
             )
 
+
 class AFCycle:
+    """ AlphaFold job cycle constructor"""
 
     job_sets_list: List[Dict[str, Any]]
-    """List of dictionaries containing job information for each job set.
-    Each job set can correspond to multiple jobs based on `model_seeds`.
+    """List of dictionaries containing job information for each job set.<br />
+    Each job set can correspond to multiple jobs based on `model_seeds`.<br />
     All jobs corresponding to a job set are same except for the model seed."""
 
     protein_sequences: Dict[str, str] | None
-    """`{uniprot_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
+    """
 
     nucleic_acid_sequences: Dict[str, str] | None
-    """`{nucleic_acid_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+      `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Nucleotide sequence of the nucleic acid.
+    """
 
     entities_map: Dict[str, str]
-    """`{entity_name: identifier}`.
-    `identifier` can be `uniprot_id` or `nucleic_acid_id`."""
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     job_list: List[Dict[str, Any]]
-    """List of jobs created from the job information in `job_sets_list`.
-    In this, the jobs are in their final form."""
+    """List of jobs created from the job information in `job_sets_list`.<br />
+    Here, the jobs are in their final form."""
 
     job_set_names: List[str]
     """List of job set names in the cycle."""
 
     job_set_af_offsets: List[Dict[str, List[int]]]
-    """List of offsets for each chain within each job set in the cycle.
-    This is same as range of each entity in the job set with only difference
-    being that the chain ids are mapped to the range instead of `entity_name`."""
+    """Chain-wise offset for each job set in the cycle.<br />
+    It is defined as `[start, end]` positions of the chain.<br />
+    Only useful when the entities are fragments of the full sequences. <br />
+    This is same as `range` in `Entity.entity_info` of each entity in the job set
+    with only difference being that the `chain_id` is mapped to the `range` instead
+    of `entity_name`."""
 
     def __init__(
         self,
@@ -207,9 +321,11 @@ class AFCycle:
     def update_cycle(self):
         """Update the cycle with the jobs
 
-        For each job in `job_sets_list`, creates an `AFJobSet` instance and uses
-        it to create a `job_set_dict`. The `job_set_dict` is then seeded using
-        `seed_jobs` to create multiple jobs per set based on `model_seeds`.
+        Each job set in the cycle is converted to multiple jobs.
+        - `AFJobSet.create_job_set` creates a job set dictionary.
+        - `seed_jobs` creates a job for each model seed in the job set.
+
+        The jobs (in their final form) are stored in `job_list`.
         """
 
         for job_set_info in self.job_sets_list:
@@ -231,7 +347,7 @@ class AFCycle:
     ):
         """Create a job for each model seed in the job set
 
-        job dictionary in the following format:
+        Job set dictionary in the following format:
         ```
         {
             "name": "job_set_name",
@@ -252,8 +368,11 @@ class AFCycle:
             "sequences": [... ]
         }
         ```
-        Args:
-            job_set_dict (dict): job dictionary in the format mentioned above
+
+        Arguments:
+
+        - **job_set_dict (dict)**:<br />
+            Job set dictionary in the format mentioned above.
         """
 
         # this will lead to AF3 server deciding the seed
@@ -269,29 +388,42 @@ class AFCycle:
 
 
 class AFJobSet:
-    """AlphaFold job constructor \n
-
-    A job is a dictionary with the following keys
-    - name
-    - modelSeeds
-    - sequences
-    """
+    """AlphaFold job set constructor"""
 
     job_set_info: Dict[str, Any]
     """Dictionary containing job attributes such as name, modelSeeds, and entities."""
 
     protein_sequences: Dict[str, str] | None
-    """`{uniprot_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
+    """
 
     nucleic_acid_sequences: Dict[str, str] | None
-    """`{nucleic_acid_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+      `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Nucleotide sequence of the nucleic acid.
+    """
 
     entities_map: Dict[str, str]
-    """`{entity_name: identifier}`.
-    `identifier` can be `uniprot_id` or `nucleic_acid_id`."""
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     job_set_name: str | None
-    """Name of the job.
+    """Name of the job set.
     If not provided, it will be generated using `generate_job_set_name`."""
 
     model_seeds: List[int]
@@ -299,14 +431,16 @@ class AFJobSet:
     If not provided, it will be generated using `generate_seeds`."""
 
     af_sequences: List[Dict[str, Any]]
-    """List of `AFSequence` dictionaries each representing an entity in the job."""
+    """List of dictionaries each corresponding to an entity in the job.<br />
+    These are created using :py:meth:`AFSequence.create_af_sequence`."""
 
     name_fragments: List[str]
-    """List of name fragments derived from the entities in the job."""
+    """List of name fragments derived from the entities in the job.<br />
+    Each fragment is generated using :py:meth:`AFSequence.get_name_fragment`."""
 
     job_set_af_offset: Dict[str, List[int]]
-    """Dictionary mapping chain IDs to their start and end positions
-    within the job set."""
+    """Dictionary mapping chain ids to their start and end positions as defined
+    in the job set."""
 
     def __init__(
         self,
@@ -330,15 +464,11 @@ class AFJobSet:
         """Create a job from the job info
 
         Returns:
-            `job_set_dict (dict)`:
-                dictionary in the following format-
-                ```
-                {
-                    "name": "job_set_name",
-                    "modelSeeds": [1, 2],
-                    "sequences": [... ]
-                }
-                ```
+        - **job_set_dict (dict)**:<br />
+            Dictionary with following `key`:`val` pair:<br />
+            - `name`:`job_set_name` <br />
+            - `modelSeeds`:`model_seeds` <br />
+            - `sequences`:`af_sequences` <br />
         """
 
         self.update_job_set_name()
@@ -357,19 +487,19 @@ class AFJobSet:
         return job_set_dict
 
     def update_job_set_name(self):
-        """Create a job from the job set info
+        """Update the `job_set_name`.
 
         Tries to get the job name from the `job_set_info`.
         """
 
-        self.job_set_name = self.job_set_info.get("name")
+        self.job_set_name = self.job_set_info.get("job_set_name")
 
     def update_model_seeds(self):
-        """Update the `model_seeds`
+        """Update the `model_seeds`.
 
-        - If modelSeeds is an integer, generate that many seeds
-        - If modelSeeds is a list, use those seeds
-        - If modelSeeds is not provided, empty list (auto seed by AF3)
+        - If "modelSeeds" is an integer, generate that many seeds.
+        - If "modelSeeds" is a list, use those seeds.
+        - If "modelSeeds" is not provided, return an empty list (auto seed by AF3).
         """
 
         model_seeds = self.job_set_info.get("modelSeeds")
@@ -377,7 +507,7 @@ class AFJobSet:
         if "modelSeeds" in self.job_set_info:
 
             if isinstance(model_seeds, int):
-                self.model_seeds = self.generate_seeds(num_seeds=model_seeds)
+                self.model_seeds = AFJobSet.generate_seeds(num_seeds=model_seeds)
 
             elif isinstance(model_seeds, list):
                 self.model_seeds = model_seeds
@@ -386,7 +516,7 @@ class AFJobSet:
                 raise Exception("modelSeeds must be an integer or a list")
 
     def update_af_sequences(self):
-        """Update the AF sequences
+        """Update the AF sequences.
 
         - For each entity, create an `AFSequence` instance
         - Get the name fragment for each entity
@@ -414,20 +544,29 @@ class AFJobSet:
             self.name_fragments.append(af_sequence.get_name_fragment())
 
     def generate_job_set_name(self):
-        """Generate a job name
+        """Generate `job_set_name`.
 
-        Currently, the job name is generated by concatenating the name fragments
+        Currently, the `job_set_name` is generated by concatenating the name fragments
         of each entity in the job, separated by underscores.
 
-        NOTE: Two jobs that only differ by modifications or glycans can not be
+        > [!WARNING]
+        > Jobs that only differ by modifications or glycans can not be
         distinguished by this naming scheme.
         """
 
         job_set_name = "_".join(self.name_fragments)
         self.job_set_name = job_set_name
 
-    def generate_seeds(self, num_seeds: int) -> List[int]:
-        """Generate `model_seeds`"""
+        if len(self.job_set_name) > 100:
+            warnings.warn(
+                f"Job name {self.job_set_name} is too long (>100 characters). \
+                Consider providing a custom job name for job set. \n \
+                {self.job_set_info}"
+            )
+
+    @staticmethod
+    def generate_seeds(num_seeds: int) -> List[int]:
+        """Generate `model_seeds`."""
 
         model_seeds = random.sample(range(1, SEED_MULTIPLIER * num_seeds), num_seeds)
 
@@ -435,9 +574,10 @@ class AFJobSet:
 
 
 class Entity:
-    """Entity constructor in the AlphaFold job \n
-    an entity can be a proteinChain, dnaSequence, rnaSequence, ligand or ion \n
-    See :py:mod:`AfSequence.create_af_sequence` to check attributes for each entity type
+    """Entity constructor in the AlphaFold job
+
+    An entity can be a `proteinChain`, `dnaSequence`, `rnaSequence`, `ligand` or `ion` \n
+    See :py:mod:`AFSequence.create_af_sequence` to check attributes for each entity type
     """
 
     entity_info: Dict[str, Any]
@@ -445,34 +585,53 @@ class Entity:
     range, glycans, and modifications."""
 
     protein_sequences: Dict[str, str] | None
-    """`{uniprot_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
+    """
 
     nucleic_acid_sequences: Dict[str, str] | None
-    """`{nucleic_acid_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+      `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Nucleotide sequence of the nucleic acid.
+    """
 
     entities_map: Dict[str, str]
-    """`{entity_name: identifier}`.
-    `identifier` can be `uniprot_id` or `nucleic_acid_id`."""
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     entity_name: str
     """Name of the entity."""
 
     entity_type: str
-    """Type of the entity.
-    (e.g., proteinChain, dnaSequence, rnaSequence, ligand, ion)."""
+    """Type of the entity. It can be one of the following:<br />
+    `proteinChain`, `dnaSequence`, `rnaSequence`, `ligand`, `ion`."""
 
     entity_count: int
-    """Count or copy number of the entity (default: 1)."""
+    """Count or copy number of the entity."""
 
     real_sequence: str
     """Real sequence of the entity.
-    This is the amino acid or nucleic acid sequence."""
+    Refers to the amino acid or nucleic acid sequence."""
 
     start: int
-    """Start position of the entity in the sequence (default: 1)."""
+    """Start position of the entity in the sequence."""
 
     end: int | None
-    """End position of the entity in the sequence"""
+    """End position of the entity in the sequence."""
 
     glycans: List[Dict[str, Any]] | None
     """List of glycans associated with the entity, if applicable."""
@@ -481,7 +640,7 @@ class Entity:
     """List of modifications associated with the entity, if applicable."""
 
     template_settings: Dict[str, Any]
-    """Template settings for the entity, used for proteinChain entities."""
+    """Template settings for the entity, used for `proteinChain` entities."""
 
     def __init__(
         self,
@@ -507,7 +666,7 @@ class Entity:
         self.glycans = []
         self.modifications = []
 
-        self.fill_up_entity()
+        self.update_entity()
         self.sanity_check_glycans()
         self.sanity_check_modifications()
         self.sanity_check_small_molecule(
@@ -524,14 +683,10 @@ class Entity:
         - For proteinChain, `maxTemplateDate` by default is 2021-09-30.
 
         Returns:
-            `template_dict (dict)`:
-                Template settings for the entity as dictionary:
-                ```
-                {
-                    "maxTemplateDate": "YYYY-MM-DD",
-                    "useStructureTemplate": True,
-                }
-                ```
+        - **template_dict (dict)**:<br />
+            Dictionary with following `key`:`val` pairs:<br />
+            - `maxTemplateDate`:`YYYY-MM-DD` <br />
+            - `useStructureTemplate`:`True` or `False` <br />
         """
 
         template_dict = {}
@@ -574,11 +729,11 @@ class Entity:
         return template_dict
 
     def get_entity_count(self)-> int:
-        """Get the count of the entity
+        """Get the count of the entity.
 
         Returns:
-            `entity_count (int)`:
-                Count or copy number of the entity (default: 1)
+        - **entity_count (int)**:<br />
+            Count or copy number of the entity (default: 1).
         """
 
         entity_count = self.entity_info.get("count", 1)
@@ -586,15 +741,15 @@ class Entity:
         return entity_count
 
     def get_real_sequence(self)-> str:
-        """Get the real sequence of the entity
+        """Get the real sequence of the entity.
 
-        - For proteinChain, get the sequence from the `protein_sequences`
-        - For dnaSequence and rnaSequence, get the sequence from
-            the `nucleic_acid_sequences`
+        - For `proteinChain`, get the sequence from the `protein_sequences`.
+        - For `dnaSequence` and `rnaSequence`, get the sequence from
+            the `nucleic_acid_sequences`.
 
         Returns:
-            `real_sequence (str)`:
-                Amino acid or nucleic acid sequence of the entity
+        - **real_sequence (str)**:<br />
+            Amino acid or nucleic acid sequence of the entity.
         """
 
         real_sequence = ""
@@ -612,7 +767,7 @@ class Entity:
 
                 except KeyError:
                     raise Exception(
-                        f"Could not find the entity sequence for {self.entity_name}"
+                        f"Could not find the entity sequence for {self.entity_name}."
                     )
 
         elif (
@@ -631,21 +786,22 @@ class Entity:
 
                 except KeyError:
                     raise Exception(
-                        f"Could not find the entity sequence for {self.entity_name}"
+                        f"Could not find the entity sequence for {self.entity_name}."
                     )
 
         return real_sequence
 
     def get_entity_range(self)-> Tuple[int, int]:
-        """Get the range of the entity
+        """Get the range of the entity.
 
-        what part of the sequence to use? (defined by start and end)
-        - If range is provided, use that
-        - If no range is provided, use the full sequence
-        - If no sequence is found (e.g. ligand or ion), use a range of [1, 1]
+        Region of the sequence to be used in the job? (defined by start and end)
+        - If range is provided, slice the full sequence.
+        - If no range is provided, use the full sequence.
+        - If no sequence is found (e.g. ligand or ion), use `(1, 1)`.
 
         Returns:
-            `tuple (start, end)`: start and end of the entity
+        - **(tuple)**:<br />
+            `start` and `end` of the entity.
         """
 
         if "range" in self.entity_info:
@@ -656,20 +812,19 @@ class Entity:
 
             start, end = self.entity_info["range"]
 
-        else: # use full sequence or [1, 1] for small molecules
+        else: # use full sequence or (1, 1) for small molecules
             start, end = 1, max(1, len(self.real_sequence))
 
         return start, end
 
     def get_glycans(self) -> List[Dict[str, Any]]:
-        """Get the glycans of the protein chains
+        """Get the glycans for `proteinChain` entity.
 
-        - If glycans are provided, use those else return []
-        - For proteinChain, get the glycans from the entity_info dictionary
+        Get the glycans from the `entity_info`.
 
         Returns:
-            `glycans (list)`:
-                List of glycans associated with the entity, if applicable.
+        - **glycans (list)**:<br />
+            List of glycans associated with the entity.
         """
 
         glycans = []
@@ -687,19 +842,17 @@ class Entity:
         return glycans
 
     def get_modifications(self)-> List[Dict[str, Any]]:
-        """Get the modifications of the entity
+        """Get the modifications of the entity.
 
-        - If `modifications` are provided, use those else empty list
+        - For proteinChain, get the `modifications` from the `entity_info`<br />
+          (`ptmType`, `ptmPosition`)
 
-            - For proteinChain, get the `modifications` from the
-                `entity_info` dictionary (`ptmType`, `ptmPosition`)
-
-            - For dnaSequence and rnaSequence, get the `modifications` from the
-                `entity_info` dictionary (`modificationType`, `basePosition`)
+        - For dnaSequence and rnaSequence, get the `modifications` from the `entity_info`<br />
+          (`modificationType`, `basePosition`)
 
         Returns:
-            `modifications (list)`:
-                List of modifications associated with the entity, if applicable.
+        - **modifications (list)**:<br />
+            List of modifications associated with the entity.
         """
 
         modifications = self.entity_info.get("modifications", [])
@@ -715,7 +868,7 @@ class Entity:
 
         if self.entity_type not in modification_keys:
             raise Exception(
-                "Modifications are not supported for this entity type"
+                "Modifications are not supported for this entity type."
             )
 
         modifications = [
@@ -730,7 +883,7 @@ class Entity:
 
     @staticmethod
     def sanity_check_entity_type(entity_type):
-        """Sanity check the entity type
+        """Sanity check the entity type.
 
         Allowed entity types:
             `proteinChain`, `dnaSequence`, `rnaSequence`, `ligand`, `ion`
@@ -741,19 +894,19 @@ class Entity:
 
     @staticmethod
     def sanity_check_small_molecule(entity_type, entity_name):
-        """Sanity check the small molecules"""
+        """Sanity check the small molecules."""
 
         if (entity_type == "ligand" and entity_name not in LIGAND) or (
             entity_type == "ion" and entity_name not in ION
         ):
-            raise Exception(f"Invalid small molecule {entity_name}")
+            raise Exception(f"Invalid small molecule {entity_name}.")
 
     def sanity_check_glycans(self):
-        """Sanity check the glycans
+        """Sanity check the `glycans`.
 
-        - check if the glycosylation position is valid
-            (should be within the provided sequence)
-        - glycans are only supported for proteinChain, raise exception otherwise
+        - Check if the glycosylation position is valid (i.e. within the
+          provided sequence) or not.
+        - `glycans` are only supported for `proteinChain`, raise exception otherwise
         """
 
         if self.entity_type == "proteinChain" and len(self.glycans) > 0:
@@ -777,15 +930,15 @@ class Entity:
             )
 
     def sanity_check_modifications(self):
-        """Sanity check the modifications
+        """Sanity check the `modifications`.
 
-        - check if the modification type is valid
+        - check if the modification type is valid or not.
             (should be in the allowed modifications)
-        - check if the modification position is valid
+        - check if the modification position is valid or not.
             (should be within the provided sequence)
-        - modifications are only supported for
+        - `modifications` are only supported for
             `proteinChain`, `dnaSequence`, `rnaSequence`;
-            raise exception otherwise
+            raise exception otherwise.
         """
 
         if (
@@ -797,7 +950,7 @@ class Entity:
             raise Exception(
                 """
 
-                Modifications are not supported for this entity type
+                Modifications are not supported for this entity type.
                 """
             )
 
@@ -808,7 +961,7 @@ class Entity:
                 mod["ptmType"] in PTM
                 for mod in self.modifications
             ]):
-                raise Exception("Invalid modification type")
+                raise Exception("Invalid modification type.")
 
         elif self.entity_type == "dnaSequence":
 
@@ -816,7 +969,7 @@ class Entity:
                 mod["modificationType"] in DNA_MOD
                 for mod in self.modifications
             ]):
-                raise Exception("Invalid modification type")
+                raise Exception("Invalid modification type.")
 
         elif self.entity_type == "rnaSequence":
 
@@ -824,7 +977,7 @@ class Entity:
                 mod["modificationType"] in RNA_MOD
                 for mod in self.modifications]
             ):
-                raise Exception("Invalid modification type")
+                raise Exception("Invalid modification type.")
 
         # check if the modification position is valid
         for mod in self.modifications:
@@ -843,8 +996,18 @@ class Entity:
                     """
                 )
 
-    def fill_up_entity(self):
-        """Fill up the entity with the required information"""
+    def update_entity(self):
+        """Fill up the entity with the information.
+
+        This method updates the following attributes of the entity:
+        - `entity_count`
+        - `real_sequence`
+        - `start`
+        - `end`
+        - `glycans`
+        - `modifications`
+        - `template_settings`
+        """
 
         self.entity_count = self.get_entity_count()
         self.real_sequence = self.get_real_sequence()
@@ -883,28 +1046,53 @@ class AFSequence(Entity):
     range, glycans, and modifications."""
 
     protein_sequences: Dict[str, str] | None
-    """`{uniprot_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
+    """
 
     nucleic_acid_sequences: Dict[str, str] | None
-    """`{nucleic_acid_id: sequence}`."""
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+      `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Nucleotide sequence of the nucleic acid.
+    """
 
     entities_map: Dict[str, str]
-    """`{entity_name: identifier}`.
-    `identifier` can be `uniprot_id` or `nucleic_acid_id`."""
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     name: str
     """Name of the entity."""
 
     type: str
-    """Type of the entity.
-    (e.g., proteinChain, dnaSequence, rnaSequence, ligand, ion)."""
+    """Type of the entity. It can be one of the following:<br />
+    `proteinChain`, `dnaSequence`, `rnaSequence`, `ligand`, `ion`."""
 
     count: int
-    """Count or copy number of the entity (default: 1)."""
+    """Count or copy number of the entity."""
 
     real_sequence: str
     """Real sequence of the entity.
-    This is the amino acid or nucleic acid sequence."""
+    Refers to the amino acid or nucleic acid sequence."""
+
+    start: int
+    """Start position of the entity in the sequence."""
+
+    end: int | None
+    """End position of the entity in the sequence"""
 
     glycans: List[Dict[str, Any]] | None
     """List of glycans associated with the entity, if applicable."""
@@ -913,13 +1101,7 @@ class AFSequence(Entity):
     """List of modifications associated with the entity, if applicable."""
 
     template_settings: Dict[str, Any]
-    """Template settings for the entity, used for proteinChain entities."""
-
-    start: int
-    """Start position of the entity in the sequence (default: 1)."""
-
-    end: int | None
-    """End position of the entity in the sequence"""
+    """Template settings for the entity, used for `proteinChain` entities."""
 
     def __init__(
         self,
@@ -941,40 +1123,30 @@ class AFSequence(Entity):
         self.real_sequence = self.update_real_sequence()
 
     def create_af_sequence(self)-> Dict[str, Any]:
-        """Create an AF sequence dictionary
+        """Create an AF sequence dictionary.
 
         Returns:
-            `af_sequence_dict (dict)`:
-            AF sequence dictionary in the following format:
-            - for `proteinChain`:
-            ```
-                {
-                    "proteinChain": {
-                        "sequence": "AAAA",
-                        "glycans": [... ],
-                        "modifications": [... ],
-                        "count": 1
-                    }
-                }
-            ```
-            - for `dnaSequence` or `rnaSequence`:
-            ```
-                {
-                    "dnaSequence"("rnaSequence"): {
-                        "sequence": "ATCG",
-                        "modifications": [... ],
-                        "count": 1
-                }
-            ```
-            - for `ligand` or `ion`:
-            ```
-                {
-                    "ligand"("ion"): {
-                        "ligand": "ATP",
-                        "count": 1
-                    }
-                }
-            ```
+        - **af_sequence_dict (dict)**:<br />
+            Dictionary in the following format:
+
+        ```python
+        # for proteinChain
+        {"proteinChain": {"sequence": "AAAA",
+                            "glycans": [... ],
+                            "modifications": [... ],
+                            "count": 1}}
+
+        # for dnaSequence or rnaSequence
+        {"dnaSequence"|"rnaSequence": {"sequence": "ACGA",
+                                       "modifications": [... ],
+                                       "count": 1}}
+
+        # for ligand
+        {"ligand": {"ligand": "ATP", "count": 1}}
+
+        # for ion
+        {"ion": {"ion": "MG", "count": 1}}
+        ```
         """
 
         af_sequence_dict = {}
@@ -1008,17 +1180,17 @@ class AFSequence(Entity):
         return af_sequence_dict
 
     def update_real_sequence(self)-> str:
-        """Update the real sequence of the entity
+        """Update the real sequence of the entity.
 
         A real sequence is:
-        - amino acid sequence for proteinChain
-        - and nucleic acid sequence for dnaSequence and rnaSequence
+        - Amino acid sequence for `proteinChain`.
+        - Nucleic acid sequence for `dnaSequence` and `rnaSequence`.
 
-        If a range [start, end] is provided, slice the sequence accordingly.
+        If a `range` (i.e. [`start`, `end`]) is provided, slice the sequence accordingly.
 
         Returns:
-            `real_sequence (str)`:
-                Amino acid or nucleic acid sequence of the entity
+        - **real_sequence (str)**:<br />
+            Amino acid or nucleic acid sequence of the entity.
         """
 
         real_sequence = self.real_sequence
@@ -1030,17 +1202,25 @@ class AFSequence(Entity):
         return real_sequence
 
     def get_name_fragment(self)-> str:
-        """Get the name fragments of the entity
+        """Get the name fragments of the entity.
 
         Name format: `"name_count_start-end"`
 
         Example:
 
-            For an entity `"protA"` (`count==2`, `start==1`, `end==100`),
-            the `name_fragment` will be `"protA_2_1-100"`.
+        - For an entity with following attributes:\n
+        ```
+            name = "protA"
+            count = 2
+            start = 1
+            end = 100
+        ```
+
+        the `name_fragment` will be `"protA_2_1-100"`.
 
         Returns:
-            `name_fragment (str)`: Name fragment of the entity
+        - **name_fragment (str)**:<br />
+            Name fragment of the entity.
         """
 
         return f"{self.name}_{self.count}_{self.start}-{self.end}"

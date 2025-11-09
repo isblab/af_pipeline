@@ -1,73 +1,84 @@
+"""
+AlphaFold2 input file creator
+=============================
+- Create input `FASTA` files for AlphaFold2 jobs.
+- For AlphaFold2, only `proteinChain` entities are supported.
+"""
+
 import os
 import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
-
 class AlphaFold2:
-    """Class to handle the creation of AlphaFold2 input files
+    """Class to create FASTA files for AlphaFold2 jobs."""
 
-    Attributes:
+    input_dict: Dict[str, List[Dict[str, Any]]]
+    """Dictionary with:<br />
 
-        input_yml (dict):
-            Input dictionary containing job cycles and jobs.
-            Usually loaded from a YAML file.
+    - `key` -> `job_cycle_id` <br />
+      Unique string identifier for the job cycle.<br />
 
-        protein_sequences (dict):
-            Dictionary containing protein sequences.
-            Format: {header: sequence}
+    - `val` -> `job_sets_list` <br />
+      List of `AFJobSet.job_set_info`s, each of which specifies
+      the entities, model seeds, job name, etc."""
 
-        entities_map (dict):
-            Mapping of entity headers to their corresponding sequences.
-            Format: {protein: header}
+    protein_sequences: Dict[str, str] | None
+    """Dictionary with:<br />
+
+    - `key` -> `identifier` <br />
+       Usually `uniprot_id` in case of `proteinChain` entities.<br />
+       `identifier != entity_name` necessitates `entities_map`.<br />
+
+    - `val` -> `sequence` <br />
+      Amino acid sequence of the protein chain.
     """
+
+    entities_map: Dict[str, str]
+    """Dictionary with:<br />
+
+    - `key` -> `entity_name` <br />
+
+    - `val` -> `identifier` <br />
+      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     def __init__(
         self,
-        input_yml: Dict[str, List[Dict[str, Any]]],
+        input_dict: Dict[str, List[Dict[str, Any]]],
         protein_sequences: Dict[str, str],
         entities_map: Dict[str, str] = {},
     ):
-        """ Initialize the AlphaFold2 class
-
-        Args:
-
-            input_yml (Dict[str, List[Dict[str, Any]]]):
-                Input dictionary containing job cycles and jobs.
-
-            protein_sequences (Dict[str, str]):
-                Dictionary containing protein sequences.
-                Format: {header: sequence}
-
-            entities_map (Dict[str, str], optional):
-                Mapping of entity headers to their corresponding sequences.
-                Format: {protein: header}
-                Defaults to an empty dictionary.
-        """
 
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
-        self.input_yml = input_yml
+        self.input_dict = input_dict
 
     def create_af2_job_cycles(
         self
     ) -> Dict[str, List[Tuple[Dict[str, str], str]]]:
-        """Create job cycles for AlphaFold2
+        """Create job cycles for AlphaFold2.
 
-        Each job cycle is a list of jobs. \n
-        Each job is a tuple of `sequences_to_add` and `job_name`. \n
-        `sequences_to_add` is a dictionary of fasta sequences 
-        {header: sequence} \n
+        Convert the input information into the format required by
+        the AlphaFold2.
+
+        Each job within a cycle is a tuple ->
+        (`sequences_to_add`, `job_name`)<br />
+        where, `sequences_to_add` = `{identifier: sequence}`
 
         Returns:
 
-            job_cycles (dict):
-                Dictionary of job cycles {job_cycle: job_list}
+        - **job_cycles (dict)**:<br />
+            Dictionary with:<br />
+
+            - `key` -> `job_cycle_id` <br />
+                Unique string identifier for the job cycle.<br />
+
+            - `val` -> `job_list` <br />
         """
 
         job_cycles = {}
 
-        for job_cycle, jobs_info in self.input_yml.items():
+        for job_cycle_id, jobs_info in self.input_dict.items():
 
             job_list = []
 
@@ -77,55 +88,58 @@ class AlphaFold2:
                 )
                 job_list.append((sequences_to_add, job_name))
 
-            job_cycles[job_cycle] = job_list
+            job_cycles[job_cycle_id] = job_list
 
         return job_cycles
 
+    @staticmethod
     def write_to_fasta(
-        self,
         fasta_dict: Dict[str, str],
         file_name: str,
-        output_dir: str = "./output/af_input",
+        output_dir: str,
     ):
-        """Write the fasta sequences to a file
+        """Write the sequences to a `FASTA` file
 
-        Args:
+        Arguments:
 
-            fasta_dict (dict):
-                Dictionary of fasta sequences {header: sequence}
+        - **fasta_dict (dict)**:<br />
+            Dictionary with:<br />
 
-            file_name (str):
-                Name of the output file
+            - `key` -> `identifier` <br />
 
-            output_dir (str, optional):
-                Directory to save the output fasta file.
-                Defaults to "./output/af_input".
+            - `val` -> `sequence` <br />
+
+        - **file_name (str)**:<br /> Name of the output file
+
+        - **output_dir (str)**:<br /> Directory to save the output fasta file.
         """
 
         os.makedirs(output_dir, exist_ok=True)
         save_path = os.path.join(output_dir, f"{file_name}.fasta")
 
         with open(save_path, "w") as f:
-            for header, sequence in fasta_dict.items():
-                f.write(f">{header}\n{sequence}\n")
+            for identifier, sequence in fasta_dict.items():
+                f.write(f">{identifier}\n{sequence}\n")
 
         print(f"\nFasta file written to {save_path}")
 
+    @staticmethod
     def write_job_files(
-        self,
         job_cycles: Dict[str, List[Tuple[Dict[str, str], str]]],
-        output_dir: str = "./output/af_input",
+        output_dir: str,
     ):
-        """Write job files to the output directory
+        """Write the generated job files to the output directory.
 
-        Args:
+        Arguments:
 
-            job_cycles (dict):
-                Dictionary of job cycles {job_cycle: job_list}
+        - **job_cycles (dict)**:<br />
+            Dictionary with:<br />
 
-            output_dir (str, optional):
-                Output directory to save the job files.
-                Defaults to "./output/af_input".
+            - `key` -> `job_cycle_id` <br />
+
+            - `val` -> `job_list` <br />
+
+        - **output_dir (str)**:<br /> Output directory to save the job files.
         """
 
         for job_cycle, job_list in job_cycles.items():
@@ -134,7 +148,7 @@ class AlphaFold2:
 
             for fasta_dict, job_name in job_list:
 
-                self.write_to_fasta(
+                AlphaFold2.write_to_fasta(
                     fasta_dict=fasta_dict,
                     file_name=job_name,
                     output_dir=os.path.join(output_dir, job_cycle),
@@ -146,43 +160,42 @@ class AlphaFold2:
         self,
         job_info: Dict[str, Any],
     ) -> Tuple[Dict[str, str], str]:
-        """Generate job entities
+        """Generate job entities.
 
-        job entities are the collection of entities within a job. \n
-        Each entity is a proteinChain with a header and sequence. \n
+        Job entities are the collection of entities within a job.<br />
+        Each entity is a `proteinChain` with a identifier and sequence. \n
 
-        Args:
+        Arguments:
 
-            job_info (dict):
-                job information (name, range, count, type)
+        - **job_info (dict)**:<br /> Job information (`name`, `range`, `count`, `type`)
 
         Returns:
 
-            Tuple[Dict[str, str], str]: sequences_to_add, job_name
+        - **(tuple)**:<br /> `(sequences_to_add, job_name)`
         """
 
         # get the job name if provided
-        job_name = job_info.get("name", None)
+        job_name = job_info.get("job_set_name", None)
 
         # get the information for each proteinChain
-        headers = self.get_entity_info(job_info, "name", None)
+        identifiers = self.get_entity_info(job_info, "name", None)
         ranges = self.get_entity_info(job_info, "range", None)
         counts = self.get_entity_info(job_info, "count", 1)
 
-        sequences = self.get_entity_sequences(ranges=ranges, headers=headers)
+        sequences = self.get_entity_sequences(ranges=ranges, identifiers=identifiers)
 
         job_dict = {
             "job_name": job_name,
             "entities": [],
         }
 
-        for entity_count, (header, sequence, range_, count_) in enumerate(
-            zip(headers, sequences, ranges, counts)
+        for entity_count, (identifier, sequence, range_, count_) in enumerate(
+            zip(identifiers, sequences, ranges, counts)
         ):
             for count_ in range(1, count_ + 1):
                 job_dict["entities"].append(
                     {
-                        "header": header,
+                        "identifier": identifier,
                         "sequence": sequence,
                         "range": range_ if range_ else [1, len(sequence)],
                         "count": count_,
@@ -198,12 +211,12 @@ class AlphaFold2:
 
         for entity in job_dict["entities"]:
             for entity_count in range(1, entity["count"] + 1):
-                header = entity["header"]
+                identifier = entity["identifier"]
                 sequence = entity["sequence"]
                 start, end = entity["range"]
 
                 sequences_to_add[
-                    f"{header}_{entity_count}_{start}to{end}"
+                    f"{identifier}_{entity_count}_{start}to{end}"
                 ] = sequence
 
         # warn if any of the entities is not a proteinChain
@@ -216,18 +229,23 @@ class AlphaFold2:
         job_info: Dict[str, Any],
         info_type: str,
         default_val: Any
-    ):
-        """Get the entity information
+    ) -> List[Dict[str, Any]]:
+        """Get the entity information.
 
-        Get the required information for each entity in the job
+        Arguments:
 
-        Args:
-            job_info (dict): job information (name, range, count, type)
-            info_type (str): type of information to get (name, range, count, type)
-            default_val (Any): default value if not found
+        - **job_info (dict)**:<br />
+            Job information (`name`, `range`, `count`, `type`)
+
+        - **info_type (str)**:<br />
+            Information type to get (`name`, `range`, `count`, `type`)
+
+        - **default_val (Any)**:<br />
+            Default value of the `info_type` if not found
 
         Returns:
-            List[Dict[str, Any]]: list of entity information for the given type
+
+        - **(list)**:<br /> List of entity information for the given type
         """
 
         return [
@@ -239,43 +257,42 @@ class AlphaFold2:
     def get_entity_sequences(
         self,
         ranges: List[Tuple[int, int]],
-        headers: List[str],
+        identifiers: List[str],
     ) -> List[str]:
-        """Get the entity sequences
+        """Get the entity sequences for given entity identifiers.
 
-        First try to get the sequence from the protein_sequences dictionary. \n
-        If not found, try to get the sequence from the proteins dictionary. \n
-        If not found, raise an exception.
+        Try to get the sequence from the `protein_sequences`.<br />
+        - First, try using the provided identifier.<br />
+        - If not found, try using the entities_map to get the identifier.<br />
+        - If still not found, raise an exception.
 
-        If a range is provided, get the sequence within the range.
+        Depending on the provided range, slice the sequence.
 
-        Args:
+        Arguments:
 
-            ranges (list):
-                [start, end] of the entities
+        - **ranges (list)**:<br /> `[start, end]` of the entities.
 
-            headers (list):
-                fasta headers
+        - **identifiers (list)**:<br /> List of entity identifiers.
 
         Returns:
 
-            sequences (list):
-                list of entity sequences
+        - **sequences (list)**:<br />
+            List of entity sequences to be used as input for the prediction.
         """
 
         sequences = []
 
-        for header in headers:
+        for identifier in identifiers:
             try:
-                sequences.append(self.protein_sequences[header])
+                sequences.append(self.protein_sequences[identifier])
             except KeyError:
                 try:
                     sequences.append(
-                        self.protein_sequences[self.entities_map[header]]
+                        self.protein_sequences[self.entities_map[identifier]]
                     )
                 except KeyError:
                     raise Exception(
-                        f"Could not find the entity sequence for {header}"
+                        f"Could not find the entity sequence for {identifier}"
                     )
 
         for i, range_ in enumerate(ranges):
@@ -289,19 +306,14 @@ class AlphaFold2:
         self,
         job_dict: Dict[str, Any],
     ) -> str:
-        """Generate job name (if not provided)
+        """Generate job name (if not provided).
 
-        see :py:mod:`AFInput.generate_job_entities` for the job dictionary format.
+        Arguments:
 
-        Args:
-
-            job_dict (dict):
-                job dictionary
+        - **job_dict (dict)**:<br /> Job dictionary.
 
         Returns:
-
-            job_name (str):
-                job name
+        - **job_name (str)**:<br /> Job name.
         """
 
         job_name = ""
@@ -309,17 +321,17 @@ class AlphaFold2:
         fragments = defaultdict(list)
 
         for entity in job_dict["entities"]:
-            header = entity["header"]
+            identifier = entity["identifier"]
             start, end = entity["range"]
             count = entity["count"]
 
-            fragments[f"{header}_{start}to{end}"].append(count)
+            fragments[f"{identifier}_{start}to{end}"].append(count)
 
         fragments = {k: max(v) for k, v in fragments.items()}
 
-        for header, count in fragments.items():
-            header_, range_ = header.split("_")
-            job_name += f"{header_}_{count}_{range_}_"
+        for identifier, count in fragments.items():
+            identifier_, range_ = identifier.split("_")
+            job_name += f"{identifier_}_{count}_{range_}_"
 
         job_name = job_name[:-1] if job_name[-1] == "_" else job_name
 
@@ -330,18 +342,16 @@ class AlphaFold2:
         job_info: Dict[str, Any],
         job_name: str
     ):
-        """Warn if entity is not a protein
+        """Warn if the entity is not a protein.
 
-        AF2/ ColabFold only supports proteinChain entities. \n
-        Will skip the entities which are not proteins. \n
+        AF2/ ColabFold only supports proteinChain entities.<br />
+        Will skip the entities which are not proteins.
 
-        Args:
+        Arguments:
 
-            job_info (dict):
-                job information
+        - **job_info (dict)**:<br /> Job information.
 
-            job_name (str):
-                job name
+        - **job_name (str)**:<br /> Job name.
         """
 
         if any([

@@ -5,7 +5,7 @@ proteins:
 
 af_input_jobs:
   Lb2Cas12a_RNA_DNA_complex_8I54_targets:
-  - name: Lb2Cas12a_RNA_DNA_complex
+  - job_set_name: Lb2Cas12a_RNA_DNA_complex
     modelSeeds:
     - 1
     - 2
@@ -52,7 +52,7 @@ af_input_jobs:
       - 1
       - 1
   Actin_profilin_targets:
-  - name: Act1_1_1-375_Cdc3_1_11-120
+  - job_set_name: Act1_1_1-375_Cdc3_1_11-120
     modelSeeds: 2
     entities:
     - name: Act1
@@ -72,7 +72,7 @@ af_input_jobs:
       B:
       - 11
       - 120
-  - name: Act1_1_1-375_Cdc3_1_1-127
+  - job_set_name: Act1_1_1-375_Cdc3_1_1-127
     entities:
     - name: Act1
       type: proteinChain
@@ -85,7 +85,7 @@ af_input_jobs:
       B:
       - 1
       - 127
-  - name: actin_profilin_complex
+  - job_set_name: actin_profilin_complex
     entities:
     - name: Act1
       type: proteinChain
@@ -111,7 +111,7 @@ af_input_jobs:
       - 1
       - 1
   DP_dimer_targets:
-  - name: Dp1_2_1021-1950
+  - job_set_name: Dp1_2_1021-1950
     modelSeeds: 1
     entities:
     - name: Dp1
@@ -129,7 +129,7 @@ af_input_jobs:
       - 1021
       - 1950
   Collagen_triple_helix_targets:
-  - name: collagen_triple_helix
+  - job_set_name: collagen_triple_helix
     entities:
     - name: collagen_polypeptide
       type: proteinChain
