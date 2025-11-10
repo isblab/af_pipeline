@@ -33,7 +33,7 @@ jobs:
       - run: |
           echo "PYTHONPATH=/home/runner/work/af_pipeline" >> $GITHUB_ENV
           echo $PYTHONPATH
-      - run: pdoc --mermaid af_pipeline -o docs/
+      - run: pdoc --mermaid /home/runner/work/af_pipeline -o docs/
 
       - uses: actions/upload-pages-artifact@v4
         with:
