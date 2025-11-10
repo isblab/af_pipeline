@@ -1,75 +1,89 @@
 """
 Data Parser module
 ==================
-DataParser class with methods to parse the JSON or PKL data files
+Methods to parse the `JSON` or `PKL` data files[^data_file] provided with the structure
+predictions from AlphaFold2, AlphaFold3, and ColabFold.
 
 Currently supports the following:
 - AlphaFold2 data files (.pkl or .json)
 - AlphaFold3 data files (.json)
 - ColabFold data files (.json)
 
-To be implemented:
-- Boltz data files (.npy)
+[^data_file]: *The "data file" in this context refers to the file that contains prediction\
+  metrics such as PAE matrices, pLDDT scores, (token chain IDs, token residue IDs,\
+  and contact probabilities for AF3), among others.*
 """
+
 import warnings
 import numpy as np
 import os
-import json
-import pickle as pkl
-from typing import Dict
+from typing import Dict, Callable, List
+
+from af_pipeline.constants.af_constants import (
+    ALLOWED_DATA_FORMATS,
+    AVAILABLE_DATA_READERS,
+)
 
 class DataParser:
     """Class with methods to parse the prediction data files."""
 
     data_file_path: str
-    """ Path to the data file."""
+    """ Path to the data file provided with the prediction. """
 
-    def __init__(
-        self,
-        data_file_path: str
-    ):
+    def __init__(self, data_file_path: str):
+
         self.data_file_path = data_file_path
+
+    @property
+    def data_type(self) -> str:
+        """ Data file type based on the file extension.
+
+        See af_pipeline.constants.af_constants.ALLOWED_DATA_FORMATS for
+        supported formats.
+        """
+
+        ext = os.path.splitext(self.data_file_path)[1].replace(".", "")
+
+        if ext not in ALLOWED_DATA_FORMATS:
+            raise Exception(
+                f"""
+
+                Incorrect file format: {ext}.
+                Suported formats are {ALLOWED_DATA_FORMATS}.
+                """
+            )
+
+        return ext
+
+    @property
+    def parser(self) -> Callable[[str], Dict | List]:
+        """Parser function based on the file extension.
+
+        See af_pipeline.constants.af_constants.AVAILABLE_DATA_READERS for
+        supported parsers.
+        """
+
+        ext = self.data_type
+
+        parser = AVAILABLE_DATA_READERS[ext]
+        assert callable(parser), f"Parser for '{ext}' is not a function."
+
+        return parser
 
     def get_data_dict(self) -> Dict:
         """Get the data from the data file.
-
-        Args:
-            data_file_path (str): Path to the data file.
+        Currently supports `.pkl` and `.json` data files.
 
         Returns:
-            `data (Dict)`: Data dictionary from the data file.
+
+        - **data (Dict)**:<br />
+            Data the data file in the dictionary format.
         """
 
-        ext = os.path.splitext(self.data_file_path)[1]
+        data = self.parser(self.data_file_path)
 
-        # AF2 data file
-        if "pkl" in ext:
-            with open(self.data_file_path, "rb") as f:
-                data = pkl.load(f)
-
-        # AF3 or ColabFold data file
-        elif "json" in ext:
-            with open(self.data_file_path, "r") as f:
-                data = json.load(f)
-
-            if isinstance(data, list):
-                data = data[0]
-
-        elif "npy" in ext:
-            raise NotImplementedError(
-                """
-
-                Boltz predictions are not supported yet.
-                """
-            )
-
-        else:
-            raise Exception(
-                """
-
-                Incorrect file format.. Suported .pkl/.json only.
-                """
-            )
+        if isinstance(data, list):
+            data = data[0]
 
         return data
 
@@ -80,15 +94,19 @@ class DataParser:
         This is specific to AF3: `"token_chain_ids"` key.
         For others, `None` is returned.
 
-        In general, each token is a residue/nucleotide/ion in the chain.
-        In case of modified residues or nucleotides or ions or glycan chains,
+        Each token can be a residue/nucleotide/ion in the chain.<br />
+        In case of modified residues or nucleotides or glycans,
         each atom is a token.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `token_chain_ids (list)`: Token chain IDs.
+
+        - **token_chain_ids (list)**:<br />
+            Token chain IDs.
         """
 
         if "token_chain_ids" in data:
@@ -113,13 +131,19 @@ class DataParser:
         This is specific to AF3: `"token_res_ids"` key.
         For others, `None` is returned.
 
-        Atom-level tokens have the same token residue IDs.
+        > [!NOTE]
+        > Atom-level tokens of a given modified residue or nucleotide or glycans
+        > have the same token residue IDs.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `token_res_ids (list)`: Token residue IDs.
+
+        - **token_res_ids (list)**:<br />
+            Token residue IDs provided in the AF3 `JSON` file.
         """
 
         if "token_res_ids" in data:
@@ -141,13 +165,17 @@ class DataParser:
     def get_pae(data: Dict) -> np.ndarray:
         """Return the PAE matrix from the data dictionary.
 
-        Size of the PAE matrix is NxN, where N is the number of tokens.
+        Size of the PAE matrix is `NxN`, where `N` is the number of tokens.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `pae (np.ndarray)`: PAE matrix.
+
+        - **pae (np.ndarray)**:<br />
+            PAE matrix.
         """
 
         # For AF2.
@@ -170,12 +198,15 @@ class DataParser:
         This is specific to AF3: `"contact_probs"` key.
         For others, `None` is returned.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `contact_probs_mat (np.ndarray)`:
-                Contact probabilities matrix from AlphaFold3 output.
+
+        - **contact_probs_mat (np.ndarray)**:<br />
+            Contact probabilities matrix from AlphaFold3 output.
         """
 
         if "contact_probs" in data:
@@ -199,11 +230,15 @@ class DataParser:
         This is specific to AF3: `"atom_chain_ids"` key.
         For others, `None` is returned.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `atom_chain_ids (list)`: Per atom chain IDs.
+
+        - **atom_chain_ids (list)**: <br />
+            Atom chain IDs provided in the AF3 JSON file.
         """
 
         if "atom_chain_ids" in data:
@@ -227,11 +262,15 @@ class DataParser:
         This is specific to AF3: `"atom_plddts"` key.
         If data is AF2, `None` is returned.
 
-        Args:
-            data (Dict): Data dictionary from the data file.
+        Arguments:
+
+        - **data (Dict)**:<br />
+            Data dictionary from the data file.
 
         Returns:
-            `atom_plddts (np.ndarray)`: Per atom pLDDT scores.
+
+        - **atom_plddts (np.ndarray)**:<br />
+            Per atom pLDDT scores provided in the AF3 JSON file.
         """
 
         if "atom_plddts" in data:

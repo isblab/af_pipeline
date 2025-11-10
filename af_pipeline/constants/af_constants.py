@@ -1,8 +1,28 @@
 # some constants
 
+from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.PDBParser import PDBParser
+from af_pipeline.utils.file_utils import read_json, read_pkl
+
 MAX_TEMPLATE_DATE = "2021-09-30"
 
 JOB_LIMIT_PER_JSON = 100
+
+AVAILABLE_PARSERS = {
+    "pdb": PDBParser,
+    "cif": MMCIFParser,
+}
+
+ALLOWED_STRUCTURE_FORMATS = list(AVAILABLE_PARSERS.keys())
+
+AVAILABLE_DATA_READERS = {
+    "pkl": read_pkl,
+    "json": read_json,
+}
+
+print(type(AVAILABLE_DATA_READERS["pkl"]))
+
+ALLOWED_DATA_FORMATS = list(AVAILABLE_DATA_READERS.keys())
 
 PTM = [
     "CCD_SEP",

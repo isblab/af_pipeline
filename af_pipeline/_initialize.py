@@ -102,9 +102,7 @@ class _Initialize:
         """
 
         data = self.data_parser.get_data_dict()
-        self.structure = self.structure_parser.get_structure_obj(
-            parser=self.structure_parser.get_parser()
-        )
+        self.structure = self.structure_parser.get_structure_obj()
 
         self.pae = self.data_parser.get_pae(data)
 

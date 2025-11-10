@@ -36,6 +36,23 @@ def read_json(file_path: str):
 
     return data
 
+def read_pkl(file_path: str):
+    """Load a pickle file
+
+    Args:
+        file_path (str): Path to pickle file
+
+    Returns:
+    - **data (any)**: Data from pickle file
+    """
+
+    import pickle as pkl
+
+    with open(file_path, "rb") as f:
+        data = pkl.load(f)
+
+    return data
+
 
 def read_fasta(fasta_file: str) -> dict:
     """
