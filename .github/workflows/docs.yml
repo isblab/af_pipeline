@@ -31,7 +31,7 @@ jobs:
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       # - run: python docs/make.py
       - run: |
-          echo "/home/runner/work/af_pipeline" >> $GITHUB_PATH
+          echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
       - run: |
           echo $PYTHONPATH
           echo $HOME
