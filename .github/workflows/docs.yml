@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+    paths:
+    - af_pipeline/**
+
     # Alternative: only build for tags.
     # tags:
     #   - '*'
