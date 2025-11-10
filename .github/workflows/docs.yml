@@ -36,7 +36,7 @@ jobs:
           echo $PYTHONPATH
           echo $HOME
           pwd
-          pdoc --mermaid /home/runner/work/af_pipeline/af_pipeline -o docs/
+          pdoc --mermaid ./af_pipeline -o docs/
 
       - uses: actions/upload-pages-artifact@v4
         with:
