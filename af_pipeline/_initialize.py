@@ -2,8 +2,8 @@ import numpy as np
 from typing import Dict
 import Bio.PDB.Structure
 from Bio.PDB.Structure import Structure
-from af_pipeline.parser1.structure_parser1 import StructureParser
-from af_pipeline.parser1.data_parser import DataParser
+from af_pipeline.parser.structure_parser import StructureParser
+from af_pipeline.parser.data_parser import DataParser
 from af_pipeline.tools.structure_tools import RenumberResidues
 from af_pipeline.utils.misc_utils import (
     get_duplicate_indices,
