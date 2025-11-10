@@ -22,7 +22,7 @@ AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 </p>
 
 - In all three cases, the input data is provided as a dictionary, which is
-  stored in a `YAML` file. See the [examples directory](ADD_PATH_HERE)
+  stored in a `YAML` file. See the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples)
   for sample input file.
 
 - The user can create job cycles using the methods for creating job cycles in each
@@ -41,7 +41,7 @@ AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 
 ## Usage
 
-- Please refer to the [examples directory](ADD_PATH_HERE) for sample scripts and
+- Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples) for sample scripts and
   config file.
 
 - Use the following command to run the example script:
@@ -168,7 +168,7 @@ Some of the attributes can be retrieved in the config file while creating the
 input `JSON` or `FASTA` files within the script.
 For e.g., `af_offset` or `job_name` need not be specified in the config file.
 They can be generated within the script and added to the config file as shown in
-the (example script)[ADD_PATH_HERE].
+the [example script](https://github.com/isblab/af_pipeline/tree/main/examples/create_af_jobs.py).
 
 > [!CAUTION]
 > Doing the above will modify the original config file.

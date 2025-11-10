@@ -21,17 +21,22 @@ Structure Parser Module
     - "is_ca_only" # boolean indicating if the residue has only CA atom
     - "is_purine" # boolean indicating if the nucleotide is purine
     - "is_pyrimidine" # boolean indicating if the nucleotide is pyrimidine
+    - "is_ion" # True if the residue is an ion.
+    - "is_ligand" # True if the residue is a ligand.
 ```
 - Following methods have equivalent implementations in `af_pipeline.parser.data_parser.DataParser`:
     - `get_token_chain_ids`
     - `get_token_res_ids`<br />
   This is because, the output of these methods are used to define the mapping between
-  the tokens indices and token numbers or "residue" numbers.
+  the tokens indices and token numbers or "residue"[^residue] numbers.
 - The other methods that are expected to be used by the end-users are:
     - `get_plddt`
     - `get_coordinates`<br />
 - All the above four methods can be used in multiple modes defined by the input
   arguments. However, only a subset of the modes are used in the current pipeline.
+
+[^residue]: *The term "residue" refers to `Bio.PDB.Residue.Residue` object from Biopython. \
+    Hence, the "residue" term is used for both amino acids and nucleotides.*
 
 </details>
 """
