@@ -80,7 +80,7 @@ entity_info_ion = {
 }
 ###############################################################################
 job_set_info_min = {
-    "name": "jobset_min",
+    "job_set_name": "jobset_min",
     "modelSeeds": [0, 1],
     "entities": [
         entity_info_protein_min,
@@ -103,7 +103,7 @@ job_set_info_min_no_name = {
 }
 
 job_set_info_max = {
-    "name": "jobset_max",
+    "job_set_name": "jobset_max",
     "modelSeeds": [0, 1],
     "entities": [
         entity_info_protein_max,
