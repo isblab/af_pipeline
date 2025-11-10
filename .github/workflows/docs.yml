@@ -30,8 +30,9 @@ jobs:
       # ADJUST THIS: build your documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       # - run: python docs/make.py
-      - run: echo "PYTHONPATH=af_pipeline" >> $GITHUB_ENV
-      - run: echo $GITHUB_ENV
+      - run: |
+          echo "PYTHONPATH=/home/runner/work/af_pipeline" >> $GITHUB_ENV
+          echo $PYTHONPATH
       - run: pdoc --mermaid af_pipeline -o docs/
 
       - uses: actions/upload-pages-artifact@v4
