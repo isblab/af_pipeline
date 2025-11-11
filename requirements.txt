@@ -1,0 +1,8 @@
+pandas
+numpy
+biopython
+networkx
+igraph
+python-igraph
+ruamel.yaml
+PyYAML
