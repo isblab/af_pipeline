@@ -30,7 +30,7 @@ jobs:
           python-version: '3.14'
 
       # ADJUST THIS: install all dependencies (including pdoc)
-      - run: pip install pdoc numpy networkx biopython python-igraph ruamel.yaml PyYAML pandas
+      - run: pip install pdoc numpy networkx biopython python-igraph ruamel.yaml PyYAML pandas pyvis
       # ADJUST THIS: build your documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       # - run: python docs/make.py
