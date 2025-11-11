@@ -680,4 +680,4 @@ class ResidueSelect(Select):
             )
         chain_id = chain.id
 
-        return residue.id[1] in self.confident_residues[chain_id]
+        return residue.id[1] in self.confident_residues.get(chain_id, [])
