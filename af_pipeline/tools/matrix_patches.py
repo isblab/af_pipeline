@@ -32,17 +32,22 @@ class MatrixPatches:
     def get_patches_from_matrix(self):
         """Get all interacting patches from a binary matrix
 
-        Args:
-            matrix (np.ndarray):
-                Binary matrix where rows and columns represent different objects
-                (e.g., chains in a protein complex).
-            row_obj (str):
-                Identifier for the rows in the matrix
-            col_obj (str):
-                Identifier for the columns in the matrix
+        Arguments:
+
+        - **matrix (np.ndarray)**:<br />
+            Binary matrix where rows and columns represent different objects
+            (e.g., chains in a protein complex).
+
+        - **row_obj (str)**:<br />
+            Identifier for the rows in the matrix
+
+        - **col_obj (str)**:<br />
+            Identifier for the columns in the matrix
 
         Returns:
-            `patches (dict)`: Dictionary of interacting patches
+
+        - **patches (dict)**:<br />
+            Dictionary of interacting patches
 
         Example:
 
@@ -101,18 +106,21 @@ class MatrixPatches:
 
     @staticmethod
     def get_one_sets_from_matrix(matrix: np.ndarray, axis: int = 0):
-        """Get the indices of 1s in a binary matrix rowwise or columnwise
+        """Get the indices of 1s in a binary matrix rowwise or columnwise.
 
-        Args:
-            matrix (np.ndarray):
-                Binary matrix where rows and columns represent different objects
-                (e.g., chains in a protein complex).
-            axis (int, optional):
-                0 for rowwise, 1 for columnwise.
+        Arguments:
+
+        - **matrix (np.ndarray)**:<br />
+            Binary matrix where rows and columns represent different objects
+            (e.g., chains in a protein complex).
+
+        - **axis (int, optional)**:<br />
+            0 for rowwise, 1 for columnwise.
 
         Returns:
-            `one_sets (dict)`:
-                `{k:v}` where `v` is a set of indices of 1s for key `k`
+
+        - **one_sets (dict)**:<br />
+            `{k:v}` where `v` is a set of indices of 1s for key `k`.
 
         Example:
 
@@ -144,18 +152,19 @@ class MatrixPatches:
 
     @staticmethod
     def extend_one_sets_by_subsets(one_sets: dict) -> dict:
-        """Add the subsets of the sets in list_of_sets to the one_sets
+        """Add the subsets of the sets in list_of_sets to the one_sets.
 
-        Args:
-            one_sets (dict):
-                `{k:v}` where `v` is a set of indices of 1s for key `k`
+        Arguments:
+
+        - **one_sets (dict)**:<br />
+            `{k:v}` where `v` is a set of indices of 1s for key `k`.
 
         Returns:
 
-            new_one_sets (dict):
-                `{k:v}` where `v` is a list of sets of indices of 1s for key `k`
-                each set is a subset of the original set and is present in
-                the values of `one_sets`
+        - **new_one_sets (dict)**:<br />
+            `{k:v}` where `v` is a list of sets of indices of 1s for key `k`
+            each set is a subset of the original set and is present in
+            the values of `one_sets`.
 
         Example:
 
@@ -193,16 +202,18 @@ class MatrixPatches:
     @staticmethod
     def split_one_sets(one_sets: dict) -> dict:
         """Split the sets in `one_sets` into sub-sets such that
-        each subset only contains consecutive indices
+        each subset only contains consecutive indices.
 
-        Args:
-            one_sets (dict):
-                `{k:v}` where `v` is a set of indices of 1s for key `k`
+        Arguments:
+
+        - **one_sets (dict)**:<br />
+            `{k:v}` where `v` is a set of indices of 1s for key `k`.
 
         Returns:
-            new_one_sets (dict):
-                dictionary of lists of lists where each list contains the
-                indices of 1s
+
+        - **new_one_sets (dict)**:<br />
+            dictionary of lists of lists where each list contains the
+            indices of 1s.
 
         Example:
 
@@ -226,14 +237,17 @@ class MatrixPatches:
     @staticmethod
     def split_one_set(one_set: set | list) -> list:
         """Split a set of indices into sub-sets such that
-        each subset only contains consecutive indices
+        each subset only contains consecutive indices.
 
-        Args:
-            one_set (set | list): Set of indices of 1s
+        Arguments:
+
+        - **one_set (set | list)**:<br />
+            Set of indices of 1s.
 
         Returns:
-            `sub_sets (list)`:
-                List of lists where each list contains the indices of 1s
+
+        - **sub_sets (list)**:<br />
+            List of lists where each list contains the indices of 1s.
 
         Example:
 
@@ -280,16 +294,21 @@ class MatrixPatches:
         one_sets: dict,
         columns: list
     ):
-        """Convert a dictionary to a pandas DataFrame
+        """Convert a dictionary to a pandas DataFrame.
 
-        Args:
-            one_sets (dict): Dictionary to convert
-            columns (list): Column names
+        Arguments:
+
+        - **one_sets (dict)**:<br />
+            Dictionary to convert.
+
+        - **columns (list)**:<br />
+            Column names.
 
         Returns:
-            `df (pd.DataFrame)`:
-                DataFrame with the dictionary keys as first column and values
-                as second column in columns
+
+        - df (pd.DataFrame)**:<br />
+            DataFrame with the dictionary keys as first column and values
+            as second column in columns.
 
         Example:
 
@@ -327,16 +346,23 @@ class MatrixPatches:
         groupby_col: str,
         agg_col: str
     ):
-        """Group a DataFrame by a column and aggregate another column
+        """Group a DataFrame by a column and aggregate another column.
 
-        Args:
-            df (pd.DataFrame): DataFrame with groupby_col and agg_col
-            groupby_col (str): Column to group by (each value is a set)
-            agg_col (str): Column to aggregate (each value is a string)
+        Arguments:
+
+        - **df (pd.DataFrame)**:<br />
+            DataFrame with groupby_col and agg_col.
+
+        - **groupby_col (str)**:<br />
+            Column to group by (each value is a set).
+
+        - **agg_col (str)**:<br />
+            Column to aggregate (each value is a string).
 
         Returns:
-            `df_group (pd.DataFrame)`:
-                Grouped DataFrame with both columns as a set
+
+        - **df_group (pd.DataFrame)**:<br />
+            Grouped DataFrame with both columns as a set.
 
         Example:
 
@@ -375,18 +401,27 @@ class MatrixPatches:
         colname_2: str
     ):
         """Combine two DataFrames with columns colname_1 and colname_2
-        into a new DataFrame with interacting residues ranges without duplicates
+        into a new DataFrame with interacting residues ranges without duplicates.
 
-        Args:
-            df1 (pd.DataFrame): DataFrame 1
-            df2 (pd.DataFrame): DataFrame 2
-            colname_1 (str): Column name 1
-            colname_2 (str): Column name 2
+        Arguments:
+
+        - **df1 (pd.DataFrame)**:<br />
+            DataFrame 1.
+
+        - **df2 (pd.DataFrame)**:<br />
+            DataFrame 2.
+
+        - **colname_1 (str)**:<br />
+            Column name 1.
+
+        - **colname_2 (str)**:<br />
+            Column name 2.
 
         Returns:
-            `new_df (pd.DataFrame)`:
-                Combined DataFrame of interacting residues ranges without
-                duplicates
+
+        - **new_df (pd.DataFrame)**:<br />
+            Combined DataFrame of interacting residues ranges without
+            duplicates.
 
         Example:
 
@@ -440,16 +475,24 @@ class MatrixPatches:
         colname_1: str,
         colname_2: str
     ):
-        """Remove rows that are subsets of other rows
+        """Remove rows that are subsets of other rows.
         (from chatgpt)
 
-        Args:
-            df (pd.DataFrame): DataFrame with columns `colname_1` and `colname_2`
-            colname_1 (str): column name 1
-            colname_2 (str): column name 2
+        Arguments:
+
+        - **df (pd.DataFrame)**:<br />
+            DataFrame with columns `colname_1` and `colname_2`.
+
+        - **colname_1 (str)**:<br />
+            column name 1.
+
+        - **colname_2 (str)**:<br />
+            column name 2.
 
         Returns:
-            `filtered_df (pd.DataFrame)`: DataFrame with subset rows removed
+
+        - **filtered_df (pd.DataFrame)**:<br />
+            DataFrame with subset rows removed.
 
         Example:
 
@@ -490,16 +533,26 @@ class MatrixPatches:
         colname_1: str,
         colname_2: str,
     ):
-        """Check if row is a subset of other_row for two specified columns
+        """Check if row is a subset of other_row for two specified columns.
 
-        Args:
-            row (pd.Series): Row to check if it is a subset of other_row
-            other_row (pd.Series): Row to check against
-            colname_1 (str): Column name 1
-            colname_2 (str): Column name 2
+        Arguments:
+
+        - **row (pd.Series)**:<br />
+            Row to check if it is a subset of other_row.
+
+        - **other_row (pd.Series)**:<br />
+            Row to check against.
+
+        - **colname_1 (str)**:<br />
+            Column name 1.
+
+        - **colname_2 (str)**:<br />
+            Column name 2.
 
         Returns:
-            `bool`: `True` if row is a subset of `other_row`, `False` otherwise.
+
+        - **(bool)**:<br />
+            `True` if row is a subset of `other_row`, `False` otherwise.
 
         Example:
 
