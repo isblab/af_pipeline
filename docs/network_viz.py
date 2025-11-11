@@ -24,6 +24,106 @@ EDGE_COLORS = {
 
 REPO_LINK = "https://github.com/isblab/af_pipeline/tree/main/af_pipeline"
 
+COMMON_IGNORES = {
+    "ignore_dirs": [
+        "docs",
+        "tests",
+        "utils",
+    ],
+    "ignore_files": [],
+}
+
+MODULE_SPECIFIC_IGNORES = {
+    "af_pipeline": {
+        "ignore_dirs": [],
+        "ignore_files": [],
+    },
+    "af_input": {
+        "ignore_dirs": [
+            # "af_input",
+            "constants",
+            "pae_to_domains",
+            "parser",
+            "rank_predictions",
+            "rigid_bodies",
+            "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+    "pae_to_domains": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            # "pae_to_domains",
+            "parser",
+            "rank_predictions",
+            "rigid_bodies",
+            "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+    "parser": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            "pae_to_domains",
+            # "parser",
+            "rank_predictions",
+            "rigid_bodies",
+            "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+    "rank_predictions": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            "pae_to_domains",
+            "parser",
+            # "rank_predictions",
+            "rigid_bodies",
+            "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+    "rigid_bodies": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            "pae_to_domains",
+            "parser",
+            "rank_predictions",
+            # "rigid_bodies",
+            "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+    "tools": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            "pae_to_domains",
+            "parser",
+            "rank_predictions",
+            "rigid_bodies",
+            # "tools",
+        ],
+        "ignore_files": [
+            "_initialize.py",
+        ],
+    },
+}
+
 def create_graph(edges, nodes):
     """ Creates a directed graph using NetworkX from the given edges and nodes.
 
@@ -689,8 +789,11 @@ def get_type(name, classes, methods, orphan_funcs, all_imports):
 
 def get_submodule_script_paths(submodule, module_dir):
 
-    ignore_dirs = module_specific_ignores.get(submodule, {}).get("ignore_dirs", [])
-    ignore_files = module_specific_ignores.get(submodule, {}).get("ignore_files", [])
+    ignore_dirs = MODULE_SPECIFIC_IGNORES.get(submodule, {}).get("ignore_dirs", [])
+    ignore_files = MODULE_SPECIFIC_IGNORES.get(submodule, {}).get("ignore_files", [])
+
+    ignore_dirs += COMMON_IGNORES.get("ignore_dirs", [])
+    ignore_files += COMMON_IGNORES.get("ignore_files", [])
 
     ignore_dirs = [os.path.join(module_dir, i_dir) for i_dir in ignore_dirs]
 
@@ -995,109 +1098,6 @@ if __name__ == "__main__":
 
     module_dir = args.module_dir
     module_name = args.module_name
-
-    module_specific_ignores = {
-        "af_pipeline": {
-            "ignore_dirs": [],
-            "ignore_files": [],
-        },
-        "af_input": {
-            "ignore_dirs": [
-                # "af_input",
-                "constants",
-                "pae_to_domains",
-                "parser",
-                "rank_predictions",
-                "rigid_bodies",
-                "tests",
-                "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-        "pae_to_domains": {
-            "ignore_dirs": [
-                "af_input",
-                "constants",
-                # "pae_to_domains",
-                "parser",
-                "rank_predictions",
-                "rigid_bodies",
-                "tests",
-                "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-        "parser": {
-            "ignore_dirs": [
-                "af_input",
-                "constants",
-                "pae_to_domains",
-                # "parser",
-                "rank_predictions",
-                "rigid_bodies",
-                "tests",
-                "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-        "rank_predictions": {
-            "ignore_dirs": [
-                "af_input",
-                "constants",
-                "pae_to_domains",
-                "parser",
-                # "rank_predictions",
-                "rigid_bodies",
-                "tests",
-                "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-        "rigid_bodies": {
-            "ignore_dirs": [
-                "af_input",
-                "constants",
-                "pae_to_domains",
-                "parser",
-                "rank_predictions",
-                # "rigid_bodies",
-                "tests",
-                "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-        "tools": {
-            "ignore_dirs": [
-                "af_input",
-                "constants",
-                "pae_to_domains",
-                "parser",
-                "rank_predictions",
-                "rigid_bodies",
-                "tests",
-                # "tools",
-                "utils",
-            ],
-            "ignore_files": [
-                "_initialize.py",
-            ],
-        },
-    }
 
     networks_to_generate = [
         "af_pipeline",
