@@ -774,19 +774,6 @@ def get_dependency_graph(script_path, module_dir):
     # convert sets to lists for nicer printing if needed
     return {k: set(v) for k, v in analyzer.dependencies.items()}
 
-def get_type(name, classes, methods, orphan_funcs, all_imports):
-    if name in classes:
-        return "class"
-    elif name in methods:
-        return "method"
-    elif name in orphan_funcs:
-        return "function"
-    # elif name in all_imports:
-    #     return "import"
-    else:
-        return "unknown"
-
-
 def get_submodule_script_paths(submodule, module_dir):
 
     ignore_dirs = MODULE_SPECIFIC_IGNORES.get(submodule, {}).get("ignore_dirs", [])
@@ -997,18 +984,25 @@ def generate_network_visualization(edges, nodes, submodule_name, output_dir, rem
     options = {
       "physics": {
         "forceAtlas2Based": {
-          "gravitationalConstant": -150,
-          "springLength": 200,
+          "theta": 0.6,
+          "gravitationalConstant": -99,
+          "springLength": 170,
+          "springConstant": 0.15,
           "centralGravity": 0.005,
+          "avoidOverlap": 0.8,
         },
-        "minVelocity": 0.75,
+        "minVelocity": 0.6,
         "maxVelocity": 100,
-        "avoidOverlap": 0.8,
         "solver": "forceAtlas2Based"
+      },
+      "wind": {
+        "x": 8.5,
+        "y": 0.0,
       },
       "edges": {
         "smooth": {
             "type": "cubicBezier",
+            "forceDirection": "vertical",
             "roundedness": 0.6,
         },
       },
@@ -1036,8 +1030,6 @@ def generate_network_visualization(edges, nodes, submodule_name, output_dir, rem
         "./docs/template",
         template_file="template_custom.html"
     )
-    os.makedirs(output_dir, exist_ok=True)
-    # net.show(f"./docs/network_viz/network_{submodule_name}.html", notebook=False)
 
     # custom javascript to open links in new tab on double click to nodes
     custom_js = """
@@ -1062,6 +1054,8 @@ def generate_network_visualization(edges, nodes, submodule_name, output_dir, rem
 
     net_html = net.generate_html()
     net_html = net_html.replace("</body>", f"{custom_js}</body>")
+
+    os.makedirs(output_dir, exist_ok=True)
     with open(f"{output_dir}/network_{submodule_name}.html", "w") as f:
         f.write(net_html)
     # net.write_html(f"{output_dir}/network_{submodule_name}.html")
