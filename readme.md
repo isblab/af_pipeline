@@ -46,8 +46,11 @@ predictions from AlphaFold predictions.
 > pytest --cov=af_pipeline
 > ```
 >
-> The coverage badge was generated locally using `genbadge`.
-
+> The coverage badge was generated locally using `genbadge` as follows.
+> ```bash
+> coverage xml -o tests/reports/coverage.xml
+> genbadge coverage -i tests/reports/coverage.xml -l -o tests/badges/coverage-badge.svg
+> ```
 
 ## Information
 
