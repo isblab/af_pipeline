@@ -38,8 +38,6 @@ jobs:
       - run: |
           echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
       - run: |
-          python ./docs/network_viz.py -o docs/network_viz -d "/home/runner/work/af_pipeline/af_pipeline" -m "af_pipeline"
-      - run: |
           echo $PYTHONPATH
           echo $HOME
           pwd
