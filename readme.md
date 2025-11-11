@@ -1,6 +1,6 @@
 # AF Pipeline
 
-![Coverage Status](./coverage-badge.svg?raw=true)
+![Coverage Status](./tests/badges/coverage-badge.svg?raw=true)
 
 A module to assist in creating input files and processing and analyzing output
 predictions from AlphaFold predictions.
