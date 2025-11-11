@@ -8,6 +8,7 @@ on:
     paths:
       - af_pipeline/**
       - docs/**
+      - .github/workflows/docs.yml
 
     # Alternative: only build for tags.
     # tags:
