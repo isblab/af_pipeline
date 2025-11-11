@@ -1,0 +1,50 @@
+# AF Pipeline
+
+![Coverage Status](./coverage-badge.svg?raw=true)
+
+A module to assist in creating input files and processing and analyzing output
+predictions from AlphaFold predictions.
+
+## Installation
+- Clone the repository
+- Install the required packages using pip:
+    ```bash
+    pip install -r requirements.txt
+    ```
+- Add the PYTHONPATH environment variable to include the af_pipeline directory:
+    ```bash
+    export PYTHONPATH=$PYTHONPATH:/path/to/af_pipeline
+    ```
+
+## Usage
+- Refer to the documentation.
+- Example scripts are available in the [examples](./examples/) directory.
+
+> [!NOTE]
+> *Assuming your working directory is `/path/to/af_pipeline`*
+>
+> For now, generate documentation using `pdoc` manually as follows:
+> ```bash
+> pdoc --mermaid af_pipeline
+> ```
+>
+> The generated documentation will be available at `http://localhost:8080`
+>
+> To generate the network visualizations, run:
+> ```bash
+> python docs/network_viz.py
+> ```
+
+## Information
+
+__Author(s):__
+
+__Date:__
+
+__License:__
+
+__Testable:__
+
+__Parallelizeable:__
+
+__Publications:__
