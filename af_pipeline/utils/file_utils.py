@@ -1,6 +1,7 @@
 import ruamel.yaml
 import json
 import yaml
+from typing import Any
 
 class NonAliasingRTRepresenter(ruamel.yaml.representer.RoundTripRepresenter):
     def ignore_aliases(self, data):
@@ -10,25 +11,33 @@ def write_json(
     file_path: str,
     data
 ):
-    """Write data to a json file
+    """Write data to a json file.
 
-    Args:
-        file_path (str): Path to json file
-        data (dict): Data to write
+    Arguments:
+
+    - **file_path (str)**:<br />
+        Path to json file.
+
+    - **data (dict)**:<br />
+        Data to write.
     """
 
     with open(file_path, "w") as f:
         json.dump(data, f)
 
 
-def read_json(file_path: str):
-    """Load a json file
+def read_json(file_path: str) -> dict | list:
+    """Load a json file.
 
-    Args:
-        file_path (str): Path to json file
+    Arguments:
+
+    - **file_path (str)**:<br />
+        Path to json file.
 
     Returns:
-    - **data (dict|list)**: Data from json file
+
+    - **data (dict|list)**:<br />
+        Data from json file.
     """
 
     with open(file_path, "r") as f:
@@ -36,14 +45,18 @@ def read_json(file_path: str):
 
     return data
 
-def read_pkl(file_path: str):
-    """Load a pickle file
+def read_pkl(file_path: str) -> Any:
+    """Load a pickle file.
 
-    Args:
-        file_path (str): Path to pickle file
+    Arguments:
+
+    - **file_path (str)**:<br />
+        Path to pickle file.
 
     Returns:
-    - **data (any)**: Data from pickle file
+
+    - **data (any)**:<br />
+        Data from pickle file.
     """
 
     import pickle as pkl
@@ -56,13 +69,17 @@ def read_pkl(file_path: str):
 
 def read_fasta(fasta_file: str) -> dict:
     """
-    Read a fasta file and return a dictionary of sequences
+    Read a fasta file and return a dictionary of sequences.
 
-    Args:
-        fasta_file (str): Path to fasta file
+    Arguments:
+
+    - **fasta_file (str)**:<br />
+        Path to fasta file.
 
     Returns:
-    - **all_sequences (dict)**: `{sequence_header: sequence}`
+
+    - **all_sequences (dict)**:<br />
+        `{sequence_header: sequence}`.
     """
 
     all_sequences = {}
@@ -89,12 +106,19 @@ def update_config(
     updates: dict = None,
     mode: str = "replace",
 ):
-    """Update config file with a new field or update an existing field
+    """Update config file with a new field or update an existing field.
 
-    Args:
-        input_file (str): Path to input config file
-        updates (dict, optional): Fields to update in the config file.
-        mode (str, optional): Mode to update the config file. ("append" or "replace")
+    Arguments:
+
+    - **input_file (str)**:<br />
+        Path to input config file.
+
+    - **updates (dict, optional)**:<br />
+        Fields to update in the config file.
+
+    - **mode (str, optional)**:<br />
+        Mode to update the config file. ("append" or "replace").
+
     """
 
     yaml = ruamel.yaml.YAML()
@@ -150,12 +174,18 @@ def update_job_names_in_config(
     job_set_names: dict,
     mode: str = "replace",
 ):
-    """ Update the job names in the config file
+    """ Update the job names in the config file.
 
-    Args:
-        input_file (str): Path to input config file
-        job_set_names (dict): Dictionary of job cycle names
-        mode (str, optional): Mode to update the config file.
+    Arguments:
+
+    - **input_file (str)**:<br />
+        Path to input config file.
+
+    - **job_set_names (dict)**:<br />
+        Dictionary of job cycle names.
+
+    - **mode (str, optional)**:<br />
+        Mode to update the config file.
     """
 
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)
@@ -186,12 +216,18 @@ def update_af_offsets_in_config(
     af_offsets: dict,
     mode: str = "replace",
 ):
-    """Update the `af_offsets` in the config file
+    """Update the `af_offsets` in the config file.
 
-    Args:
-        input_file (str): Path to input config file
-        af_offsets (dict): Dictionary of job cycle offsets
-        mode (str, optional): Mode to update the config file.
+    Arguments:
+
+    - **input_file (str)**:<br />
+        Path to input config file.
+
+    - **af_offsets (dict)**:<br />
+        Dictionary of job cycle offsets.
+
+    - **mode (str, optional)**:<br />
+        Mode to update the config file.
     """
 
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)
