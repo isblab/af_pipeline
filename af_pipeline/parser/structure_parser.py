@@ -40,6 +40,7 @@ Structure Parser Module
 
 </details>
 """
+
 import os
 from typing import Any, Generator
 import warnings
