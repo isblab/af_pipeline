@@ -22,6 +22,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - run: |
+          echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -35,8 +37,6 @@ jobs:
       # ADJUST THIS: build your documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       # - run: python docs/make.py
-      - run: |
-          echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
       - run: |
           echo $PYTHONPATH
           echo $HOME
