@@ -35,6 +35,20 @@ predictions from AlphaFold predictions.
 > python docs/network_viz.py
 > ```
 
+## Testing
+- Refer to the [tests](./tests/) directory.
+
+> [!NOTE]
+> *Assuming your working directory is `/path/to/af_pipeline`*
+>
+> For now, run tests using `pytest` manually as follows:
+> ```bash
+> pytest --cov=af_pipeline
+> ```
+>
+> The coverage badge was generated locally using `genbadge`.
+
+
 ## Information
 
 __Author(s):__
