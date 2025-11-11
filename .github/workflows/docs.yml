@@ -6,7 +6,8 @@ on:
     branches:
       - main
     paths:
-    - af_pipeline/**
+      - af_pipeline/**
+      - docs/**
 
     # Alternative: only build for tags.
     # tags:
