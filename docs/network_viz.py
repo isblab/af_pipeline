@@ -940,7 +940,7 @@ def generate_network_visualization(edges, nodes, submodule_name, output_dir, rem
 
     net = Network(
         height="90vh",
-        width="100%",
+        width="98vw",
         directed=True,
         notebook=False,
         layout=False,
