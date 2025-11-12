@@ -9,9 +9,9 @@ Currently supports the following:
 - AlphaFold3 data files (.json)
 - ColabFold data files (.json)
 
-[^data_file]: *The "data file" in this context refers to the file that contains prediction\
-  metrics such as PAE matrices, pLDDT scores, (token chain IDs, token residue IDs,\
-  and contact probabilities for AF3), among others.*
+[^data_file]: *The "data file" in this context refers to the file that contains \
+  prediction metrics such as PAE matrices, pLDDT scores, (token chain IDs, \
+  token residue IDs, and contact probabilities for AF3), among others.*
 """
 
 import warnings
