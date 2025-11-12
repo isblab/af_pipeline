@@ -1,7 +1,5 @@
 import pytest
-from Bio.PDB import PDBParser, MMCIFParser
 import Bio.PDB.Structure
-from af_pipeline.constants.af_constants import *
 from af_pipeline.parser.structure_parser import StructureParser
 from af_pipeline.parser.data_parser import DataParser
 import numpy as np
@@ -19,12 +17,7 @@ struct_path4 = "tests/test_data/af_predictions/af3/fold_dummy_job_ptm_1/fold_dum
 data_path_4 = "tests/test_data/af_predictions/af3/fold_dummy_job_ptm_1/fold_dummy_job_ptm_1_full_data_0.json"
 
 struct_path5 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_job_2_model_0.cif"
-data_path_1 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_job_2_full_data_0.json"
-
-data1 = DataParser(data_file_path=data_path_1).get_data_dict()
-data2 = DataParser(data_file_path=data_path2).get_data_dict()
-data4 = DataParser(data_file_path=data_path_4).get_data_dict()
-data5 = DataParser(data_file_path=data_path_1).get_data_dict()
+data_path_5 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_job_2_full_data_0.json"
 
 @pytest.fixture
 def struct_parser1():

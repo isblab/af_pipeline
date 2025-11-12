@@ -43,7 +43,7 @@ predictions from AlphaFold predictions.
 >
 > For now, run tests using `pytest` manually as follows:
 > ```bash
-> pytest --cov=af_pipeline
+> pytest --cov=af_pipeline --doctest-modules --cov-context=test
 > ```
 >
 > The coverage badge was generated locally using `genbadge` as follows.
