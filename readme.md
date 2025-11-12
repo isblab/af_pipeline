@@ -20,6 +20,9 @@ predictions from AlphaFold predictions.
 - Refer to the documentation.
 - Example scripts are available in the [examples](./examples/) directory.
 
+## Documentation
+- Currently, only network visualizations are available in [docs](./docs/) directory.
+
 > [!NOTE]
 > *Assuming your working directory is `/path/to/af_pipeline`*
 >
