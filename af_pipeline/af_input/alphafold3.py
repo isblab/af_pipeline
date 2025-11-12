@@ -31,20 +31,15 @@ AlphaFold server input file creator
 
 import os
 import json
-import random
 import warnings
-from typing import List, Dict, Any, Final, Tuple
+from typing import List, Dict, Any, Tuple
 
-from af_pipeline.utils.misc_utils import chain_id_gen
+from af_pipeline.utils.misc_utils import chain_id_gen, generate_seeds
 from af_pipeline.constants.af_constants import (
-    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES, MAX_TEMPLATE_DATE,
-    JOB_LIMIT_PER_JSON
+    PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
+    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON
 )
 
-SEED_MULTIPLIER: Final[int] = 100
-""" Multiplier to generate model seeds."""
-
-random.seed(47)  # for reproducibility in model seed generation
 
 class AlphaFoldServer:
     """Class to help create JSON files for AlphaFold server jobs."""
@@ -507,7 +502,7 @@ class AFJobSet:
         if "modelSeeds" in self.job_set_info:
 
             if isinstance(model_seeds, int):
-                self.model_seeds = AFJobSet.generate_seeds(num_seeds=model_seeds)
+                self.model_seeds = generate_seeds(num_seeds=model_seeds)
 
             elif isinstance(model_seeds, list):
                 self.model_seeds = model_seeds
@@ -564,13 +559,13 @@ class AFJobSet:
                 {self.job_set_info}"
             )
 
-    @staticmethod
-    def generate_seeds(num_seeds: int) -> List[int]:
-        """Generate `model_seeds`."""
+    # @staticmethod
+    # def generate_seeds(num_seeds: int) -> List[int]:
+    #     """Generate `model_seeds`."""
 
-        model_seeds = random.sample(range(1, SEED_MULTIPLIER * num_seeds), num_seeds)
+    #     model_seeds = random.sample(range(1, SEED_MULTIPLIER * num_seeds), num_seeds)
 
-        return model_seeds
+    #     return model_seeds
 
 
 class Entity:
@@ -1223,4 +1218,4 @@ class AFSequence(Entity):
             Name fragment of the entity.
         """
 
-        return f"{self.name}_{self.count}_{self.start}-{self.end}"
+        return f"{self.name}_{self.count}_{self.start}{RES_RANGE_SEP}{self.end}"

@@ -502,6 +502,9 @@ class StructureParser:
                 """
             )
 
+        if isinstance(rep_atom, str):
+            rep_atom = residue[rep_atom]
+
         return rep_atom
 
     @staticmethod

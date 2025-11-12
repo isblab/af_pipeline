@@ -195,11 +195,11 @@ def update_job_names_in_config(
     for job_cycle, job_set_names in job_set_names.items():
         if job_cycle in af_input_jobs:
             for idx, job_set in enumerate(af_input_jobs[job_cycle]):
-                if "name" in job_set:
-                    af_input_jobs[job_cycle][idx]["name"] = job_set_names[idx]
+                if "job_set_name" in job_set:
+                    af_input_jobs[job_cycle][idx]["job_set_name"] = job_set_names[idx]
                 else:
                     af_input_jobs[job_cycle][idx] = {
-                        "name": job_set_names[idx],
+                        "job_set_name": job_set_names[idx],
                         **job_set,
                     }
         else:

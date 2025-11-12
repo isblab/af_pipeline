@@ -9,6 +9,17 @@ import warnings
 import numpy as np
 from typing import Any, Dict
 from collections import Counter
+from af_pipeline.constants.af_constants import SEED_MULTIPLIER
+from typing import List
+import random
+
+def generate_seeds(num_seeds: int, set_seed: int=47) -> List[int]:
+    """Generate `model_seeds`."""
+
+    random.seed(set_seed)
+    model_seeds = random.sample(range(1, SEED_MULTIPLIER * num_seeds), num_seeds)
+
+    return model_seeds
 
 def chain_id_gen():
     """ Generator to sequentially generate 52 alphabets to use as Chain IDs
@@ -17,6 +28,15 @@ def chain_id_gen():
 
     Yields:
         `i (str)`: Chain ID
+
+    Example:
+
+        >>> gen = chain_id_gen()
+        >>> _chains= []
+        >>> for _ in range(52):
+        ...     _chains.append(next(gen))
+        >>> print("".join(_chains))
+        ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
     """
 
     for i in (list(string.ascii_uppercase)):
@@ -329,6 +349,8 @@ def get_duplicate_indices(
         {3: [2], 2: [4]}
         >>> get_duplicate_indices(my_li, keep_which="last")
         [0, 1]
+        >>> get_duplicate_indices(my_li, keep_which="last", return_type="dict")
+        {3: [0], 2: [1]}
     """
 
     token_counts = Counter(my_li)
@@ -483,8 +505,15 @@ def update_matrix_row_col(
         >>> update_matrix_row_col(
         ... matrix, idxs_to_update, False, idxs_to_keep
         ... )
-        array([[1, 3],
-               [7, 9]])
+        array([[1., 3.],
+               [7., 9.]])
+        >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        >>> idxs_to_update = {1: [0, 1]}
+        >>> update_matrix_row_col(
+        ... matrix, idxs_to_update, True, {}
+        ... )
+        array([[3. , 4.5],
+               [7.5, 9. ]])
     """
 
     if matrix is None:
@@ -511,7 +540,7 @@ def update_matrix_row_col(
     assert all(isinstance(idx, int) for idx in idxs_to_keep.values()), \
         "All values in idxs_to_keep must be integers."
 
-    matrix = copy.deepcopy(matrix)
+    matrix = copy.deepcopy(matrix).astype(float)
     things_to_update = []
 
     idxs_to_update_list = [
@@ -595,12 +624,24 @@ def extract_protein_chain_mapping(
     }
     ```
 
-    Args:
-        protein_chain_mapping (dict): Protein-to-chain map.
+    Arguments:
+
+    - **protein_chain_mapping (dict)**:<br />
+        Protein-to-chain map.
 
     Returns:
+
     - **protein_chain_map (dict)**:
         Dictionary with chain IDs as keys and protein names as values.
+
+    Example:
+
+        >>> protein_chain_mapping = {
+        ... "ProteinA:A,B",
+        ... "ProteinB:C"
+        ... }
+        >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
+        [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
     """
 
     protein_chain_map = {}

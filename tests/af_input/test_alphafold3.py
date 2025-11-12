@@ -1,8 +1,11 @@
+import os
 import pytest
 from af_pipeline.af_input.alphafold3 import (
     AlphaFoldServer, AFCycle, AFJobSet, AFSequence, Entity
 )
-from af_pipeline.constants.af_constants import MAX_TEMPLATE_DATE
+from af_pipeline.constants.af_constants import MAX_TEMPLATE_DATE, RES_RANGE_SEP
+
+test_out_dir = "tests/test_output"
 
 ###############################################################################
 protein_sequences_by_name = {
@@ -744,7 +747,7 @@ def test_create_job_set(
     assert af_jobset1.job_set_af_offset == expected_af_offsets, assert_msg2
 
     af_jobset = af_jobset3.create_job_set()
-    expected_af_jobset["name"] = "protB_1_1-19_dnaA_1_1-27_rnaA_1_1-27_CCD_ATP_2_1-1_MG_2_1-1"
+    expected_af_jobset["name"] = f"protB_1_1{RES_RANGE_SEP}19_dnaA_1_1{RES_RANGE_SEP}27_rnaA_1_1{RES_RANGE_SEP}27_CCD_ATP_2_1{RES_RANGE_SEP}1_MG_2_1{RES_RANGE_SEP}1"
     assert af_jobset == expected_af_jobset, assert_msg
 
     af_jobset = af_jobset2.create_job_set()
@@ -828,7 +831,7 @@ def test_create_job_set(
     assert af_jobset2.job_set_af_offset == expected_af_offsets, assert_msg2
 
     af_jobset = af_jobset4.create_job_set()
-    expected_af_jobset["name"] = "protA_2_2-25_dnaA_1_3-20_rnaA_1_3-20_CCD_ATP_2_1-1_MG_2_1-1"
+    expected_af_jobset["name"] = f"protA_2_2{RES_RANGE_SEP}25_dnaA_1_3{RES_RANGE_SEP}20_rnaA_1_3{RES_RANGE_SEP}20_CCD_ATP_2_1{RES_RANGE_SEP}1_MG_2_1{RES_RANGE_SEP}1"
     assert af_jobset == expected_af_jobset, assert_msg
 
 ###############################################################################
@@ -1094,7 +1097,7 @@ def test_update_cycle(af_cycle: AFCycle):
     assert af_cycle.job_set_af_offsets == expected_job_set_af_offsets, assert_msg
 
 ###############################################################################
-# AlphaFold3 class Fixtures and Tests
+# AlphaFoldServer class Fixtures and Tests
 ###############################################################################
 @pytest.fixture
 def alphafoldserver():
@@ -1103,6 +1106,19 @@ def alphafoldserver():
         protein_sequences=protein_sequences_by_name,
         nucleic_acid_sequences=nucleic_acid_sequences,
     )
+
+def test_write_job_files(alphafoldserver: AlphaFoldServer):
+
+    job_cycles, _, _ = alphafoldserver.create_af3_job_cycles()
+    alphafoldserver.write_job_files(
+        job_cycles=job_cycles,
+        output_dir=os.path.join(test_out_dir, "af3_input_jobs"),
+        num_jobs_per_file=20,
+    )
+
+    assert os.path.isfile(os.path.join(
+        test_out_dir, "af3_input_jobs", "cycle1", "cycle1_set_0.json"
+    ))
 
 def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
     """Test AlphaFoldServer.create_af3_job_cycles method."""

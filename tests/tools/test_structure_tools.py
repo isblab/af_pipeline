@@ -1,5 +1,10 @@
 import pytest
 from af_pipeline.tools.structure_tools import RenumberResidues
+from af_pipeline.parser.structure_parser import StructureParser
+
+struct_path1 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_job_2_model_0.cif"
+data_path_1 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_job_2_full_data_0.json"
+offset1 = {"A": [10, 13]}
 
 offset = {"A": [10, 13], "B": [3, 5]}
 region_of_interest = {"A": [10, 12]}
@@ -14,6 +19,29 @@ def renumber_residues1():
 @pytest.fixture
 def renumber_residues2():
     return RenumberResidues(offset=offset)
+
+@pytest.fixture
+def renumber_residues3():
+    return RenumberResidues(offset=offset1)
+
+def test_renumber_structure(renumber_residues3: RenumberResidues):
+
+    struct_parser = StructureParser(structure_file_path=struct_path1)
+    my_struct = struct_parser.get_structure_obj()
+    renumbered_struct = renumber_residues3.renumber_structure(
+        structure=my_struct,
+    )
+
+    for model in renumbered_struct:
+        for chain in model:
+            chain_id = chain.id[0]
+            start, end = offset1[chain_id]
+            renumbered_res = list(range(start, end + 1))
+            res_idx = 0
+            for residue in chain:
+                assert residue.id[1] == renumbered_res[res_idx], \
+                    f"Residue {residue.id[1]} in chain {chain_id} is not renumbered correctly."
+                res_idx += 1
 
 def test_renumber_chain_res_num(
     renumber_residues1: RenumberResidues,

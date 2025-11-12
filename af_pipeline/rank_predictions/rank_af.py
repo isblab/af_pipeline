@@ -35,6 +35,7 @@ import warnings
 from collections import defaultdict
 from af_pipeline.utils.file_utils import read_json
 from af_pipeline.utils.misc_utils import chain_id_gen
+from af_pipeline.constants.af_constants import RES_RANGE_SEP
 
 def get_directory_level(pred_dir:str):
     """ Get the level of the prediction directory
@@ -266,11 +267,12 @@ class RankAF3JobSet:
     def __init__(
         self,
         job_set_dir:str,
+        try_af_offset_from_path: bool = False,
     ):
         self.job_set_dir = os.path.abspath(job_set_dir)
         self.cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
         self.job_set_name = os.path.basename(self.job_set_dir)
-        self.try_af_offset_from_path = False
+        self.try_af_offset_from_path = try_af_offset_from_path
 
     def extract_af3_best_pred_data(self, af_input_jobs: dict| None = None) -> list:
         """ Extract AF3 model metrics and paths to the best model and data for a
@@ -300,6 +302,7 @@ class RankAF3JobSet:
         af_offset = self.extract_af_offset_from_af_input_jobs(af_input_jobs)
 
         if self.try_af_offset_from_path:
+            print("Trying to extract AF offset from structure path...")
 
             try:
                 af_offset = self.extract_af_offset_from_path(structure_path)
@@ -750,14 +753,14 @@ class RankAF3JobSet:
 
                 chain_id = next(chainGen)
                 try:
-                    start, end = res_range.split("to")
+                    start, end = res_range.split(RES_RANGE_SEP)
                 except ValueError:
                     try:
                         start, end = res_range.split("-")
                     except ValueError:
                         raise ValueError(
                             f"Invalid residue range format in {structure_path}. "
-                            "Expected format is 'starttoend' or 'start-end'."
+                            "Expected format is 'STARTtEND' or 'START-END'."
                         )
                 af_offset[chain_id] = [int(start), int(end)]
                 chain_count += 1

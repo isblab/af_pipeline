@@ -3,6 +3,12 @@
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
+from typing import Final
+
+RES_RANGE_SEP: Final[str] = "t"
+
+SEED_MULTIPLIER: Final[int] = 100
+""" Multiplier to generate model seeds."""
 
 MAX_TEMPLATE_DATE = "2021-09-30"
 

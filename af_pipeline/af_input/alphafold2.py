@@ -10,6 +10,8 @@ import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
+from af_pipeline.constants.af_constants import RES_RANGE_SEP
+
 class AlphaFold2:
     """Class to create FASTA files for AlphaFold2 jobs."""
 
@@ -216,7 +218,7 @@ class AlphaFold2:
                 start, end = entity["range"]
 
                 sequences_to_add[
-                    f"{identifier}_{entity_count}_{start}to{end}"
+                    f"{identifier}_{entity_count}_{start}{RES_RANGE_SEP}{end}"
                 ] = sequence
 
         # warn if any of the entities is not a proteinChain
@@ -325,7 +327,7 @@ class AlphaFold2:
             start, end = entity["range"]
             count = entity["count"]
 
-            fragments[f"{identifier}_{start}to{end}"].append(count)
+            fragments[f"{identifier}_{start}{RES_RANGE_SEP}{end}"].append(count)
 
         fragments = {k: max(v) for k, v in fragments.items()}
 
