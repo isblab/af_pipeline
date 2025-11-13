@@ -26,9 +26,31 @@ AVAILABLE_DATA_READERS = {
     "json": read_json,
 }
 
-print(type(AVAILABLE_DATA_READERS["pkl"]))
-
 ALLOWED_DATA_FORMATS = list(AVAILABLE_DATA_READERS.keys())
+
+AVAILABLE_ATOM_QUANTITIES = [
+    "coord",
+    "plddt",
+    "atom_name",
+    "res_pos",
+    "res_name",
+    "chain_id",
+    "entity_type",
+    "atom_local_idx",
+]
+
+AVAILABLE_RESIDUE_QUANTITIES =[
+    "res_pos",
+    "res_name",
+    "coord",
+    "plddt",
+    "chain_id",
+    "entity_type",
+    "atoms",
+    "atom_local_idxs",
+    "rep_atom",
+    "rep_atom_local_idx",
+]
 
 PTM = [
     "CCD_SEP",
@@ -177,6 +199,13 @@ DNA_PYRIMIDINES = [
     "DC",
     "DT"
 ]
+
+REP_ATOMS = {
+    "proteinChain": "CB",
+    "is_ca_only": "CA",
+    "is_purine": "C4",
+    "is_pyrimidine": "C2",
+}
 
 ALLOWED_LIGANDS = [ligand.split("_")[1] for ligand in LIGAND]
 ALLOWED_PTMS = [ptm_ccd.split("_")[1] for ptm_ccd in PTM]

@@ -42,7 +42,6 @@ Structure Parser Module
 """
 
 import os
-from typing import Any, Generator
 import warnings
 import numpy as np
 import Bio
@@ -56,9 +55,12 @@ from Bio.PDB.Chain import Chain
 from Bio.PDB.Structure import Structure
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBParser import PDBParser
+from typing import Any, Generator
 from af_pipeline.constants.af_constants import (
     ALLOWED_STRUCTURE_FORMATS,
-    AVAILABLE_PARSERS
+    AVAILABLE_PARSERS,
+    AVAILABLE_ATOM_QUANTITIES,
+    AVAILABLE_RESIDUE_QUANTITIES, REP_ATOMS
 )
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
@@ -73,8 +75,11 @@ class StructureParser:
     """ Path to the AF2/3 structure file (.pdb or .cif). """
 
     preserve_header_footer: bool
-    """ If `True`, the header and footer information is preserved in the structure
-    object. This is only applicable for .cif files."""
+    """ If `True`, the header and footer information is preserved in the
+    structure object.
+    > [!NOTE]
+    > `preserve_header_footer` is only applicable for .cif files.
+    """
 
     def __init__(
         self,
@@ -121,14 +126,15 @@ class StructureParser:
             Appropriate biopython parser for the structure file.
         """
 
-        parser = AVAILABLE_PARSERS[self.structure_type]()
+        parser = AVAILABLE_PARSERS[self.structure_type]
 
-        if isinstance(parser, PDBParser) and self.preserve_header_footer:
-            warnings.warn(
-                """
-
-                Header can only be preserved for CIF files.
-                Output will not contain header/footer information.
+        if callable(parser):
+            parser = parser()
+        else:
+            raise TypeError(
+                f"""
+                Parser is expected to be in {AVAILABLE_PARSERS.values()}.
+                Got {type(parser)} instead which is not callable.
                 """
             )
 
@@ -227,11 +233,67 @@ class StructureParser:
                         yield atom, residue, chain_id
 
     @staticmethod
+    def sanity_check_quantities(
+        quantities: list,
+        requested_on: Atom | Residue
+    ):
+
+        if isinstance(requested_on, Atom):
+            available_quantities = AVAILABLE_ATOM_QUANTITIES
+        elif isinstance(requested_on, Residue):
+            available_quantities = AVAILABLE_RESIDUE_QUANTITIES
+        else:
+            raise TypeError(
+                f"""
+
+                Expected requested_on to be Bio.PDB.Atom.Atom or
+                Bio.PDB.Residue.Residue object.
+                Got {type(requested_on)} instead.
+                """
+            )
+
+        if set(quantities).issubset(set(available_quantities)) is False:
+            raise ValueError(
+                f"""
+
+                Could not recognize the following quantities:
+                {set(quantities).difference(set(available_quantities))}
+
+                Allowed quantities are: {available_quantities}
+                """
+            )
+
+    def sanity_check_not_orphan(requested_on: Atom | Residue):
+
+        if isinstance(requested_on, Atom):
+
+            assert (
+                isinstance(requested_on.parent, Residue)
+                and isinstance(requested_on.parent.parent, Chain)
+            ), (
+                f"""
+                Expected a Bio.PDB.Residue.Residue as parent object and
+                Bio.PDB.Chain.Chain as grand-parent object. Got
+                {type(requested_on.parent)} & {type(requested_on.parent.parent)}
+                instead.
+                """
+            )
+
+        elif isinstance(requested_on, Residue):
+            assert isinstance(requested_on.parent, Chain), (
+                f"""
+
+                Expected a Bio.PDB.Chain.Chain as parent object.
+                Got {type(requested_on.parent)} instead.
+                """
+            )
+
+    @staticmethod
     def extract_peratom_quantities(
         atom: Atom,
         quantities: list = ["coord"]
     ) -> dict[str, Any]:
-        """ Extract per-atom quantities from a Bio.PDB.Atom.Atom object.
+        """ Extract per-atom quantities from a `Bio.PDB.Atom.Atom` object.
 
         Allowed quantities are:\n
         ```python
@@ -260,42 +322,11 @@ class StructureParser:
             - `quantity_name`:`quantity_value`
         """
 
-        allowed_quantities = [
-            "coord",
-            "plddt",
-            "atom_name",
-            "res_pos",
-            "res_name",
-            "chain_id",
-            "entity_type",
-            "atom_local_idx",
-        ]
-
-        assert set(quantities).issubset(
-            set(allowed_quantities)
-        ), f"Allowed quantities are: {allowed_quantities}"
+        StructureParser.sanity_check_quantities(quantities, atom)
+        StructureParser.sanity_check_not_orphan(atom)
 
         peratom_quantities = {}
 
-        # residue = atom.get_parent()
-        if not isinstance(atom.parent, Residue):
-            raise TypeError(
-                f"""
-
-                Expected a Bio.PDB.Residue.Residue object.
-                Got {type(atom.parent)} instead.
-                """
-            )
-
-        # chain = residue.get_parent()
-        if not isinstance(atom.parent.parent, Chain):
-            raise TypeError(
-                f"""
-
-                Expected a Bio.PDB.Chain.Chain object.
-                Got {type(atom.parent.parent)} instead.
-                """
-            )
 
         quantity_funcs = {
             "coord": lambda a: a.coord,
@@ -337,6 +368,12 @@ class StructureParser:
         - "rep_atom_local_idx" # Local index of the representative atom (int)
         ```
 
+        By default, the representative atom is determined by `get_rep_atom`
+        method based on the entity type of the residue.<br />
+        In case a specific representative atom is to be used, it can be passed
+        using the `rep_atom` argument as a string (atom name e.g. "N") or as a
+        `Bio.PDB.Atom.Atom` object.
+
         Arguments:
 
         - **residue (Bio.PDB.Residue.Residue)**:<br />
@@ -357,32 +394,8 @@ class StructureParser:
             - `quantity_name`:`quantity_value`
         """
 
-        allowed_quantities = [
-            "res_pos",
-            "res_name",
-            "coord",
-            "plddt",
-            "chain_id",
-            "entity_type",
-            "atoms",
-            "atom_local_idxs",
-            "rep_atom",
-            "rep_atom_local_idx",
-        ]
-
-        assert set(quantities).issubset(
-            set(allowed_quantities)
-        ), f"Allowed quantities are: {allowed_quantities}"
-
-        chain = residue.get_parent()
-        if not isinstance(residue.parent, Chain):
-            raise TypeError(
-                f"""
-
-                Expected a Bio.PDB.Chain.Chain object.
-                Got {type(chain)} instead.
-                """
-            )
+        StructureParser.sanity_check_quantities(quantities, residue)
+        StructureParser.sanity_check_not_orphan(residue)
 
         if rep_atom is None:
             rep_atom = StructureParser.get_rep_atom(residue=residue)
@@ -457,6 +470,11 @@ class StructureParser:
         - unknown # First atom in the residue.
         ```
 
+        > [!NOTE]
+        > Choosing representative atom depends on the decoration of the residue
+        > using `af_pipeline.tools.structure_tools.decorate_residue` method.
+        > Make sure to decorate the residues before using this method.
+
         Arguments:
 
         - **residue (Bio.PDB.Residue.Residue)**:<br />
@@ -479,15 +497,15 @@ class StructureParser:
         )
 
         representative_atom_dict = {
-            ("proteinChain", True, False, False): "CA",
-            ("proteinChain", False, False, False): "CB",
-            ("dnaSequence", False, True, False): "C4",
-            ("dnaSequence", False, False, True): "C2",
+            ("proteinChain", True, False, False): residue[REP_ATOMS["is_ca_only"]],
+            ("proteinChain", False, False, False): residue[REP_ATOMS["proteinChain"]],
+            ("dnaSequence", False, True, False): residue[REP_ATOMS["is_purine"]],
+            ("dnaSequence", False, False, True): residue[REP_ATOMS["is_pyrimidine"]],
+            ("rnaSequence", False, True, False): residue[REP_ATOMS["is_purine"]],
+            ("rnaSequence", False, False, True): residue[REP_ATOMS["is_pyrimidine"]],
+            ("ion", False, False, False): residue[symbol],
             ("dnaSequence", False, False, False): residue.child_list[0],
-            ("rnaSequence", False, True, False): "C4",
-            ("rnaSequence", False, False, True): "C2",
             ("rnaSequence", False, False, False): residue.child_list[0],
-            ("ion", False, False, False): symbol,
             ("ligand", False, False, False): residue.child_list[0],
             (None, False, False, False): residue.child_list[0],
         }
@@ -495,15 +513,14 @@ class StructureParser:
         rep_atom = representative_atom_dict.get(residue_attrs, None)
 
         if rep_atom is None:
-            raise NotImplementedError(
+            raise Exception(
                 f"""
 
-                Entity type "{residue.xtra.get('entityType')}" not implemented.
+                Representative atom could not be determined for
+                residue {residue.resname} with attributes {residue_attrs}
+                (entitType, is_ca_only, is_purin, is_pyrimidine).
                 """
             )
-
-        if isinstance(rep_atom, str):
-            rep_atom = residue[rep_atom]
 
         return rep_atom
 
@@ -519,6 +536,10 @@ class StructureParser:
         If the residue has per-atom tokens, it token atom IDs are the atom
         names for each atom in the residue. \n
         Otherwise, it is the representative atom name for the residue.
+
+        > [!NOTE]
+        > The default parameter settings replicate `token_atom_names` from
+        > AlphaFold3 output JSON.
 
         Arguments:
 
@@ -589,6 +610,10 @@ class StructureParser:
     ) -> list[str]:
         """ Get token chain IDs for the structure.
 
+        > [!NOTE]
+        > The default parameter settings replicate `token_chain_ids` from
+        > AlphaFold3 output JSON.
+
         Arguments:
 
         - **structure (Bio.PDB.Structure.Structure)**:<br />
@@ -657,6 +682,10 @@ class StructureParser:
         only_representative: bool = False,
     ) -> list[str]:
         """ Get token residue IDs for the structure.
+
+        > [!NOTE]
+        > The default parameter settings replicate `token_res_ids` from
+        > AlphaFold3 output JSON.
 
         Arguments:
 
@@ -728,6 +757,9 @@ class StructureParser:
         only_representative: bool = False,
     ) -> list[float]:
         """Get pLDDT values from the structure.
+
+        > [!NOTE]
+        > To replicate `atom_plddts` from AF3 JSON file, set `per_atom` to `True`.
 
         Arguments:
 

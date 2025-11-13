@@ -1,0 +1,5 @@
+[report]
+omit =
+    ./af_pipeline/constants/af_constants.py
+    ./tests/*
+    *__init__.py
