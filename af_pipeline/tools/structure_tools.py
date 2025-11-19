@@ -13,6 +13,7 @@ import Bio.PDB
 import Bio.PDB.Structure
 import Bio.PDB.Residue
 import Bio.PDB.Atom
+import numpy as np
 from Bio.PDB.Chain import Chain
 from Bio.PDB.mmcifio import MMCIFIO
 from Bio.PDB.PDBIO import Select, PDBIO
@@ -32,6 +33,56 @@ from af_pipeline.constants.af_constants import (
     ONLY_CA_RESIDUES,
 )
 
+def get_interaction_map(
+    coords1: np.ndarray,
+    coords2: np.ndarray,
+    contact_threshold: float,
+    map_type: str
+    ):
+    """
+    Create an interaction map, given the input coordinates.
+
+    Returns a distance map or a contact map, based on the map_type specified.
+    """
+
+    distance_map = get_distance_map(coords1, coords2)
+
+    if map_type == "distance":
+        return distance_map
+
+    elif map_type == "contact":
+        contact_map = get_contact_map(distance_map, contact_threshold)
+        return contact_map
+
+    else:
+        raise Exception("Invalid map_type specified...")
+
+def get_distance_map(coords1: np.ndarray, coords2: np.ndarray):
+    """
+    Create an all-v-all distance map.
+
+    Returns a matrix of distances between all pairs of atoms/residues in the two sets of coordinates.
+    """
+
+    from scipy.spatial import distance_matrix
+
+    distance_map = distance_matrix(coords1, coords2)
+
+    return distance_map
+
+
+def get_contact_map(distance_map: np.ndarray, contact_threshold: float):
+    """
+    Given the distance map, create a binary contact map by thresholding distances.
+
+    Returns a binary matrix, where 1 indicates a contact and 0 indicates no contact.
+    """
+
+    contact_map = np.where(
+        distance_map <= contact_threshold, 1, 0
+    )
+
+    return contact_map
 
 def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     """ Check if the residue has per-atom token.
@@ -67,6 +118,31 @@ def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
         )
 
     return condition
+
+def has_modifications(structure: Bio.PDB.Structure.Structure) -> bool:
+    """ Check if the structure has any modified residues.
+
+    Assuming the `residue` objects are decorated with the appropriate attributes.
+    - `is_modified`: `True` if the `residue` is modified.
+
+    Arguments:
+
+    - **structure (Bio.PDB.Structure.Structure)**:<br />
+        Biopython structure object.
+
+    Returns:
+
+    - **condition (bool)**:<br />
+        `True` if the structure has any modified residues, `False` otherwise.
+    """
+
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                if residue.xtra.get("is_modified", False):
+                    return True
+
+    return False
 
 def save_structure_obj(
     structure: Bio.PDB.Structure.Structure,
