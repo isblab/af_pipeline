@@ -497,13 +497,19 @@ class StructureParser:
         )
 
         representative_atom_dict = {
-            ("proteinChain", True, False, False): residue[REP_ATOMS["is_ca_only"]],
-            ("proteinChain", False, False, False): residue[REP_ATOMS["proteinChain"]],
-            ("dnaSequence", False, True, False): residue[REP_ATOMS["is_purine"]],
-            ("dnaSequence", False, False, True): residue[REP_ATOMS["is_pyrimidine"]],
-            ("rnaSequence", False, True, False): residue[REP_ATOMS["is_purine"]],
-            ("rnaSequence", False, False, True): residue[REP_ATOMS["is_pyrimidine"]],
-            ("ion", False, False, False): residue[symbol],
+            ("proteinChain", True, False, False): residue.child_dict.get(
+                REP_ATOMS["is_ca_only"]),
+            ("proteinChain", False, False, False): residue.child_dict.get(
+                REP_ATOMS["proteinChain"]),
+            ("dnaSequence", False, True, False): residue.child_dict.get(
+                REP_ATOMS["is_purine"]),
+            ("dnaSequence", False, False, True): residue.child_dict.get(
+                REP_ATOMS["is_pyrimidine"]),
+            ("rnaSequence", False, True, False): residue.child_dict.get(
+                REP_ATOMS["is_purine"]),
+            ("rnaSequence", False, False, True): residue.child_dict.get(
+                REP_ATOMS["is_pyrimidine"]),
+            ("ion", False, False, False): residue.child_dict.get(symbol),
             ("dnaSequence", False, False, False): residue.child_list[0],
             ("rnaSequence", False, False, False): residue.child_list[0],
             ("ligand", False, False, False): residue.child_list[0],
