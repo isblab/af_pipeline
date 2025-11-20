@@ -91,6 +91,28 @@ class _Initialize:
             token_atom_names=self.token_atom_names,
         )
 
+    def set_attributes(self) -> None:
+        """ Set the attributes of the class based on the metric_level.
+
+        ! Add description of the metric_level here.
+        """
+
+        if self.metric_level not in ["per_token", "representative_token"]:
+            raise Exception(
+                f"""
+
+                Metric level should be either 'per_token' or 'representative_token'.
+                Got '{self.metric_level}' instead. \n
+                """
+            )
+        if self.metric_level == "per_token":
+            self.only_representative = False
+            self.average_token_plddt = False
+
+        elif self.metric_level == "representative_token":
+            self.only_representative = True
+            self.average_token_plddt = self.average_token_plddt
+
     def get_attributes(self, metric_level: str) -> None:
         """ Get the attributes of the class based on the metric_level.
 
@@ -117,75 +139,40 @@ class _Initialize:
                 """
             )
 
-        if metric_level == "per_token":
+        self.set_attributes()
 
-            self.only_representative = False
+        self.token_chain_ids = self.structure_parser.get_token_chain_ids(
+            structure=self.structure,
+            rep_atom_dict=self.rep_atom_dict,
+            only_representative=self.only_representative,
+        )
 
-            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
+        self.token_res_ids = self.structure_parser.get_token_res_ids(
+            structure=self.structure,
+            rep_atom_dict=self.rep_atom_dict,
+            only_representative=self.only_representative,
+        )
 
-            self.token_res_ids = self.structure_parser.get_token_res_ids(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
+        self.token_plddts = self.structure_parser.get_plddt(
+            structure=self.structure,
+            rep_atom_dict=self.rep_atom_dict,
+            average_token_plddt=self.average_token_plddt,
+            only_representative=self.only_representative,
+        )
 
-            self.token_plddts = self.structure_parser.get_plddt(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                average_token_plddt=False,
-                only_representative=self.only_representative,
-            )
+        self.token_coords = self.structure_parser.get_coordinates(
+            structure=self.structure,
+            rep_atom_dict=self.rep_atom_dict,
+            only_representative=self.only_representative,
+        )
 
-            self.token_coords = self.structure_parser.get_coordinates(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-           )
+        self.token_atom_names = self.structure_parser.get_token_atom_names(
+            structure=self.structure,
+            rep_atom_dict=self.rep_atom_dict,
+            only_representative=self.only_representative,
+        )
 
-            self.token_atom_names = self.structure_parser.get_token_atom_names(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
-
-        elif metric_level == "representative_token":
-
-            self.only_representative = True
-
-            self.token_chain_ids = self.structure_parser.get_token_chain_ids(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
-
-            self.token_res_ids = self.structure_parser.get_token_res_ids(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
-
-            self.token_plddts = self.structure_parser.get_plddt(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                average_token_plddt=self.average_token_plddt,
-                only_representative=self.only_representative,
-            )
-
-            self.token_coords = self.structure_parser.get_coordinates(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
-
-            self.token_atom_names = self.structure_parser.get_token_atom_names(
-                structure=self.structure,
-                rep_atom_dict=self.rep_atom_dict,
-                only_representative=self.only_representative,
-            )
+        if metric_level == "representative_token":
 
             self.idxs_to_keep = self.get_idxs_to_keep(
                 structure=self.structure,
@@ -200,15 +187,6 @@ class _Initialize:
             self.contact_probs = self.update_contact_probs(
                 token_chain_ids= self.data_parser.get_token_chain_ids(data),
                 token_res_ids=self.data_parser.get_token_res_ids(data),
-            )
-
-        else:
-            raise Exception(
-                f"""
-
-                Metric level should be either 'per_token' or 'representative_token'.
-                Got '{metric_level}' instead. \n
-                """
             )
 
     @staticmethod
