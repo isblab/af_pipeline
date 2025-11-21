@@ -4,12 +4,11 @@ Rigid Bodies extraction module
 RigidBodies class with methods to extract rigid bodies from AlphaFold predictions.
 """
 import os
-import time
 import copy
 import json
 import warnings
 import numpy as np
-from itertools import product, combinations_with_replacement
+from itertools import product
 from typing import Dict, List
 from collections import defaultdict
 from Bio.PDB.Structure import Structure
@@ -28,10 +27,6 @@ from af_pipeline.pae_to_domains.pae_to_domains import (
     domains_from_pae_matrix_networkx,
     domains_from_pae_matrix_label_propagation
 )
-# from af_pipeline.rigid_bodies.output_rigid_bodies import (
-#     save_rigid_bodies_txt,
-#     save_rigid_bodies_json
-# )
 from af_pipeline.utils.misc_utils import (
     fill_up_the_blanks,
     extract_protein_chain_mapping,
@@ -44,19 +39,22 @@ class RigidBodies(_Initialize):
     """ Class to extract rigid bodies from AlphaFold prediction."""
 
     data_file_path: str
-    """ Path to AF2/AF3 data file (e.g. .json, .pkl)"""
+    """ Path to the data file provided with the prediction (json or pkl). """
 
     structure_file_path: str
-    """ Path to AF2/AF3 structure file (e.g. .pdb, .cif)"""
+    """ Path to the structure file (PDB or CIF). """
 
     af_offset: dict | None
-    """ Dictionary containing the offset for AF2/AF3 numbering."""
+    """ Offset describing start and end residue number for each chain in
+    the predicted structure.\n
+    example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
     idr_chains: list
     """ List of chain IDs that represent IDR protein chains."""
 
     rep_atom_dict: dict
-    """ Dictionary of representative atoms for a residue/token."""
+    """ Dictionary containing the representative atoms for residue object.
+    e.g., `{"HY3": "N"}` or `{"6MA": "P"}`."""
 
     average_token_pae: bool
     """ Whether to average the PAE in case of per atom tokens."""
@@ -65,7 +63,7 @@ class RigidBodies(_Initialize):
     """ Whether to average the pLDDT in case of per atom tokens."""
 
     metric_level: str
-    """ Metric level of the instance. Can be "per_token" or "representative_token"."""
+    """ Metric level. ("per_token" or "representative_token")."""
 
     library: str
     """ Library to use for graph-based community detection.
@@ -128,11 +126,11 @@ class RigidBodies(_Initialize):
     ) -> list[dict[str, list[tuple[str, int]]]]:
         """Extract Rigid bodies from a PAE file.
 
-        Three implementations are available:
+        Three implementations for community detection are available:
         ```python
-        - igraph # (community detection using Leiden algorithm)
-        - networkx # (community detection using Clauset-Newman-Moore greedy modularity maximization)
-        - label_propagation # (community detection using fast label propagation algorithm)
+        - igraph # (Leiden algorithm)
+        - networkx # (Clauset-Newman-Moore greedy modularity maximization)
+        - label_propagation # (fast label propagation algorithm)
         ```
 
         Based on the PAE matrix, a graph is constructed where the nodes are
@@ -202,7 +200,7 @@ class RigidBodies(_Initialize):
             # domain_dict is a dictionary of rigid bodies
             # each rigid body is represented as a dictionary with chain_id as
             # the key and a list of residue numbers as the value
-            domain_dict = self._convert_domain_to_dict(pseudo_domain=pseudo_domain)
+            domain_dict = self._convert_domain_to_dict(pseudo_domain)
 
             # removing residues with pLDDT score below the cutoff
             # different cutoffs can be used for IDR and non-IDR chains
@@ -459,31 +457,61 @@ class RigidBodies(_Initialize):
         rigid bodies and assess the rigid bodies.
 
         Output options:
-        - The rigid bodies are saved in a plain text format with the chain IDs
-          and residue numbers.
+        - The rigid bodies are saved in a plain text or JSON format with the
+          chain IDs and residue numbers.
         - The structure of the rigid bodies can be saved in PDB or CIF format.
-          For rigid bodies with modifications, it is recommended to use PDB format.
-        - The PAE plot can be saved to visualize the rigid bodies in the PAE matrix.
+          For rigid bodies with modifications, it is recommended to use PDB
+          format.
+        - The PAE plot can be saved to visualize the rigid bodies in the PAE
+          matrix. Set `pae_plot=True` to save the PAE plot.
         - The rigid bodies can be assessed based on the interface residues,
-          number of contacts, interface PAE and pLDDT, average PAE and plDDT and minimum PAE.
+          number of contacts, interface PAE and pLDDT, average PAE and plDDT
+          and minimum PAE. Set `rb_assessment` dictionary with the following
+          keys:
+            - `as_average`:<br />
+                Whether to report only the average of assessment metric to the
+                output file.<br />
+            - `symmetric_pae`:<br />
+                Whether to report a single average PAE value or assymetric PAE
+                value for PAE assessment metrics.
         - The assessment is saved in an Excel file.
 
-        parameters for rigid body assessment:\n
-        - `as_average`:
-        whether to report only the average of assessment metric to the output file. \n
-        - `symmetric_pae`:
-        whether to report a single average PAE value or assymetric PAE value for PAE assessment metrics. \n
-
         Arguments:
-            domains (list): list of rigid bodies, where each rigid body is a dictionary with chain IDs as keys and residue numbers as values.
-            output_dir (str): Directory to save the output files.
-            output_format (str, optional): Defaults to "txt". ("txt" or "csv")
-            save_structure (bool, optional): Whether to save the structure of the rigid bodies. Defaults to True.
-            structure_file_type (str, optional): File type to save the structure. Defaults to "pdb". ("pdb" or "cif")
-            no_plddt_filter_for_structure (bool, optional): Whether to save the structure without filtering based on pLDDT. Defaults to False.
-            pae_plot (bool, optional): Whether to save the PAE plot for the rigid bodies. Defaults to False.
-            rb_assessment (dict | None, optional): Dictionary containing parameters for rigid body assessment.
-            protein_chain_map (dict | None, optional): Protein-to-chain mapping dictionary.
+
+        - **domains (list)**:<br />
+            list of rigid bodies, where each rigid body is a dictionary with
+            chain IDs as keys and residue numbers as values.
+
+        - **output_dir (str)**:<br />
+            Directory to save the output files.
+
+        - **output_format (str, optional)**:<br />
+            Defaults to "txt". ("txt" or "csv")
+
+        - **save_structure (bool, optional)**:<br />
+            Whether to save the structure of the rigid bodies.
+
+        - **structure_file_type (str, optional)**:<br />
+            File type to save the structure ("pdb" or "cif").
+
+        - **no_plddt_filter_for_structure (bool, optional)**:<br />
+            Whether to save the structure without filtering based on pLDDT.
+
+        - **pae_plot (bool, optional)**:<br />
+            Whether to save the PAE plot for the rigid bodies.
+
+        - **rb_assessment (dict | None, optional)**:<br />
+            Dictionary containing parameters for rigid body assessment.<br />
+            Parameters for rigid body assessment:<br />
+            - `as_average`:<br />
+            Whether to report only the average of assessment metric to the
+            output file.<br />
+            - `symmetric_pae`:<br />
+            Whether to report a single average PAE value or assymetric PAE
+            value for PAE assessment metrics. \n
+
+        - **protein_chain_map (dict | None, optional)**:<br />
+            Protein-to-chain mapping dictionary.
         """
 
         dir_name = os.path.basename(self.structure_file_path).split(".")[0]
@@ -509,8 +537,8 @@ class RigidBodies(_Initialize):
                     num_to_idx=self.num_to_idx,
                     pae=self.pae,
                     lengths_dict=self.lengths_dict,
-                    af_offset=self.af_offset,
                     rb_idx=rb_idx,
+                    af_offset=self.af_offset,
                 )
 
                 # patches are the highlighted rectangles in the PAE matrix
@@ -632,29 +660,29 @@ class PAEPatches:
     """ Class to extract and plot PAE patches for rigid bodies."""
 
     num_to_idx: dict
-    """ Dictionary mapping residues to token indices."""
+    """ Dictionary mapping token numbers to token indices."""
 
     pae: np.ndarray
     """ PAE matrix."""
 
     lengths_dict: dict
-    """ Dictionary of lengths of each chain."""
+    """ Dictionary containing the chain lengths and total length."""
+
+    rb_idx: int
+    """ Rigid body index."""
 
     af_offset: dict | None
     """ Offset describing start and end residue number for each chain in
     the predicted structure.\n
     example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
-    rb_idx: int
-    """ Rigid body index."""
-
     def __init__(
         self,
-        num_to_idx,
-        pae,
-        lengths_dict,
-        af_offset,
+        num_to_idx: dict,
+        pae: np.ndarray,
+        lengths_dict: dict,
         rb_idx: int,
+        af_offset: dict | None = None,
     ):
 
         self.num_to_idx = num_to_idx
@@ -708,7 +736,6 @@ class PAEPatches:
 
                 if "-" not in res_idx_1 or "-" not in res_idx_2:
                     continue
-                # if "-" in res_idx_1 and "-" in res_idx_2:
                 res1_y0 = int(res_idx_1.split("-")[0])
                 res1_y1 = int(res_idx_1.split("-")[1])
                 res2_x0 = int(res_idx_2.split("-")[0])
@@ -728,7 +755,7 @@ class PAEPatches:
         patches: list,
         output_dir: str,
     ):
-        """ Plot the PAE patches for the rigid body.
+        """ Show the PAE patches for the rigid body on the PAE matrix plot.
 
         Arguments:
 
@@ -834,6 +861,7 @@ class PAEPatches:
         )
         plt.close(fig)
 
+
 def save_rigid_bodies_txt(
     output_dir: str,
     domains: list,
@@ -842,24 +870,24 @@ def save_rigid_bodies_txt(
 ):
     """ Save rigid bodies to a text file.
 
-    This function writes the rigid bodies information to a text file in a human-readable format.
+    This function writes the rigid bodies information to a text file in a
+    human-readable format.<br />
+    The output file will contain the rigid body index, chain ID, protein name
+    (if available), and the residue range.
 
-    The output file will contain the rigid body index, chain ID, protein name (if available), and the residue range.
+    Arguments:
 
-    Args:
+    - **output_dir (str)**:<br />
+        Directory where the output file will be saved.
 
-        output_dir (str):
-            Directory where the output file will be saved.
+    - **domains (list)**:<br />
+        List of dictionaries, where each dictionary represents a rigid body.
 
-        domains (list):
-            List of dictionaries, where each dictionary represents a rigid body.
+    - **protein_chain_map (dict)**:<br />
+        A mapping of chain IDs to protein names.
 
-        protein_chain_map (dict):
-            A mapping of chain IDs to protein names.
-
-        file_name (str, optional):
-            Name of the output file without extension.
-            Defaults to "rigid_bodies".
+    - **file_name (str, optional)**:<br />
+        Name of the output file without extension.
     """
 
     file_name += ".txt"
@@ -873,15 +901,16 @@ def save_rigid_bodies_txt(
             for chain_id, res_list in rb_dict.items():
 
                 protein_name = protein_chain_map.get(chain_id, None)
+                res_range = get_key_from_res_range(res_range=res_list)
 
                 if len(res_list) > 0:
                     if protein_name:
                         f.write(
-                            f"{protein_name}_{chain_id}: {get_key_from_res_range(res_range=res_list)}\n"
+                            f"{protein_name}_{chain_id}: {res_range}\n"
                         )
                     else:
                         f.write(
-                            f"{chain_id}:{get_key_from_res_range(res_range=res_list)}\n"
+                            f"{chain_id}:{res_range}\n"
                         )
 
             f.write("\n")
@@ -894,24 +923,22 @@ def save_rigid_bodies_json(
 ):
     """ Save rigid bodies to a JSON file.
 
-    This function writes the rigid bodies information to a JSON file.
-
+    This function writes the rigid bodies information to a JSON file.<br />
     For per-atom tokens JSON format is recommended over text format.
 
-    Args:
+    Arguments:
 
-        output_dir (str):
-            Directory where the output file will be saved.
+    - **output_dir (str)**:<br />
+        Directory where the output file will be saved.
 
-        domains (list):
-            List of dictionaries, where each dictionary represents a rigid body.
+    - **domains (list)**:<br />
+        List of dictionaries, where each dictionary represents a rigid body.
 
-        protein_chain_map (dict):
-            A mapping of chain IDs to protein names.
+    - **protein_chain_map (dict)**:<br />
+        A mapping of chain IDs to protein names.
 
-        file_name (str, optional):
-            Name of the output file without extension.
-            Defaults to "rigid_bodies".
+    - **file_name (str, optional)**:<br />
+        Name of the output file without extension.
     """
 
     file_name += ".json"

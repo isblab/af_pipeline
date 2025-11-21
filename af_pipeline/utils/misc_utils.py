@@ -4,6 +4,7 @@ Miscellaneous utils
 Utility functions for various tasks.
 """
 import copy
+import time
 import string
 import warnings
 import numpy as np
@@ -12,6 +13,28 @@ from collections import Counter
 from af_pipeline.constants.af_constants import SEED_MULTIPLIER
 from typing import List
 import random
+from functools import wraps
+
+def time_it(func):
+    """ Decorator to measure the execution time of a function.
+
+    Add `@time_it` above any function definition to measure its execution time.
+
+    Args:
+        func (function): Function to be decorated.
+
+    Returns:
+        wrapper (function): Decorated function with execution time measurement.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        print(f"Function {func.__name__} took: {end_time - start_time:.4f} seconds")
+        return result
+    return wrapper
 
 def generate_seeds(num_seeds: int, set_seed: int=47) -> List[int]:
     """Generate `model_seeds`."""

@@ -667,10 +667,10 @@ class RenumberResidues:
         - **(tuple)**:<br />
 
             - `idx_to_num (Dict)`:
-                Dictionary mapping residue indices to residue numbers.
+                Dictionary mapping token indices to token numbers.
 
             - `num_to_idx (Dict)`:
-                Dictionary mapping residue numbers to residue indices.
+                Dictionary mapping token numbers to token indices.
         """
 
         idx_to_num = {}

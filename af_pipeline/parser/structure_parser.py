@@ -72,7 +72,7 @@ class StructureParser:
     """ Class to parse structure files (.pdb or .cif) using Biopython."""
 
     structure_file_path: str
-    """ Path to the AF2/3 structure file (.pdb or .cif). """
+    """ Path to the structure file (PDB or CIF). """
 
     preserve_header_footer: bool
     """ If `True`, the header and footer information is preserved in the

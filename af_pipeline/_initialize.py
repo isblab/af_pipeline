@@ -25,10 +25,12 @@ class _Initialize:
     """ Path to the structure file (PDB or CIF). """
 
     data_file_path: str
-    """ Path to the data file (json or pkl). """
+    """ Path to the data file provided with the prediction (json or pkl). """
 
     af_offset: dict
-    """ Dictionary containing the offset for the prediction. """
+    """ Offset describing start and end residue number for each chain in
+    the predicted structure.\n
+    example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
     rep_atom_dict: dict
     """ Dictionary containing the representative atoms for residues. """
