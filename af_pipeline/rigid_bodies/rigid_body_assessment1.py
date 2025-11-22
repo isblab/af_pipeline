@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from itertools import combinations, combinations_with_replacement, product
+from itertools import combinations
 from collections import defaultdict
 from tqdm import tqdm
 import warnings
@@ -11,8 +11,191 @@ from af_pipeline.constants.af_constants import (
     CHAIN_PAIRWISE_ASSESSMENT_COLUMNS,
     CHAINWISE_ASSESSMENT_COLUMNS
 )
-from af_pipeline.utils.misc_utils import time_it
-from af_pipeline.utils.misc_utils import create_mask
+from af_pipeline.utils.misc_utils import (
+    time_it,
+    create_mask,
+    symmetrize_matrix,
+)
+
+
+class RigidBodyChainAssessment:
+
+    def __init__(
+        self,
+        unique_chains: List[str],
+        idx_to_num: Dict[int, Dict[str, str|int]],
+        as_average: bool,
+        chain_mask_stack_1d: np.ndarray,
+        rb_mask_1d: np.ndarray,
+        contact_map_mask_1d: np.ndarray,
+        contact_map_mask_2d: np.ndarray,
+        plddt_list: np.ndarray,
+        idr_chains: List[str] = [],
+        protein_chain_map: Dict[str, str] = {},
+    ):
+
+        self.unique_chains = unique_chains
+        self.idx_to_num = idx_to_num
+        self.as_average = as_average
+        self.chain_mask_stack_1d = chain_mask_stack_1d
+        self.rb_mask_1d = rb_mask_1d
+        self.contact_map_mask_1d = contact_map_mask_1d
+        self.contact_map_mask_2d = contact_map_mask_2d
+        self.plddt_list = plddt_list
+        self.idr_chains = idr_chains
+        self.protein_chain_map = protein_chain_map
+
+        self.per_chain_plddt = self.get_per_chain_plddt(self.as_average, False)
+        self.per_chain_iplddt = self.get_per_chain_plddt(self.as_average, True)
+
+        self.per_chain_interface_res = self.get_per_chain_interface_residues(
+            self.as_average
+        )
+
+    def get_per_chain_plddt(
+        self,
+        only_avg: bool = True,
+        only_interface: bool = False,
+    ) -> Dict[str, float]:
+        """Get average pLDDT score per chain in the rigid body.
+
+        Returns:
+
+        - **per_chain_plddt (dict)**:<br />
+            Dictionary with chain IDs as keys and average pLDDT scores
+            as values.
+        """
+
+        per_chain_plddt = {}
+
+        for i, ch_id in enumerate(self.unique_chains):
+            chain_mask = self.chain_mask_stack_1d[i, :]
+            plddt_mask = chain_mask * self.rb_mask_1d
+            if only_interface:
+                plddt_mask = plddt_mask * self.contact_map_mask_1d
+            if only_avg:
+                per_chain_plddt[ch_id] = np.mean(self.plddt_list[plddt_mask])
+                continue
+            per_chain_plddt[ch_id] = self.plddt_list[plddt_mask].tolist()
+
+        # print(per_chain_plddt)
+
+        return per_chain_plddt
+
+    def get_per_chain_interface_residues(
+        self,
+        only_count: bool = True
+    ) -> Dict[str, List[int]]:
+        """Get interface residues per chain in the rigid body.
+
+        Returns:
+
+        - **per_chain_interface_residues (dict)**:<br />
+            Dictionary with chain IDs as keys and list of residue numbers
+            at the interface as values.
+        """
+
+        per_chain_interface_residues = {}
+
+        for i, ch_id in enumerate(self.unique_chains):
+            chain_mask = self.chain_mask_stack_1d[i, :]
+            interface_mask = (
+                chain_mask
+                * self.rb_mask_1d
+                * self.contact_map_mask_1d
+            )
+
+            if only_count:
+                res_count = np.sum(interface_mask)
+                per_chain_interface_residues[ch_id] = res_count
+                continue
+
+            res_idxs = np.where(interface_mask)[0]
+            per_chain_interface_residues[ch_id] = res_idxs
+
+        return per_chain_interface_residues
+
+    def get_chain_attr(
+        self,
+        chain_id: str,
+        attr_name: str
+    ) -> float | str | int:
+        """ Get the attribute value for a given chain ID.
+
+        Arguments:
+
+        - **chain_id (str)**:<br />
+            Chain ID.
+
+        - **attr_name (str)**:<br />
+            Name of the attribute to retrieve.
+            Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
+
+        Returns:
+
+        - **(float | str | int)**:<br />
+            The requested attribute value.
+        """
+
+        if attr_name not in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]:
+            raise ValueError(
+                f"Attribute '{attr_name}' not recognized for chain "
+                f"'{chain_id}'."
+            )
+
+        attrs_ = {
+            "Chain ID": chain_id,
+            "Protein Name": self.protein_chain_map.get(chain_id, chain_id),
+            "Average pLDDT": self.per_chain_plddt[chain_id],
+            "Average ipLDDT": self.per_chain_iplddt[chain_id],
+            "Interface Residues": self.per_chain_interface_res[chain_id],
+            "Chain Type": "IDR" if chain_id in self.idr_chains else "R",
+        }
+
+        return attrs_[attr_name]
+
+    def get_res_attr(
+        self,
+        chain_id: str,
+        res_idx: int,
+        attr_name: str
+    ):
+        """ Get the attribute value for a given residue in a chain.
+
+        Arguments:
+
+        - **chain_id (str)**:<br />
+            Chain ID.
+
+        - **res_num (int)**:<br />
+            Residue number.
+
+        Returns:
+
+        - **(float | str | int)**:<br />
+            The requested attribute value.
+        """
+
+        res_num = self.idx_to_num[res_idx]["token_num"]
+
+        if attr_name not in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]:
+            raise ValueError(
+                f"Attribute '{attr_name}' not recognized for residue "
+                f"'{res_num}' in chain '{chain_id}'."
+            )
+
+        local_idx = list(self.per_chain_interface_res[chain_id]).index(res_idx)
+
+        attrs_ = {
+            "Chain ID": chain_id,
+            "Residue Number": res_num,
+            "Protein Name": self.protein_chain_map.get(chain_id, chain_id),
+            "Average pLDDT": self.per_chain_plddt[chain_id][local_idx],
+            "Average ipLDDT": self.per_chain_iplddt[chain_id][local_idx],
+            "Chain Type": "IDR" if chain_id in self.idr_chains else "R",
+        }
+
+        return attrs_[attr_name]
 
 class RigidBodyAssessment:
     """ Class to assess rigid bodies extracted from AlphaFold predictions."""
@@ -84,6 +267,7 @@ class RigidBodyAssessment:
         )
 
         self.rb_dict = rb_dict
+        self.pae = pae
         self.num_to_idx = num_to_idx
         self.idx_to_num = idx_to_num
         self.lengths_dict = lengths_dict
@@ -117,6 +301,7 @@ class RigidBodyAssessment:
 
         self.unique_chains = self.get_unique_chains()
         self.chain_pairs = self.get_chain_pairs()
+
         self.rb_mask_2d = self.get_rb_mask(lengths_dict, 2) # use for PAE
         self.rb_mask_1d = self.get_rb_mask(lengths_dict, 1) # use for pLDDT
 
@@ -125,9 +310,6 @@ class RigidBodyAssessment:
 
         self.chain_pair_mask_stack_1d = self.get_chain_pair_mask_stack(1)
         self.chain_pair_mask_stack_2d = self.get_chain_pair_mask_stack(2)
-
-        # self.chain_contact_masks = self.get_chain_contact_masks()
-        # self.chain_pair_contact_masks = self.get_chain_pair_contact_masks()
 
         self.rb_ch_assess = RigidBodyChainAssessment(
             unique_chains=self.unique_chains,
@@ -142,6 +324,24 @@ class RigidBodyAssessment:
             protein_chain_map=self.protein_chain_map,
         )
 
+        self.rb_ch_pair_assess = RigidBodyChainPairAssessment(
+            unique_chains=self.unique_chains,
+            chain_pairs=self.chain_pairs,
+            idx_to_num=self.idx_to_num,
+            as_average=self.as_average,
+            symmetric_pae=self.symmetric_pae,
+            chain_mask_stack_1d=self.chain_mask_stack_1d,
+            chain_pair_mask_stack_1d=self.chain_pair_mask_stack_1d,
+            chain_pair_mask_stack_2d=self.chain_pair_mask_stack_2d,
+            rb_mask_1d=self.rb_mask_1d,
+            rb_mask_2d=self.rb_mask_2d,
+            contact_map_mask_1d=self.contact_map_mask_1d,
+            contact_map_mask_2d=self.contact_map_mask_2d,
+            plddt_list=self.plddt_list,
+            pae=self.pae,
+            idr_chains=self.idr_chains,
+            protein_chain_map=self.protein_chain_map,
+        )
 
     def get_unique_chains(self) -> List[str]:
         """Get unique chains in the rigid body.
@@ -415,6 +615,11 @@ class RigidBodyAssessment:
 
             iterators = [(chain_id,) for chain_id in self.unique_chains]
             func = self.rb_ch_assess.get_chain_attr
+            print(iterators)
+
+            iterators_cp = [(chain_pair,) for chain_pair in self.chain_pairs]
+            func_cp = self.rb_ch_pair_assess.get_chain_pair_attr
+            # print(iterators_cp)
 
         else:
 
@@ -425,11 +630,26 @@ class RigidBodyAssessment:
             ]
             func = self.rb_ch_assess.get_res_attr
 
-        chain_wise_assessment_rows.append({
-            k: func(*it, k)
-            for it in iterators
-            for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
-        })
+            iterators_cp = [
+                (chain_pair, res_pair)
+                for chain_pair in self.chain_pairs
+                for res_pair in self.rb_ch_pair_assess.chain_pair_interface_res[chain_pair]
+            ]
+            func_cp = self.rb_ch_pair_assess.get_res_pair_attr
+
+        chain_wise_assessment_rows = [
+            {
+                k: func(*it, k)
+                for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
+            } for it in iterators
+        ]
+
+        chain_pairwise_assessment_rows = [
+            {
+                k: func_cp(*it, k)
+                for k in CHAIN_PAIRWISE_ASSESSMENT_COLUMNS[(self.as_average, self.symmetric_pae)]
+            } for it in iterators_cp
+        ]
 
         chain_pairwise_assessment_df = pd.DataFrame(chain_pairwise_assessment_rows)
         chainwise_assessment_df = pd.DataFrame(chain_wise_assessment_rows)
@@ -458,293 +678,238 @@ class RigidBodyAssessment:
                     index=False,
                 )
 
-
-    # def get_chain_contact_masks(self, dimensions: int = 2) -> np.ndarray:
-    #     """Get contact masks for all chains in the rigid body.
-
-    #     Returns:
-
-    #     - **chain_contact_masks (np.ndarray)**:<br />
-    #         A stack of contact masks for all chains in the rigid body.
-    #         The shape is (`num_chains`, `total_length`, `total_length`)
-    #         where `num_chains` is the number of unique chains in the rigid body
-    #         and `total_length` is the sum of lengths of all chains.
-    #         The value is 1 if the residue pair is in contact, 0 otherwise.
-    #     """
-
-    #     if dimensions == 1:
-    #         chain_mask_stack = self.chain_mask_stack_1d
-    #         contact_map_mask = self.contact_map_mask_1d
-
-    #     elif dimensions == 2:
-    #         chain_mask_stack = self.chain_mask_stack_2d
-    #         contact_map_mask = self.contact_map_mask_2d
-
-    #     chain_contact_masks = np.ma.array(
-    #         chain_mask_stack,
-    #         mask=np.broadcast_to(contact_map_mask, chain_mask_stack.shape)
-    #     )
-
-    #     return chain_contact_masks
-
-    # def get_chain_pair_contact_masks(self, dimensions: int = 2) -> np.ndarray:
-    #     """Get contact masks for all chain pairs in the rigid body.
-
-    #     Returns:
-
-    #     - **chain_pair_contact_masks (np.ndarray)**:<br />
-    #         A stack of contact masks for all chain pairs in the rigid body.
-    #         The shape is (`num_chain_pairs`, `total_length`, `total_length`)
-    #         where `num_chain_pairs` is the number of unique chain pairs in the
-    #         rigid body and `total_length` is the sum of lengths of all chains.
-    #         The value is 1 if the residue pair is in contact, 0 otherwise.
-    #     """
-
-    #     if dimensions == 1:
-    #         cp_mask_stack = self.chain_pair_mask_stack_1d
-    #         contact_map_mask = self.contact_map_mask_1d
-
-    #     elif dimensions == 2:
-    #         cp_mask_stack = self.chain_pair_mask_stack_2d
-    #         contact_map_mask = self.contact_map_mask_2d
-
-    #     chain_pair_contact_masks = np.ma.array(
-    #         cp_mask_stack,
-    #         mask=np.broadcast_to(contact_map_mask, cp_mask_stack.shape)
-    #     )
-
-    #     return chain_pair_contact_masks
-
-class RigidBodyChainAssessment:
+class RigidBodyChainPairAssessment:
 
     def __init__(
         self,
         unique_chains: List[str],
+        chain_pairs: List[Tuple[str, str]],
         idx_to_num: Dict[int, Dict[str, str|int]],
         as_average: bool,
+        symmetric_pae: bool,
         chain_mask_stack_1d: np.ndarray,
+        chain_pair_mask_stack_1d: np.ndarray,
+        chain_pair_mask_stack_2d: np.ndarray,
         rb_mask_1d: np.ndarray,
+        rb_mask_2d: np.ndarray,
         contact_map_mask_1d: np.ndarray,
         contact_map_mask_2d: np.ndarray,
         plddt_list: np.ndarray,
+        pae: np.ndarray,
         idr_chains: List[str] = [],
         protein_chain_map: Dict[str, str] = {},
     ):
 
         self.unique_chains = unique_chains
+        self.chain_pairs = chain_pairs
         self.idx_to_num = idx_to_num
         self.as_average = as_average
+        self.symmetric_pae = symmetric_pae
         self.chain_mask_stack_1d = chain_mask_stack_1d
+        self.chain_pair_mask_stack_1d = chain_pair_mask_stack_1d
+        self.chain_pair_mask_stack_2d = chain_pair_mask_stack_2d
         self.rb_mask_1d = rb_mask_1d
+        self.rb_mask_2d = rb_mask_2d
         self.contact_map_mask_1d = contact_map_mask_1d
         self.contact_map_mask_2d = contact_map_mask_2d
         self.plddt_list = plddt_list
+        self.pae = pae
+        self.symmetric_pae = symmetric_pae
         self.idr_chains = idr_chains
         self.protein_chain_map = protein_chain_map
 
-        self.per_chain_plddt = self.get_per_chain_plddt(self.as_average)
-        self.per_chain_iplddt = self.get_per_chain_iplddt(self.as_average)
-
-        self.per_chain_interface_res = self.get_per_chain_interface_residues(
-            self.as_average
+        self.chain_pair_interface_res = self.get_chain_pair_interface(
+            self.as_average, False,
+        )
+        self.chain_pair_contacts = self.get_chain_pair_interface(
+            self.as_average, True,
+        )
+        self.chain_pair_plddt = self.get_chain_pair_plddt(
+            self.as_average, False,
+        )
+        self.chain_pair_iplddt = self.get_chain_pair_plddt(
+            self.as_average, True,
         )
 
-    def get_per_chain_plddt(self, only_avg: bool = True) -> Dict[str, float]:
-        """Get average pLDDT score per chain in the rigid body.
+        # self.chain_pair_pae = self.get_chain_pair_pae(
+        #     self.as_average, False, self.symmetric_pae
+        # )
+        # self.chain_pair_ipae = self.get_chain_pair_pae(
+        #     self.as_average, True, self.symmetric_pae
+        # )
 
-        Returns:
-
-        - **per_chain_plddt (dict)**:<br />
-            Dictionary with chain IDs as keys and average pLDDT scores
-            as values.
-        """
-
-        per_chain_plddt = {}
-
-        for i, ch_id in enumerate(self.unique_chains):
-            chain_mask = self.chain_mask_stack_1d[i, :]
-            plddt_mask = chain_mask * self.rb_mask_1d
-            if only_avg:
-                per_chain_plddt[ch_id] = np.mean(self.plddt_list[plddt_mask])
-                continue
-            per_chain_plddt[ch_id] = self.plddt_list[plddt_mask].tolist()
-
-        # print(per_chain_plddt)
-
-        return per_chain_plddt
-
-    def get_per_chain_iplddt(self, only_avg: bool = True) -> Dict[str, float]:
-        """Get average inter-chain pLDDT score per chain in the rigid body.
-
-        Returns:
-
-        - **per_chain_iplddt (dict)**:<br />
-            Dictionary with chain IDs as keys and average inter-chain
-            pLDDT scores as values.
-        """
-
-        per_chain_iplddt = {}
-
-        for i, ch_id in enumerate(self.unique_chains):
-            chain_mask = self.chain_mask_stack_1d[i, :]
-            iplddt_mask = chain_mask * self.rb_mask_1d * self.contact_map_mask_1d
-            if only_avg:
-                per_chain_iplddt[ch_id] = np.mean(self.plddt_list[iplddt_mask])
-                continue
-            per_chain_iplddt[ch_id] = self.plddt_list[iplddt_mask].tolist()
-
-        # print(per_chain_iplddt)
-
-        return per_chain_iplddt
-
-    def get_per_chain_interface_residues(
+    def get_chain_pair_attr(
         self,
-        only_count: bool = True
+        chain_pair: Tuple[str, str],
+        attr_name: str,
+    ):
+        # print(chain_pair)
+        chain1, chain2 = chain_pair
+        attr_state = (self.as_average, self.symmetric_pae)
+        if attr_name not in CHAIN_PAIRWISE_ASSESSMENT_COLUMNS[attr_state]:
+            raise ValueError(f"Invalid attribute name: {attr_name}")
+
+        attrs_ = {
+            "Chain ID 1": chain1,
+            "Chain ID 2": chain2,
+            "Protein Name 1": self.protein_chain_map.get(chain1, chain1),
+            "Protein Name 2": self.protein_chain_map.get(chain2, chain2),
+            "Chain Type 1": "IDR" if chain1 in self.idr_chains else "R",
+            "Chain Type 2": "IDR" if chain2 in self.idr_chains else "R",
+            "Interface Residues": self.chain_pair_interface_res[chain_pair],
+            "Number of contacts": self.chain_pair_contacts[chain_pair],
+            "pLDDT Chain 1": self.chain_pair_plddt[chain_pair][0],
+            "pLDDT Chain 2": self.chain_pair_plddt[chain_pair][1],
+            "Average ipLDDT chain1": self.chain_pair_iplddt[chain_pair][0],
+            "Average ipLDDT chain2": self.chain_pair_iplddt[chain_pair][1],
+            # "Average PAE": self.chain_pair_pae[chain_pair],
+            # "Average iPAE": self.chain_pair_ipae[chain_pair],
+        }
+
+        return attrs_[attr_name]
+
+    def get_res_pair_attr(
+        self,
+        chain_pair: Tuple[str, str],
+        res_pair: Tuple[int, int],
+        attr_name: str,
+    ):
+        attr_state = (self.as_average, self.symmetric_pae)
+        if attr_name not in CHAIN_PAIRWISE_ASSESSMENT_COLUMNS[attr_state]:
+            raise ValueError(f"Invalid attribute name: {attr_name}")
+        # print(chain_pair, res_pair)
+        ch_id_1, ch_id_2 = chain_pair
+        res_idx_1, res_idx_2 = res_pair
+        attrs_ = {
+            "Chain ID 1": ch_id_1,
+            "Chain ID 2": ch_id_2,
+            "Residue 1": self.idx_to_num[res_idx_1]["token_num"],
+            "Residue 2": self.idx_to_num[res_idx_2]["token_num"],
+            "pLDDT 1": self.plddt_list[res_idx_1],
+            "pLDDT 2": self.plddt_list[res_idx_2],
+            "ipLDDT 1": self.plddt_list[res_idx_1],
+            "ipLDDT 2": self.plddt_list[res_idx_2],
+        }
+
+        return attrs_[attr_name]
+
+    def get_chain_pair_interface(
+        self,
+        only_count: bool = True,
+        only_contacts: bool = False,
     ) -> Dict[str, List[int]]:
-        """Get interface residues per chain in the rigid body.
+        """Get interface residues for the chain pair in the rigid body.
 
         Returns:
 
-        - **per_chain_interface_residues (dict)**:<br />
+        - **chain_pair_interface_residues (dict)**:<br />
             Dictionary with chain IDs as keys and list of residue numbers
             at the interface as values.
         """
 
-        per_chain_interface_residues = {}
+        chain_pair_interface_residues = {}
 
-        for i, ch_id in enumerate(self.unique_chains):
-            chain_mask = self.chain_mask_stack_1d[i, :]
+        for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
+            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
             interface_mask = (
-                chain_mask
-                * self.rb_mask_1d
-                * self.contact_map_mask_1d
+                chain_pair_mask
+                * self.rb_mask_2d
+                * self.contact_map_mask_2d
             )
-
-            if only_count:
-                res_count = np.sum(interface_mask)
-                per_chain_interface_residues[ch_id] = res_count
+            if only_contacts:
+                num_contacts = np.sum(interface_mask)
+                chain_pair_interface_residues[(ch_id_1, ch_id_2)] = num_contacts
                 continue
 
-            res_idxs = np.where(interface_mask)[0]
-            per_chain_interface_residues[ch_id] = res_idxs
+            interface_mask_1d = interface_mask.any(axis=0)
+            ch1_idx = self.unique_chains.index(ch_id_1)
+            chain1_mask = interface_mask_1d * self.chain_mask_stack_1d[ch1_idx, :]
+            ch2_idx = self.unique_chains.index(ch_id_2)
+            chain2_mask = interface_mask_1d * self.chain_mask_stack_1d[ch2_idx, :]
 
-        return per_chain_interface_residues
+            if only_count:
+                res_count1 = np.sum(chain1_mask)
+                res_count2 = np.sum(chain2_mask)
+                chain_pair_interface_residues[(ch_id_1, ch_id_2)] = (res_count1, res_count2)
+                continue
 
-    def get_chain_type(self, chain_id: str) -> str:
-        """Get the type of a chain (IDR or ordered).
+            res_idx_pairs = np.argwhere(interface_mask)
+            chain_pair_interface_residues[(ch_id_1, ch_id_2)] = res_idx_pairs
 
-        Arguments:
+        return chain_pair_interface_residues
 
-        - **chain_id (str)**:<br />
-            Chain ID for which the type is to be determined.
-
-        Returns:
-
-        - **chain_type (str)**:<br />
-            "IDR" if the chain is disordered, "ordered" otherwise.
-        """
-
-        chain_type = "IDR" if chain_id in self.idr_chains else "R"
-
-        return chain_type
-
-    def get_protein_name(self, chain_id: str) -> str:
-        """Get the protein name for a chain.
-
-        Arguments:
-
-        - **chain_id (str)**:<br />
-            Chain ID for which the protein name is to be determined.
-
-        Returns:
-
-        - **protein_name (str)**:<br />
-            Protein name corresponding to the chain ID.
-            If not found, returns the chain ID itself.
-        """
-
-        protein_name = self.protein_chain_map.get(chain_id, chain_id)
-
-        return protein_name
-
-    def get_chain_attr(
+    def get_chain_pair_plddt(
         self,
-        chain_id: str,
-        attr_name: str
-    ) -> float | str | int:
-        """ Get the attribute value for a given chain ID.
-
-        Arguments:
-
-        - **chain_id (str)**:<br />
-            Chain ID.
-
-        - **attr_name (str)**:<br />
-            Name of the attribute to retrieve.
-            Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
-
-        Returns:
-
-        - **(float | str | int)**:<br />
-            The requested attribute value.
-        """
-
-        if attr_name not in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]:
-            raise ValueError(
-                f"Attribute '{attr_name}' not recognized for chain "
-                f"'{chain_id}'."
-            )
-
-        attrs_ = {
-            "Chain ID": chain_id,
-            "Protein Name": self.get_protein_name(chain_id),
-            "Average pLDDT": self.per_chain_plddt[chain_id],
-            "Average ipLDDT": self.per_chain_iplddt[chain_id],
-            "Interface Residues": self.per_chain_interface_res[chain_id],
-            "Chain Type": self.get_chain_type(chain_id),
-        }
-
-        return attrs_[attr_name]
-
-    def get_res_attr(
-        self,
-        chain_id: str,
-        res_idx: int,
-        attr_name: str
+        only_avg: bool = True,
+        only_interface: bool = False,
     ):
-        """ Get the attribute value for a given residue in a chain.
 
-        Arguments:
+        chain_pair_plddt = {}
 
-        - **chain_id (str)**:<br />
-            Chain ID.
+        for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
+            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
+            plddt_mask = chain_pair_mask * self.rb_mask_2d
 
-        - **res_num (int)**:<br />
-            Residue number.
+            if only_interface:
+                plddt_mask = plddt_mask * self.contact_map_mask_2d
 
-        Returns:
+            plddt_mask_1d = plddt_mask.any(axis=0)
+            ch1_idx = self.unique_chains.index(ch_id_1)
+            chain1_mask = plddt_mask_1d * self.chain_mask_stack_1d[ch1_idx, :]
+            ch2_idx = self.unique_chains.index(ch_id_2)
+            chain2_mask = plddt_mask_1d * self.chain_mask_stack_1d[ch2_idx, :]
 
-        - **(float | str | int)**:<br />
-            The requested attribute value.
-        """
+            if only_avg:
+                chain_pair_plddt[(ch_id_1, ch_id_2)] = (
+                    np.mean(self.plddt_list[chain1_mask]),
+                    np.mean(self.plddt_list[chain2_mask])
+                )
+                continue
 
-        res_num = self.idx_to_num[res_idx]["token_num"]
+            res_pair_idxs = np.argwhere(plddt_mask)
+            ch1_plddts = self.plddt_list[res_pair_idxs[:, 0]]
+            ch2_plddts = self.plddt_list[res_pair_idxs[:, 1]]
 
-        if attr_name not in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]:
-            raise ValueError(
-                f"Attribute '{attr_name}' not recognized for residue "
-                f"'{res_num}' in chain '{chain_id}'."
-            )
+            chain_pair_plddt[(ch_id_1, ch_id_2)] = list(zip(ch1_plddts, ch2_plddts))
 
-        local_idx = list(self.per_chain_interface_res[chain_id]).index(res_idx)
+        return chain_pair_plddt
 
-        attrs_ = {
-            "Chain ID": chain_id,
-            "Residue Number": res_num,
-            "Protein Name": self.get_protein_name(chain_id),
-            "Average pLDDT": self.per_chain_plddt[chain_id][local_idx],
-            "Average ipLDDT": self.per_chain_iplddt[chain_id][local_idx],
-            "Chain Type": self.get_chain_type(chain_id),
-        }
+    def get_chain_pair_pae(
+        self,
+        only_avg: bool = True,
+        only_interface: bool = False,
+        symmetric: bool = True,
+    ):
+        chain_pair_pae = {}
 
-        return attrs_[attr_name]
+        for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
+            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
+            pae_mask = chain_pair_mask * self.rb_mask_2d
+
+            if only_interface:
+                pae_mask = pae_mask * self.contact_map_mask_2d
+
+            if symmetric:
+                avg_pae = symmetrize_matrix(self.pae)
+                pae_values = avg_pae[pae_mask].flatten()
+            else:
+                pae_values = self.pae[pae_mask].flatten()
+
+            if only_avg:
+                chain_pair_pae[(ch_id_1, ch_id_2)] = np.mean(pae_values)
+                continue
+
+            pae_ij_idxs = np.triu_indices_from(pae_mask, k=0)
+            pae_ji_idxs = np.tril_indices_from(pae_mask, k=0)
+
+            # res_pair_idxs = np.argwhere(pae_mask)
+            pae_ij = self.pae[pae_ij_idxs]
+            pae_ji = self.pae[pae_ji_idxs]
+            res_ij_idxs = np.argwhere(pae_ij)
+            res_ji_idxs = np.argwhere(pae_ji)
+            chain_pair_pae[(ch_id_1, ch_id_2)] = [
+                (self.pae[res1_idx, res2_idx], self.pae[res2_idx, res1_idx])
+                for res1_idx, res2_idx in res_ij_idxs + res_ji_idxs
+            ]
+
+        return chain_pair_pae
