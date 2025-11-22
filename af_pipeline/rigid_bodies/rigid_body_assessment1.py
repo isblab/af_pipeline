@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from itertools import combinations, product
+from itertools import combinations, combinations_with_replacement, product
 from collections import defaultdict
 from tqdm import tqdm
 import warnings
@@ -129,12 +129,19 @@ class RigidBodyAssessment:
         # self.chain_contact_masks = self.get_chain_contact_masks()
         # self.chain_pair_contact_masks = self.get_chain_pair_contact_masks()
 
-        self.per_chain_plddt = self.get_per_chain_plddt(self.as_average)
-        self.per_chain_iplddt = self.get_per_chain_iplddt(self.as_average)
-
-        self.per_chain_interface_res = self.get_per_chain_interface_residues(
-            self.as_average
+        self.rb_ch_assess = RigidBodyChainAssessment(
+            unique_chains=self.unique_chains,
+            idx_to_num=self.idx_to_num,
+            as_average=self.as_average,
+            chain_mask_stack_1d=self.chain_mask_stack_1d,
+            rb_mask_1d=self.rb_mask_1d,
+            contact_map_mask_1d=self.contact_map_mask_1d,
+            contact_map_mask_2d=self.contact_map_mask_2d,
+            plddt_list=self.plddt_list,
+            idr_chains=self.idr_chains,
+            protein_chain_map=self.protein_chain_map,
         )
+
 
     def get_unique_chains(self) -> List[str]:
         """Get unique chains in the rigid body.
@@ -379,6 +386,169 @@ class RigidBodyAssessment:
 
         return chain_pair_mask_stack
 
+    def save_rb_assessment(self):
+        """ Save the assessment of the rigid bodies to an Excel file.
+
+        The assessment includes:
+        - **Per chain assessment**:<br />
+            Average pLDDT, Average iLDDT, interface residues count,
+            Chain type (IDR or R).
+        - **Per chain pair assessment**:<br />
+            interface residues count, Number of contacts, Average PAE,
+            Average iPAE, Minimum PAE, Average iLDDT for each chain,
+            Chain type (IDR or R) for each chain.
+        - **Overall assessment**:<br />
+            Average pLDDT, Average iLDDT, interface residues count,
+            Chain type (IDR or R).
+
+        The assessment is saved in an Excel file with three sheets:
+        - "Chain Wise Assessment": Contains per chain assessment data.
+        - "Chain Pairwise Assessment": Contains per chain pair assessment data.
+        - "Overall Assessment": Contains overall assessment data.
+        """
+
+        chain_wise_assessment_rows = []
+        chain_pairwise_assessment_rows = []
+        overall_assessment_rows = []
+
+        if self.as_average:
+
+            iterators = [(chain_id,) for chain_id in self.unique_chains]
+            func = self.rb_ch_assess.get_chain_attr
+
+        else:
+
+            iterators = [
+                (ch_id, res_idx)
+                for ch_id in self.unique_chains
+                for res_idx in self.rb_ch_assess.per_chain_interface_res[ch_id]
+            ]
+            func = self.rb_ch_assess.get_res_attr
+
+        chain_wise_assessment_rows.append({
+            k: func(*it, k)
+            for it in iterators
+            for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
+        })
+
+        chain_pairwise_assessment_df = pd.DataFrame(chain_pairwise_assessment_rows)
+        chainwise_assessment_df = pd.DataFrame(chain_wise_assessment_rows)
+        overall_assessment_df = pd.DataFrame(overall_assessment_rows)
+
+        df_dict = {
+            "chain_pairwise_assessment": chain_pairwise_assessment_df,
+            "chainwise_assessment": chainwise_assessment_df,
+            "overall_assessment": overall_assessment_df,
+        }
+
+        for k, df_ in df_dict.items():
+            df_dict[k] = df_.fillna(np.nan)
+            df_dict[k] = df_.map(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
+
+        with pd.ExcelWriter(self.save_path, engine='openpyxl', mode='w') as writer:
+            for sheet_name, df in df_dict.items():
+
+                if df.empty:
+                    warnings.warn(f"Skipping empty DataFrame for sheet: {sheet_name}")
+                    continue
+
+                df.to_excel(
+                    writer,
+                    sheet_name=sheet_name,
+                    index=False,
+                )
+
+
+    # def get_chain_contact_masks(self, dimensions: int = 2) -> np.ndarray:
+    #     """Get contact masks for all chains in the rigid body.
+
+    #     Returns:
+
+    #     - **chain_contact_masks (np.ndarray)**:<br />
+    #         A stack of contact masks for all chains in the rigid body.
+    #         The shape is (`num_chains`, `total_length`, `total_length`)
+    #         where `num_chains` is the number of unique chains in the rigid body
+    #         and `total_length` is the sum of lengths of all chains.
+    #         The value is 1 if the residue pair is in contact, 0 otherwise.
+    #     """
+
+    #     if dimensions == 1:
+    #         chain_mask_stack = self.chain_mask_stack_1d
+    #         contact_map_mask = self.contact_map_mask_1d
+
+    #     elif dimensions == 2:
+    #         chain_mask_stack = self.chain_mask_stack_2d
+    #         contact_map_mask = self.contact_map_mask_2d
+
+    #     chain_contact_masks = np.ma.array(
+    #         chain_mask_stack,
+    #         mask=np.broadcast_to(contact_map_mask, chain_mask_stack.shape)
+    #     )
+
+    #     return chain_contact_masks
+
+    # def get_chain_pair_contact_masks(self, dimensions: int = 2) -> np.ndarray:
+    #     """Get contact masks for all chain pairs in the rigid body.
+
+    #     Returns:
+
+    #     - **chain_pair_contact_masks (np.ndarray)**:<br />
+    #         A stack of contact masks for all chain pairs in the rigid body.
+    #         The shape is (`num_chain_pairs`, `total_length`, `total_length`)
+    #         where `num_chain_pairs` is the number of unique chain pairs in the
+    #         rigid body and `total_length` is the sum of lengths of all chains.
+    #         The value is 1 if the residue pair is in contact, 0 otherwise.
+    #     """
+
+    #     if dimensions == 1:
+    #         cp_mask_stack = self.chain_pair_mask_stack_1d
+    #         contact_map_mask = self.contact_map_mask_1d
+
+    #     elif dimensions == 2:
+    #         cp_mask_stack = self.chain_pair_mask_stack_2d
+    #         contact_map_mask = self.contact_map_mask_2d
+
+    #     chain_pair_contact_masks = np.ma.array(
+    #         cp_mask_stack,
+    #         mask=np.broadcast_to(contact_map_mask, cp_mask_stack.shape)
+    #     )
+
+    #     return chain_pair_contact_masks
+
+class RigidBodyChainAssessment:
+
+    def __init__(
+        self,
+        unique_chains: List[str],
+        idx_to_num: Dict[int, Dict[str, str|int]],
+        as_average: bool,
+        chain_mask_stack_1d: np.ndarray,
+        rb_mask_1d: np.ndarray,
+        contact_map_mask_1d: np.ndarray,
+        contact_map_mask_2d: np.ndarray,
+        plddt_list: np.ndarray,
+        idr_chains: List[str] = [],
+        protein_chain_map: Dict[str, str] = {},
+    ):
+
+        self.unique_chains = unique_chains
+        self.idx_to_num = idx_to_num
+        self.as_average = as_average
+        self.chain_mask_stack_1d = chain_mask_stack_1d
+        self.rb_mask_1d = rb_mask_1d
+        self.contact_map_mask_1d = contact_map_mask_1d
+        self.contact_map_mask_2d = contact_map_mask_2d
+        self.plddt_list = plddt_list
+        self.idr_chains = idr_chains
+        self.protein_chain_map = protein_chain_map
+
+        self.per_chain_plddt = self.get_per_chain_plddt(self.as_average)
+        self.per_chain_iplddt = self.get_per_chain_iplddt(self.as_average)
+
+        self.per_chain_interface_res = self.get_per_chain_interface_residues(
+            self.as_average
+        )
+
     def get_per_chain_plddt(self, only_avg: bool = True) -> Dict[str, float]:
         """Get average pLDDT score per chain in the rigid body.
 
@@ -578,129 +748,3 @@ class RigidBodyAssessment:
         }
 
         return attrs_[attr_name]
-
-    def save_rb_assessment(self):
-        """ Save the assessment of the rigid bodies to an Excel file.
-
-        The assessment includes:
-        - **Per chain assessment**:<br />
-            Average pLDDT, Average iLDDT, interface residues count,
-            Chain type (IDR or R).
-        - **Per chain pair assessment**:<br />
-            interface residues count, Number of contacts, Average PAE,
-            Average iPAE, Minimum PAE, Average iLDDT for each chain,
-            Chain type (IDR or R) for each chain.
-        - **Overall assessment**:<br />
-            Average pLDDT, Average iLDDT, interface residues count,
-            Chain type (IDR or R).
-
-        The assessment is saved in an Excel file with three sheets:
-        - "Chain Wise Assessment": Contains per chain assessment data.
-        - "Chain Pairwise Assessment": Contains per chain pair assessment data.
-        - "Overall Assessment": Contains overall assessment data.
-        """
-
-        chain_wise_assessment_rows = []
-        chain_pairwise_assessment_rows = []
-        overall_assessment_rows = []
-
-        if self.as_average:
-
-            for chain_id in self.unique_chains:
-                chain_wise_assessment_rows.append({
-                    k: self.get_chain_attr(chain_id, k)
-                    for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
-                })
-
-        else:
-
-            for chain_id in self.unique_chains:
-                for res_idx in self.per_chain_interface_res[chain_id]:
-                    chain_wise_assessment_rows.append({
-                        k: self.get_res_attr(chain_id, res_idx, k)
-                        for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
-                    })
-
-        chain_pairwise_assessment_df = pd.DataFrame(chain_pairwise_assessment_rows)
-        chainwise_assessment_df = pd.DataFrame(chain_wise_assessment_rows)
-        overall_assessment_df = pd.DataFrame(overall_assessment_rows)
-
-        df_dict = {
-            "chain_pairwise_assessment": chain_pairwise_assessment_df,
-            "chainwise_assessment": chainwise_assessment_df,
-            "overall_assessment": overall_assessment_df,
-        }
-
-        for k, df_ in df_dict.items():
-            df_dict[k] = df_.fillna(np.nan)
-            df_dict[k] = df_.map(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
-
-        with pd.ExcelWriter(self.save_path, engine='openpyxl', mode='w') as writer:
-            for sheet_name, df in df_dict.items():
-
-                if df.empty:
-                    warnings.warn(f"Skipping empty DataFrame for sheet: {sheet_name}")
-                    continue
-
-                df.to_excel(
-                    writer,
-                    sheet_name=sheet_name,
-                    index=False,
-                )
-
-
-    # def get_chain_contact_masks(self, dimensions: int = 2) -> np.ndarray:
-    #     """Get contact masks for all chains in the rigid body.
-
-    #     Returns:
-
-    #     - **chain_contact_masks (np.ndarray)**:<br />
-    #         A stack of contact masks for all chains in the rigid body.
-    #         The shape is (`num_chains`, `total_length`, `total_length`)
-    #         where `num_chains` is the number of unique chains in the rigid body
-    #         and `total_length` is the sum of lengths of all chains.
-    #         The value is 1 if the residue pair is in contact, 0 otherwise.
-    #     """
-
-    #     if dimensions == 1:
-    #         chain_mask_stack = self.chain_mask_stack_1d
-    #         contact_map_mask = self.contact_map_mask_1d
-
-    #     elif dimensions == 2:
-    #         chain_mask_stack = self.chain_mask_stack_2d
-    #         contact_map_mask = self.contact_map_mask_2d
-
-    #     chain_contact_masks = np.ma.array(
-    #         chain_mask_stack,
-    #         mask=np.broadcast_to(contact_map_mask, chain_mask_stack.shape)
-    #     )
-
-    #     return chain_contact_masks
-
-    # def get_chain_pair_contact_masks(self, dimensions: int = 2) -> np.ndarray:
-    #     """Get contact masks for all chain pairs in the rigid body.
-
-    #     Returns:
-
-    #     - **chain_pair_contact_masks (np.ndarray)**:<br />
-    #         A stack of contact masks for all chain pairs in the rigid body.
-    #         The shape is (`num_chain_pairs`, `total_length`, `total_length`)
-    #         where `num_chain_pairs` is the number of unique chain pairs in the
-    #         rigid body and `total_length` is the sum of lengths of all chains.
-    #         The value is 1 if the residue pair is in contact, 0 otherwise.
-    #     """
-
-    #     if dimensions == 1:
-    #         cp_mask_stack = self.chain_pair_mask_stack_1d
-    #         contact_map_mask = self.contact_map_mask_1d
-
-    #     elif dimensions == 2:
-    #         cp_mask_stack = self.chain_pair_mask_stack_2d
-    #         contact_map_mask = self.contact_map_mask_2d
-
-    #     chain_pair_contact_masks = np.ma.array(
-    #         cp_mask_stack,
-    #         mask=np.broadcast_to(contact_map_mask, cp_mask_stack.shape)
-    #     )
-
-    #     return chain_pair_contact_masks
