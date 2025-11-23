@@ -9,7 +9,8 @@ import warnings
 import copy
 from af_pipeline.constants.af_constants import (
     CHAIN_PAIRWISE_ASSESSMENT_COLUMNS,
-    CHAINWISE_ASSESSMENT_COLUMNS
+    CHAINWISE_ASSESSMENT_COLUMNS,
+    OVERALL_ASSESSMENT_COLUMNS,
 )
 from af_pipeline.utils.misc_utils import (
     time_it,
@@ -27,6 +28,7 @@ class _Mask:
         contact_map: np.ndarray,
         plddt_list: np.ndarray,
         pae: np.ndarray,
+        avg_pae: np.ndarray,
         lengths_dict: dict,
         as_average: bool = True,
         symmetric_pae: bool = True,
@@ -40,6 +42,7 @@ class _Mask:
 
         self.rb_dict = rb_dict
         self.pae = pae
+        self.avg_pae = avg_pae
         self.num_to_idx = num_to_idx
         self.idx_to_num = idx_to_num
         self.lengths_dict = lengths_dict
@@ -53,12 +56,15 @@ class _Mask:
         self.interchain_mask = create_mask(
             partition_dict=lengths_dict,
             hide_interactions="intra_part",
-            masked_value=1,
-            unmasked_value=0,
+            masked_value=0,
+            unmasked_value=1,
         )
-        self.contact_map_mask_2d = np.ma.masked_array(
-            contact_map,
-            mask=self.interchain_mask,
+        # self.contact_map_mask_2d = np.ma.masked_array(
+        #     contact_map,
+        #     mask=self.interchain_mask,
+        # )
+        self.contact_map_mask_2d = np.ma.make_mask(
+            contact_map * self.interchain_mask
         )
         # plt.imshow(self.contact_map_mask_2d)
         # plt.show()
@@ -353,7 +359,7 @@ class RigidBodyChainAssessment:
         self,
         only_avg: bool = True,
         only_interface: bool = False,
-    ) -> Dict[str, float]:
+    ) -> Dict[str, list | float]:
         """Get average pLDDT score per chain in the rigid body.
 
         Returns:
@@ -553,6 +559,7 @@ class RigidBodyChainPairAssessment:
 
         self.plddt_list = _mask.plddt_list
         self.pae = _mask.pae
+        self.avg_pae = _mask.avg_pae
         self.symmetric_pae = _mask.symmetric_pae
         self.idr_chains = _mask.idr_chains
         self.protein_chain_map = _mask.protein_chain_map
@@ -563,19 +570,32 @@ class RigidBodyChainPairAssessment:
         self.chain_pair_contacts = self.get_chain_pair_interface(
             self.as_average, True,
         )
-        self.chain_pair_plddt = self.get_chain_pair_plddt(
-            self.as_average, False,
-        )
+        # self.chain_pair_plddt = self.get_chain_pair_plddt(
+        #     self.as_average, False,
+        # )
         self.chain_pair_iplddt = self.get_chain_pair_plddt(
             self.as_average, True,
         )
 
-        # self.chain_pair_pae = self.get_chain_pair_pae(
-        #     self.as_average, False, self.symmetric_pae
-        # )
-        # self.chain_pair_ipae = self.get_chain_pair_pae(
-        #     self.as_average, True, self.symmetric_pae
-        # )
+        self.chain_pair_pae = self.get_chain_pair_pae(
+            self.as_average, False, (True, "")
+        )
+        self.chain_pair_pae_ij = self.get_chain_pair_pae(
+            self.as_average, False, (False, "ij")
+        )
+        self.chain_pair_pae_ji = self.get_chain_pair_pae(
+            self.as_average, False, (False, "ji")
+        )
+
+        self.chain_pair_ipae = self.get_chain_pair_pae(
+            self.as_average, True, (True, "")
+        )
+        self.chain_pair_ipae_ij = self.get_chain_pair_pae(
+            self.as_average, True, (False, "ij")
+        )
+        self.chain_pair_ipae_ji = self.get_chain_pair_pae(
+            self.as_average, True, (False, "ji")
+        )
 
     def get_chain_pair_attr(
         self,
@@ -589,23 +609,35 @@ class RigidBodyChainPairAssessment:
             raise ValueError(f"Invalid attribute name: {attr_name}")
 
         attrs_ = {
-            "Chain ID 1": chain1,
-            "Chain ID 2": chain2,
-            "Protein Name 1": self.protein_chain_map.get(chain1, chain1),
-            "Protein Name 2": self.protein_chain_map.get(chain2, chain2),
-            "Chain Type 1": "IDR" if chain1 in self.idr_chains else "R",
-            "Chain Type 2": "IDR" if chain2 in self.idr_chains else "R",
+            "Chain ID": (chain1, chain2),
+
+            "Protein Name": (
+                self.protein_chain_map.get(chain1, chain1),
+                self.protein_chain_map.get(chain2, chain2),
+            ),
+
+            "Chain Type": (
+                "IDR" if chain1 in self.idr_chains else "R",
+                "IDR" if chain2 in self.idr_chains else "R",
+            ),
 
             "Interface Residues": self.chain_pair_interface_res[chain_pair],
             "Number of contacts": self.chain_pair_contacts[chain_pair],
 
-            "pLDDT Chain 1": self.chain_pair_plddt[chain_pair][0],
-            "pLDDT Chain 2": self.chain_pair_plddt[chain_pair][1],
+            # "pLDDT Chain 1": self.chain_pair_plddt[chain_pair][0],
+            # "pLDDT Chain 2": self.chain_pair_plddt[chain_pair][1],
 
             "Average ipLDDT chain1": self.chain_pair_iplddt[chain_pair][0],
             "Average ipLDDT chain2": self.chain_pair_iplddt[chain_pair][1],
-            # "Average PAE": self.chain_pair_pae[chain_pair],
-            # "Average iPAE": self.chain_pair_ipae[chain_pair],
+
+            "Average PAE": self.chain_pair_pae[chain_pair],
+            "Average iPAE": self.chain_pair_ipae[chain_pair],
+
+            "Average PAE ij": self.chain_pair_pae_ij[chain_pair],
+            "Average PAE ji": self.chain_pair_pae_ji[chain_pair],
+
+            "Average iPAE ij": self.chain_pair_ipae_ij[chain_pair],
+            "Average iPAE ji": self.chain_pair_ipae_ji[chain_pair],
         }
 
         return attrs_[attr_name]
@@ -716,43 +748,55 @@ class RigidBodyChainPairAssessment:
 
         return chain_pair_plddt
 
+    # @time_it
     def get_chain_pair_pae(
         self,
         only_avg: bool = True,
         only_interface: bool = False,
-        symmetric: bool = True,
+        symmetric: Tuple[bool, str] = (True, ""),
     ):
         chain_pair_pae = {}
+        sym_bool, sym_type = symmetric
+
+        assert symmetric in [(True, ""), (False, "ij"), (False, "ji")], (
+            """`symmetric` must be one of the following.
+            (True, ''), (False, 'ij'), (False, 'ji')
+            """
+        )
+
+        # (sym_bool, sym_type)
+        pae_attrs_ = {
+            (True, ""): lambda a: self.avg_pae,
+            (False, "ij"): np.triu,
+            (False, "ji"): np.tril,
+        }
+        # only_interface
+        mask_attrs_ = {
+            True: self.rb_mask_2d * self.contact_map_mask_2d,
+            False: self.rb_mask_2d,
+        }
+        # sym_bool
+        sym_bool_attrs_ = {
+            True: lambda a: a,
+            False: lambda a: a + a.T - np.diag(np.diag(a)),
+        }
+
+        pae_matrix = pae_attrs_[(sym_bool, sym_type)](self.pae)
+        pae_matrix = sym_bool_attrs_[sym_bool](pae_matrix)
+        pae_mask_multiplier = mask_attrs_[only_interface]
 
         for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
+
             chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
-            pae_mask = chain_pair_mask * self.rb_mask_2d
-
-            if only_interface:
-                pae_mask = pae_mask * self.contact_map_mask_2d
-
-            if symmetric:
-                avg_pae = symmetrize_matrix(self.pae)
-                pae_values = avg_pae[pae_mask].flatten()
-            else:
-                pae_values = self.pae[pae_mask].flatten()
+            pae_mask_2d = chain_pair_mask * pae_mask_multiplier
+            pae_idxs = np.where(pae_mask_2d)
+            pae_vals = pae_matrix[pae_idxs].flatten()
 
             if only_avg:
-                chain_pair_pae[(ch_id_1, ch_id_2)] = np.mean(pae_values)
+                chain_pair_pae[(ch_id_1, ch_id_2)] = np.mean(pae_vals)
                 continue
 
-            pae_ij_idxs = np.triu_indices_from(pae_mask, k=0)
-            pae_ji_idxs = np.tril_indices_from(pae_mask, k=0)
-
-            # res_pair_idxs = np.argwhere(pae_mask)
-            pae_ij = self.pae[pae_ij_idxs]
-            pae_ji = self.pae[pae_ji_idxs]
-            res_ij_idxs = np.argwhere(pae_ij)
-            res_ji_idxs = np.argwhere(pae_ji)
-            chain_pair_pae[(ch_id_1, ch_id_2)] = [
-                (self.pae[res1_idx, res2_idx], self.pae[res2_idx, res1_idx])
-                for res1_idx, res2_idx in res_ij_idxs + res_ji_idxs
-            ]
+            chain_pair_pae[(ch_id_1, ch_id_2)] = pae_vals.tolist()
 
         return chain_pair_pae
 
@@ -850,6 +894,7 @@ class RigidBodyAssessment:
         contact_map: np.ndarray,
         plddt_list: np.ndarray,
         pae: np.ndarray,
+        avg_pae: np.ndarray,
         lengths_dict: dict,
         save_path: str,
         **kwargs,
@@ -864,6 +909,7 @@ class RigidBodyAssessment:
             contact_map=contact_map,
             plddt_list=plddt_list,
             pae=pae,
+            avg_pae=avg_pae,
             lengths_dict=lengths_dict,
             as_average=kwargs.get("as_average", False),
             symmetric_pae=kwargs.get("symmetric_pae", True),
@@ -873,6 +919,7 @@ class RigidBodyAssessment:
 
         self.rb_ch_assess = RigidBodyChainAssessment(_mask=_mask)
         self.rb_ch_pair_assess = RigidBodyChainPairAssessment(_mask=_mask)
+        self.overall_assessment = self.get_overall_assessment()
 
     def save_rb_assessment(self):
         """ Save the assessment of the rigid bodies to an Excel file.
@@ -897,6 +944,12 @@ class RigidBodyAssessment:
 
         overall_assessment_rows = []
 
+        for col_head, key in OVERALL_ASSESSMENT_COLUMNS.items():
+            if self.overall_assessment.get(key, np.nan) is not np.nan:
+                overall_assessment_rows.append({
+                    "Key": col_head,
+                    "Value": self.overall_assessment.get(key)
+                })
         overall_assessment_df = pd.DataFrame(overall_assessment_rows)
 
         c_assessment_df = self.rb_ch_assess.get_chain_assessment()
@@ -931,3 +984,79 @@ class RigidBodyAssessment:
                     sheet_name=sheet_name,
                     index=False,
                 )
+
+
+    # @time_it
+    def get_overall_assessment(self):
+        """ Get overall assessment of the rigid body.
+
+        Returns:
+
+        - **overall_assessment (dict)**:<br />
+            A dictionary containing overall statistics about the rigid body.
+            It includes the number of chains, number of interacting chain pairs,
+            interface residues, number of contacts, average ipLDDT,
+            average IDR ipLDDT, average iPAE ij, and average iPAE ji.
+        """
+
+        overall_assessment = {}
+
+        overall_assessment["num_chains"] = len(self.rb_ch_assess.unique_chains)
+
+        overall_assessment["num_interacting_chain_pairs"] = len([
+            pair
+            for pair in self.rb_ch_pair_assess.chain_pairs
+            if len(self.rb_ch_pair_assess.chain_pair_interface_res[pair]) > 0
+        ])
+
+        overall_assessment["num_interface_residues"] = sum(
+            self.rb_ch_assess.per_chain_interface_res.values()
+        )
+
+        overall_assessment["num_contacts"] = sum(
+            self.rb_ch_pair_assess.chain_pair_contacts.values()
+        )
+
+        # global_iplddt_scores = [
+        #     iplddt
+        #     for iplddt_scores in self.rb_ch_assess.per_chain_iplddt.values()
+        #     if isinstance(iplddt_scores, list)
+        #     for iplddt in iplddt_scores
+        # ]
+
+        # overall_assessment["avg_iplddt"] = (
+        #     np.mean(global_iplddt_scores) if global_iplddt_scores else np.nan
+        # )
+
+        # global_idr_iplddt_scores = [
+        #     iplddt
+        #     for chain_id, iplddt_scores in self.per_chain_iplddt.items()
+        #     for iplddt in iplddt_scores.values()
+        #     if chain_id in self.idr_chains
+        # ]
+
+        # overall_assessment["avg_idr_iplddt"] = (
+        #     np.mean(global_idr_iplddt_scores) if global_idr_iplddt_scores else np.nan
+        # )
+
+        # global_ipae_ij_scores = [
+        #     ipae
+        #     for ipae_dict in self.pairwise_ipae.values()
+        #     for ipae in ipae_dict["ij"].values()
+        # ]
+
+        # global_ipae_ji_scores = [
+        #     ipae
+        #     for ipae_dict in self.pairwise_ipae.values()
+        #     for ipae in ipae_dict["ji"].values()
+        # ]
+
+        # overall_assessment["avg_ipae_ij"] = (
+        #     np.mean(global_ipae_ij_scores) if global_ipae_ij_scores else np.nan
+        # )
+
+        # overall_assessment["avg_ipae_ji"] = (
+        #     np.mean(global_ipae_ji_scores) if global_ipae_ji_scores else np.nan
+        # )
+
+        return overall_assessment
