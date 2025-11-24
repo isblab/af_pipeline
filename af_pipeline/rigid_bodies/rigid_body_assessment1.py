@@ -927,12 +927,17 @@ class RigidBodyChainPairAssessment:
         attrs_ = {
             "Chain ID 1": ch_id_1,
             "Chain ID 2": ch_id_2,
+            "Protein Name 1": self.protein_chain_map.get(ch_id_1, ch_id_1),
+            "Protein Name 2": self.protein_chain_map.get(ch_id_2, ch_id_2),
+            "Chain Type 1": "IDR" if ch_id_1 in self.idr_chains else "R",
+            "Chain Type 2": "IDR" if ch_id_2 in self.idr_chains else "R",
             "Residue 1": self.idx_to_num[res_idx_1]["token_num"],
             "Residue 2": self.idx_to_num[res_idx_2]["token_num"],
             "pLDDT 1": self.plddt_list[res_idx_1],
             "pLDDT 2": self.plddt_list[res_idx_2],
-            "ipLDDT 1": self.plddt_list[res_idx_1],
-            "ipLDDT 2": self.plddt_list[res_idx_2],
+            "PAE ij": self.pae[res_idx_1, res_idx_2],
+            "PAE ji": self.pae[res_idx_2, res_idx_1],
+            "PAE": self.avg_pae[res_idx_1, res_idx_2],
         }
 
         return attrs_[attr_name]
@@ -985,6 +990,7 @@ class RigidBodyChainPairAssessment:
                 chain_pair_interface_residues[(ch_id_1, ch_id_2)] = (res_count1, res_count2)
                 continue
 
+            interface_mask = np.triu(interface_mask)  # To avoid duplicate pairs
             res_idx_pairs = np.argwhere(interface_mask)
             chain_pair_interface_residues[(ch_id_1, ch_id_2)] = res_idx_pairs
 
@@ -1034,6 +1040,7 @@ class RigidBodyChainPairAssessment:
                 )
                 continue
 
+            plddt_mask = np.triu(plddt_mask)  # To avoid duplicate pairs
             res_pair_idxs = np.argwhere(plddt_mask)
             ch1_plddts = self.plddt_list[res_pair_idxs[:, 0]]
             ch2_plddts = self.plddt_list[res_pair_idxs[:, 1]]
@@ -1327,11 +1334,15 @@ class RigidBodyAssessment:
         ])
 
         overall_assessment["num_interface_residues"] = sum(
-            self.rb_ch_assess.per_chain_interface_res.values()
+            self.rb_ch_assess.get_per_chain_interface_residues(only_count=True).values()
         )
 
         overall_assessment["num_contacts"] = sum(
-            self.rb_ch_pair_assess.chain_pair_contacts.values()
+            # self.rb_ch_pair_assess.chain_pair_contacts.values()
+            self.rb_ch_pair_assess.get_chain_pair_interface(
+                only_count=True,
+                only_contacts=True,
+            ).values()
         )
 
         # global_iplddt_scores = [
