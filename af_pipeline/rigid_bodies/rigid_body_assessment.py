@@ -1419,17 +1419,20 @@ class RigidBodyAssessment:
         )
 
         # Average ipLDDT scores for IDR chains in the rigid body
-        _idr_chain_mask = np.isin(
-            global_iplddt_scores[:, 1],
-            self.rb_c_assess.idr_chains
-        )
-        global_idr_iplddt_scores = global_iplddt_scores[
-            _idr_chain_mask, 0
-        ].astype(float)
-        overall_assessment["avg_idr_iplddt"] = (
-            np.mean(global_idr_iplddt_scores)
-            if global_idr_iplddt_scores.size > 0 else np.nan
-        )
+        if len(self.rb_c_assess.idr_chains) == 0:
+            overall_assessment["avg_idr_iplddt"] = np.nan
+        else:
+            _idr_chain_mask = np.isin(
+                global_iplddt_scores[:, 1],
+                self.rb_c_assess.idr_chains
+            )
+            global_idr_iplddt_scores = global_iplddt_scores[
+                _idr_chain_mask, 0
+            ].astype(float)
+            overall_assessment["avg_idr_iplddt"] = (
+                np.mean(global_idr_iplddt_scores)
+                if global_idr_iplddt_scores.size > 0 else np.nan
+            )
 
         # Average iPAE scores across all chain pairs in the rigid body
         attrs_pae = {
@@ -1467,7 +1470,6 @@ class RigidBodyAssessment:
 
             attr_state = attr_dict["key"]
             col_name = f"{col_template}{attr_dict['col']}"
-            print(col_name)
             pae_direction = attr_dict['col'].lstrip("_")
 
             if callable(attrs_pae[attr_state]):
