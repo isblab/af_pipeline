@@ -808,6 +808,12 @@ class RigidBodyChainPairAssessment:
         self.symmetric_pae = _mask.symmetric_pae
         self.idr_chains = _mask.idr_chains
         self.protein_chain_map = _mask.protein_chain_map
+        self.chain_pair_pae = {}
+        self.chain_pair_pae_ij = {}
+        self.chain_pair_pae_ji = {}
+        self.chain_pair_ipae = {}
+        self.chain_pair_ipae_ij = {}
+        self.chain_pair_ipae_ji = {}
 
         self.chain_pair_interface_res = self.get_chain_pair_interface(
             per_chain=True,
@@ -1425,70 +1431,66 @@ class RigidBodyAssessment:
             if global_idr_iplddt_scores.size > 0 else np.nan
         )
 
-        # Average iPAE ij scores across all chain pairs in the rigid body
-        if self.symmetric_pae is False:
-            if self.as_average:
-                global_ipae_ij_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.get_chain_pair_pae(
+        # Average iPAE scores across all chain pairs in the rigid body
+        attrs_pae = {
+            (True, False, "ij"): self.rb_cp_assess.get_chain_pair_pae,
+            (False, False, "ij"): self.rb_cp_assess.chain_pair_ipae_ij,
+            (True, False, "ji"): self.rb_cp_assess.get_chain_pair_pae,
+            (False, False, "ji"): self.rb_cp_assess.chain_pair_ipae_ji,
+            (True, True, ""): self.rb_cp_assess.get_chain_pair_pae,
+            (False, True, ""): self.rb_cp_assess.chain_pair_ipae,
+        }
+
+        col_template = "avg_ipae"
+        attr_states_ = {
+            True: [
+                {
+                    "key": (self.as_average, self.symmetric_pae, ""),
+                    "col": "",
+                },
+            ],
+            False: [
+                {
+                    "key": (self.as_average, self.symmetric_pae, "ij"),
+                    "col": "_ij",
+                },
+                {
+                    "key": (self.as_average, self.symmetric_pae, "ji"),
+                    "col": "_ji",
+                }
+            ],
+        }
+
+        attr_states = attr_states_[self.symmetric_pae]
+
+        for attr_dict in attr_states:
+
+            attr_state = attr_dict["key"]
+            col_name = f"{col_template}{attr_dict['col']}"
+            print(col_name)
+            pae_direction = attr_dict['col'].lstrip("_")
+
+            if callable(attrs_pae[attr_state]):
+
+                global_pae_scores = [
+                    pae
+                    for _cp, pae_lst in attrs_pae[attr_state](
                         only_avg=False,
                         only_interface=True,
-                        symmetric=(False, "ij"),
+                        symmetric=(self.symmetric_pae, pae_direction),
                     ).items()
-                    for ipae in ipae_lst
+                    for pae in pae_lst
                 ]
+
             else:
-                global_ipae_ij_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.chain_pair_ipae_ij.items()
-                    for ipae in ipae_lst
+                global_pae_scores = [
+                    pae
+                    for _cp, pae_lst in attrs_pae[attr_state].items()
+                    for pae in pae_lst
                 ]
 
-            # Average iPAE ji scores across all chain pairs in the rigid body
-            overall_assessment["avg_ipae_ij"] = (
-                np.mean(global_ipae_ij_scores) if global_ipae_ij_scores else np.nan
-            )
-
-            if self.as_average:
-                global_ipae_ji_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.get_chain_pair_pae(
-                        only_avg=False,
-                        only_interface=True,
-                        symmetric=(False, "ji"),
-                    ).items()
-                    for ipae in ipae_lst
-                ]
-            else:
-                global_ipae_ji_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.chain_pair_ipae_ji.items()
-                    for ipae in ipae_lst
-                ]
-
-            overall_assessment["avg_ipae_ji"] = (
-                np.mean(global_ipae_ji_scores) if global_ipae_ji_scores else np.nan
-            )
-
-        else:
-            if self.as_average:
-                global_ipae_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.get_chain_pair_pae(
-                        only_avg=False,
-                        only_interface=True,
-                        symmetric=(True, ""),
-                    ).items()
-                    for ipae in ipae_lst
-                ]
-            else:
-                global_ipae_scores = [
-                    ipae
-                    for _cp, ipae_lst in self.rb_cp_assess.chain_pair_ipae.items()
-                    for ipae in ipae_lst
-                ]
-            overall_assessment["avg_pae"] = (
-                np.mean(global_ipae_scores) if global_ipae_scores else np.nan
+            overall_assessment[col_name] = (
+                np.mean(global_pae_scores) if global_pae_scores else np.nan
             )
 
         return overall_assessment
