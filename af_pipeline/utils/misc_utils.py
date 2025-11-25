@@ -70,8 +70,8 @@ def chain_id_gen():
 def create_mask(
     partition_dict: Dict,
     hide_interactions: str = "intra_part",
-    masked_value: int = 1,
-    unmasked_value: int = 0,
+    masked_value: bool | int = 1,
+    unmasked_value: bool | int = 0,
 ):
     """Create a binary 2D mask.
 

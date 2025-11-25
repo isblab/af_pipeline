@@ -1366,7 +1366,7 @@ class RigidBodyAssessment:
                     index=False,
                 )
 
-    @time_it
+    # @time_it
     def get_overall_assessment(self):
         """ Get overall assessment of the rigid body.
 

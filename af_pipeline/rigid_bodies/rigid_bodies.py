@@ -578,10 +578,11 @@ class RigidBodies(_Initialize):
                     contact_map=contact_map,
                     plddt_list=self.token_plddts,
                     pae=self.pae,
+                    avg_pae=self.avg_pae,
                     lengths_dict=self.lengths_dict,
                     save_path=rb_save_path,
                     symmetric_pae=rb_assessment.get("symmetric_pae", True),
-                    as_average=rb_assessment.get("as_average", False),
+                    as_average=rb_assessment.get("as_average", True),
                     idr_chains=self.idr_chains,
                     protein_chain_map=protein_chain_map,
                 )

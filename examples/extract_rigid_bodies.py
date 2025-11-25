@@ -174,10 +174,13 @@ if __name__ == "__main__":
             output_dir=args.output,
             output_format="txt",
             save_structure=True,
-            structure_file_type="cif",
+            structure_file_type="pdb",
             no_plddt_filter_for_structure=False,
             pae_plot=False,
-            rb_assessment=None,
+            rb_assessment={
+                "as_average": True,
+                "symmetric_pae": True,
+            },
             protein_chain_map=None
         )
 
