@@ -4,6 +4,7 @@ from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
 from typing import Final
+from dataclasses import dataclass
 
 RES_RANGE_SEP: Final[str] = "t"
 
@@ -18,6 +19,14 @@ AVAILABLE_PARSERS = {
     "pdb": PDBParser,
     "cif": MMCIFParser,
 }
+
+@dataclass(frozen=True)
+class ConfigYaml:
+    input: str = "af_input_jobs"
+    master: str = "af_master_dirs"
+    cycle: str = "af_cycle_dirs"
+    job_set: str = "af_job_set_dirs"
+    best_pred: str = "best_af3_predictions"
 
 ALLOWED_STRUCTURE_FORMATS = list(AVAILABLE_PARSERS.keys())
 

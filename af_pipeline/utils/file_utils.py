@@ -188,9 +188,10 @@ def update_job_names_in_config(
         Mode to update the config file.
     """
 
+    from af_pipeline.constants.af_constants import ConfigYaml
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)
 
-    af_input_jobs = config_yaml.get("af_input_jobs", {})
+    af_input_jobs = config_yaml.get(ConfigYaml.input, {})
 
     for job_cycle, job_set_names in job_set_names.items():
         if job_cycle in af_input_jobs:
@@ -207,7 +208,7 @@ def update_job_names_in_config(
 
     update_config(
         input_file=input_file,
-        updates={"af_input_jobs": af_input_jobs},
+        updates={ConfigYaml.input: af_input_jobs},
         mode=mode
     )
 
@@ -230,9 +231,10 @@ def update_af_offsets_in_config(
         Mode to update the config file.
     """
 
+    from af_pipeline.constants.af_constants import ConfigYaml
     config_yaml = yaml.load(open(input_file), Loader=yaml.FullLoader)
 
-    af_input_jobs = config_yaml.get("af_input_jobs", {})
+    af_input_jobs = config_yaml.get(ConfigYaml.input, {})
 
     for job_cycle, job_set_offsets in af_offsets.items():
         if job_cycle in af_input_jobs:
@@ -246,9 +248,11 @@ def update_af_offsets_in_config(
                     }
         else:
             print(f"{job_cycle} not found in af_input_jobs")
+            print("Exiting...")
+            exit(1)
 
     update_config(
         input_file=input_file,
-        updates={"af_input_jobs": af_input_jobs},
+        updates={ConfigYaml.input: af_input_jobs},
         mode=mode
     )
