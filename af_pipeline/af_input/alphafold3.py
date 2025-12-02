@@ -83,18 +83,23 @@ class AlphaFoldServer:
     - `val` -> `identifier` <br />
       `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
+    set_seed: int
+    """Seed used to generate `model_seeds` if not provided."""
+
     def __init__(
         self,
         input_dict: Dict[str, List[Dict[str, Any]]],
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
+        set_seed: int = 47,
     ):
 
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
         self.input_dict = input_dict
+        self.set_seed = set_seed
 
     def create_af3_job_cycles(self) -> Dict[str, List[Dict[str, Any]]]:
         """Create job cycles for AlphaFold server.
@@ -151,6 +156,7 @@ class AlphaFoldServer:
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
+                set_seed=self.set_seed,
             )
             af_cycle.update_cycle()
             job_cycles[job_cycle_id] = af_cycle.job_list
@@ -282,6 +288,9 @@ class AFCycle:
     - `val` -> `identifier` <br />
       `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
+    set_seed: int
+    """Seed used to generate `model_seeds` if not provided."""
+
     job_list: List[Dict[str, Any]]
     """List of jobs created from the job information in `job_sets_list`.<br />
     Here, the jobs are in their final form."""
@@ -303,12 +312,14 @@ class AFCycle:
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
+        set_seed: int = 47,
     ):
 
         self.job_sets_list = job_sets_list  # all jobs within the cycle
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
+        self.set_seed = set_seed
         self.job_list = []
         self.job_set_names = []
         self.job_set_af_offsets = []  # offset for each job set in the cycle
@@ -329,6 +340,7 @@ class AFCycle:
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
+                set_seed=self.set_seed,
             )
 
             job_set_dict = af_job_set.create_job_set()
@@ -417,6 +429,9 @@ class AFJobSet:
     - `val` -> `identifier` <br />
       `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
 
+    set_seed: int
+    """Seed used to generate `model_seeds` if not provided."""
+
     job_set_name: str | None
     """Name of the job set.
     If not provided, it will be generated using `generate_job_set_name`."""
@@ -443,12 +458,14 @@ class AFJobSet:
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
+        set_seed: int = 47,
     ):
 
         self.job_set_info = job_set_info
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
+        self.set_seed = set_seed
         self.job_set_name = None
         self.model_seeds = []
         self.af_sequences = []
@@ -502,7 +519,10 @@ class AFJobSet:
         if "modelSeeds" in self.job_set_info:
 
             if isinstance(model_seeds, int):
-                self.model_seeds = generate_seeds(num_seeds=model_seeds)
+                self.model_seeds = generate_seeds(
+                    num_seeds=model_seeds,
+                    set_seed=self.set_seed,
+                )
 
             elif isinstance(model_seeds, list):
                 self.model_seeds = model_seeds
