@@ -286,7 +286,7 @@ class RankAF3JobSet:
                 data for a given prediction directory along with offsets
         """
 
-        best_pred_info = []
+        best_pred_info = {}
 
         _best_seed, _ranking_score, structure_path, _best_model_idx = self.rank_seeds()
 
@@ -308,15 +308,23 @@ class RankAF3JobSet:
                 af_offset = self.extract_af_offset_from_path(structure_path)
 
             except ValueError as e:
-                print(f"Error extracting AF offset from path: {e}")
+                print(f"Error extracting AF offset from path {structure_path}: {e}")
 
-        best_pred_info.append(
-            {
-                "structure_path": structure_path,
-                "data_path": data_path,
-                "af_offset": af_offset
-            }
-        )
+        key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
+
+        best_pred_info[key] = {
+            "structure_path": structure_path,
+            "data_path": data_path,
+            "af_offset": af_offset
+        }
+
+        # best_pred_info.append(
+        #     {
+        #         "structure_path": structure_path,
+        #         "data_path": data_path,
+        #         "af_offset": af_offset
+        #     }
+        # )
 
         return best_pred_info
 

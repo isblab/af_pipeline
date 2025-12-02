@@ -11,6 +11,7 @@ from af_pipeline.rank_predictions.rank_af import (
 )
 from af_pipeline.utils.file_utils import update_config
 from af_pipeline.rank_predictions.rank_af import RankAF3JobSet
+from af_pipeline.constants.af_constants import ConfigYaml
 
 if __name__ == "__main__":
 
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     # If you need to find best predictions for a specific job set directory, use 1.
 
     # 1. Scan through af_job_set_dirs to get all job set directories
-    af_job_set_dirs = config_yaml.get("af_job_set_dirs", None)
+    af_job_set_dirs = config_yaml.get(ConfigYaml.job_set, None)
 
     if af_job_set_dirs is None:
         warnings.warn(
@@ -61,7 +62,7 @@ if __name__ == "__main__":
             job_set_dirs.extend(get_job_set_dirs(af_job_set_dir))
 
     # 2. Scan through af_cycle_dirs to get all job set directories
-    af_master_dirs = config_yaml.get("af_master_dirs", None)
+    af_master_dirs = config_yaml.get(ConfigYaml.master, None)
 
     if af_master_dirs is None:
         warnings.warn(
@@ -75,7 +76,7 @@ if __name__ == "__main__":
             job_set_dirs.extend(get_job_set_dirs(af_master_dir))
 
     # 3. Scan through af_cycle_dirs to get all job set directories
-    af_cycle_dirs = config_yaml.get("af_cycle_dirs", None)
+    af_cycle_dirs = config_yaml.get(ConfigYaml.cycle, None)
 
     if af_cycle_dirs is None:
         warnings.warn(
@@ -91,15 +92,18 @@ if __name__ == "__main__":
     pprint(job_set_dirs)
 
     # Get the best prediction for each job set directory
-    best_predictions = []
+    best_predictions = {}
 
     for job_set_dir in list(set(job_set_dirs)):
         ranker = RankAF3JobSet(
             job_set_dir=job_set_dir,
         )
-        ranker.add_job_set_id(af_input_jobs=config_yaml.get("af_input_jobs", {}), soft_match=True)
+        ranker.add_job_set_id(
+            af_input_jobs=config_yaml.get(ConfigYaml.input, {}),
+            soft_match=True,
+        )
         best_pred_info = ranker.extract_af3_best_pred_data(
-            af_input_jobs=config_yaml.get("af_input_jobs", {})
+            af_input_jobs=config_yaml.get(ConfigYaml.input, {})
         )
         if len(best_pred_info) > 0:
             # print("Updating config yaml with ranked predictions")
@@ -108,12 +112,12 @@ if __name__ == "__main__":
             #     updates={f"{ranker.cycle_name}_job_{str(ranker.job_set_name)}": best_pred_info},
             #     mode="replace",
             # )
-            best_predictions.extend(best_pred_info)
+            best_predictions.update(best_pred_info)
 
     # Add the best predictions to the config file
     if len(best_predictions) > 0:
         update_config(
             input_file=args.input,
-            updates={"best_af3_predictions": best_predictions},
+            updates={ConfigYaml.best_pred: best_predictions},
             mode="replace",
         )
