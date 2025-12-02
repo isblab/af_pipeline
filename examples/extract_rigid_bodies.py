@@ -2,6 +2,7 @@ import os
 import yaml
 from argparse import ArgumentParser
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
+from af_pipeline.constants.af_constants import ConfigYaml
 
 if __name__ == "__main__":
 
@@ -136,7 +137,7 @@ if __name__ == "__main__":
         f"Invalid value for num_proteins {args.num_proteins}"
 
     config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
-    input_dict = config_yaml.get("best_af3_predictions", None)
+    input_dict = config_yaml.get(ConfigYaml.best_pred, None)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
 
     for _, pred_to_analyse in enumerate(input_dict):
