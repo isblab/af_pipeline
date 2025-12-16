@@ -769,7 +769,10 @@ class Entity:
 
         real_sequence = ""
 
-        if self.entity_type == "proteinChain":
+        if (
+            self.entity_type == "proteinChain"
+            and self.protein_sequences is not None
+        ):
 
             try: # try with uniprot id as a key
                 uniprot_id = self.entities_map[self.entity_name]
@@ -803,6 +806,16 @@ class Entity:
                     raise Exception(
                         f"Could not find the entity sequence for {self.entity_name}."
                     )
+
+        ivalid_case = (
+            self.entity_type in ["proteinChain", "dnaSequence", "rnaSequence"]
+            and real_sequence == ""
+        )
+
+        if ivalid_case:
+            raise Exception(
+                f"Could not find the entity sequence for {self.entity_name}."
+            )
 
         return real_sequence
 
