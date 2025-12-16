@@ -7,6 +7,10 @@ predictions from AlphaFold predictions.
 
 ## Installation
 - Clone the repository
+    ```bash
+    git clone --recursive https://github.com/isblab/af_pipeline.git
+    ```
+
 - Install the required packages using pip:
     ```bash
     pip install -r requirements.txt
