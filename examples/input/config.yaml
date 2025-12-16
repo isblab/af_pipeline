@@ -160,118 +160,144 @@ af_job_set_dirs:
 - /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset1
 - /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset2
 best_af3_predictions:
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/DP_dimer_targets/Dp1_2_1021-1950/dp1_2_1021to1950_4/fold_dp1_2_1021to1950_4_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/DP_dimer_targets/Dp1_2_1021-1950/dp1_2_1021to1950_4/fold_dp1_2_1021to1950_4_full_data_0.json
-  af_offset:
-    A:
-    - 1021
-    - 1950
-    B:
-    - 1021
-    - 1950
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset1/lb2cas12a_rna_dna_complex_1/fold_lb2cas12a_rna_dna_complex_1_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset1/lb2cas12a_rna_dna_complex_1/fold_lb2cas12a_rna_dna_complex_1_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 1206
-    B:
-    - 1
-    - 33
-    C:
-    - 1
-    - 25
-    D:
-    - 1
-    - 9
-    E:
-    - 1
-    - 1
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset2/act1_1_1to375_cdc3_1_11to120_8/fold_act1_1_1to375_cdc3_1_11to120_8_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset2/act1_1_1to375_cdc3_1_11to120_8/fold_act1_1_1to375_cdc3_1_11to120_8_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 375
-    B:
-    - 11
-    - 120
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/actin_profilin_complex/actin_profilin_complex/fold_actin_profilin_complex_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/actin_profilin_complex/actin_profilin_complex/fold_actin_profilin_complex_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 375
-    B:
-    - 1
-    - 127
-    C:
-    - 1
-    - 1
-    D:
-    - 1
-    - 1
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset1/act1_1_1to375_cdc3_1_11to120_5/fold_act1_1_1to375_cdc3_1_11to120_5_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset1/act1_1_1to375_cdc3_1_11to120_5/fold_act1_1_1to375_cdc3_1_11to120_5_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 375
-    B:
-    - 11
-    - 120
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_1-127/act1_1_1to375_cdc3_1_1to127/fold_act1_1_1to375_cdc3_1_1to127_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_1-127/act1_1_1to375_cdc3_1_1to127/fold_act1_1_1to375_cdc3_1_1to127_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 375
-    B:
-    - 1
-    - 127
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset2/lb2cas12a_rna_dna_complex_2/fold_lb2cas12a_rna_dna_complex_2_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset2/lb2cas12a_rna_dna_complex_2/fold_lb2cas12a_rna_dna_complex_2_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 1206
-    B:
-    - 1
-    - 33
-    C:
-    - 1
-    - 25
-    D:
-    - 1
-    - 9
-    E:
-    - 1
-    - 1
-- structure_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Collagen_triple_helix_targets/collagen_triple_helix/fold_collagen_triple_helix_10/fold_collagen_triple_helix_10_model_0.cif
-  data_path: 
-    /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Collagen_triple_helix_targets/collagen_triple_helix/fold_collagen_triple_helix_10/fold_collagen_triple_helix_10_full_data_0.json
-  af_offset:
-    A:
-    - 1
-    - 15
-    B:
-    - 1
-    - 15
-    C:
-    - 1
-    - 15
+  Lb2Cas12a_RNA_DNA_complex_subset1:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset1/lb2cas12a_rna_dna_complex_1/fold_lb2cas12a_rna_dna_complex_1_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset1/lb2cas12a_rna_dna_complex_1/fold_lb2cas12a_rna_dna_complex_1_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 1206
+      B:
+      - 1
+      - 33
+      C:
+      - 1
+      - 25
+      D:
+      - 1
+      - 9
+      E:
+      - 1
+      - 1
+  Act1_1_1-375_Cdc3_1_1-127:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_1-127/act1_1_1to375_cdc3_1_1to127/fold_act1_1_1to375_cdc3_1_1to127_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_1-127/act1_1_1to375_cdc3_1_1to127/fold_act1_1_1to375_cdc3_1_1to127_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 375
+      B:
+      - 1
+      - 127
+      C:
+      - 1
+      - 1
+      D:
+      - 1
+      - 1
+  actin_profilin_complex:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/actin_profilin_complex/actin_profilin_complex/fold_actin_profilin_complex_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/actin_profilin_complex/actin_profilin_complex/fold_actin_profilin_complex_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 375
+      B:
+      - 1
+      - 127
+      C:
+      - 1
+      - 1
+      D:
+      - 1
+      - 1
+  Act1_1_1-375_Cdc3_1_11-120_subset1:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset1/act1_1_1to375_cdc3_1_11to120_5/fold_act1_1_1to375_cdc3_1_11to120_5_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset1/act1_1_1to375_cdc3_1_11to120_5/fold_act1_1_1to375_cdc3_1_11to120_5_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 375
+      B:
+      - 1
+      - 127
+      C:
+      - 1
+      - 1
+      D:
+      - 1
+      - 1
+  Act1_1_1-375_Cdc3_1_11-120_subset2:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset2/act1_1_1to375_cdc3_1_11to120_8/fold_act1_1_1to375_cdc3_1_11to120_8_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_11-120_subset2/act1_1_1to375_cdc3_1_11to120_8/fold_act1_1_1to375_cdc3_1_11to120_8_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 375
+      B:
+      - 1
+      - 127
+      C:
+      - 1
+      - 1
+      D:
+      - 1
+      - 1
+  Dp1_2_1021-1950:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/DP_dimer_targets/Dp1_2_1021-1950/dp1_2_1021to1950_4/fold_dp1_2_1021to1950_4_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/DP_dimer_targets/Dp1_2_1021-1950/dp1_2_1021to1950_4/fold_dp1_2_1021to1950_4_full_data_0.json
+    af_offset:
+      A:
+      - 1021
+      - 1950
+      B:
+      - 1021
+      - 1950
+  collagen_triple_helix:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Collagen_triple_helix_targets/collagen_triple_helix/fold_collagen_triple_helix_10/fold_collagen_triple_helix_10_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Collagen_triple_helix_targets/collagen_triple_helix/fold_collagen_triple_helix_10/fold_collagen_triple_helix_10_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 15
+      B:
+      - 1
+      - 15
+      C:
+      - 1
+      - 15
+  Lb2Cas12a_RNA_DNA_complex_subset2:
+    structure_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset2/lb2cas12a_rna_dna_complex_2/fold_lb2cas12a_rna_dna_complex_2_model_0.cif
+    data_path: 
+      /home/omkar/Omkar/AF_PIPELINE/af_pipeline/examples/input/AF_predictions/AF3/Lb2Cas12a_RNA_DNA_complex_8I54_targets/Lb2Cas12a_RNA_DNA_complex_subset2/lb2cas12a_rna_dna_complex_2/fold_lb2cas12a_rna_dna_complex_2_full_data_0.json
+    af_offset:
+      A:
+      - 1
+      - 1206
+      B:
+      - 1
+      - 33
+      C:
+      - 1
+      - 25
+      D:
+      - 1
+      - 9
+      E:
+      - 1
+      - 1

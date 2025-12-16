@@ -140,7 +140,7 @@ if __name__ == "__main__":
     input_dict = config_yaml.get(ConfigYaml.best_pred, None)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
 
-    for _, pred_to_analyse in enumerate(input_dict):
+    for pred_head, pred_to_analyse in input_dict.items():
 
         af_offset = pred_to_analyse.get("af_offset", None)
         structure_path = pred_to_analyse.get("structure_path", None)
