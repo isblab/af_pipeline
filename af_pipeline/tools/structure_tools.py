@@ -512,6 +512,34 @@ class RenumberResidues:
 
         return structure
 
+    def original_chain_res_num(
+        self,
+        chain_res_num: int,
+        chain_id: str,
+    ):
+        """Get the original residue number based on the offset.
+
+        Inverse of `renumber_chain_res_num`.
+
+        Arguments:
+
+        - **chain_res_num (int)**:<br />
+            Residue index (1-indexed) within the chain in the predicted structure.
+
+        - **chain_id (str)**:<br />
+            Chain ID of the residue.
+
+        Returns:
+
+        - **chain_res_num (int)**:<br />
+            Original residue number
+        """
+
+        if chain_id in self.offset:
+            chain_res_num -= self.offset[chain_id][0] - 1
+
+        return chain_res_num
+
     def renumber_chain_res_num(
         self,
         chain_res_num: int,
