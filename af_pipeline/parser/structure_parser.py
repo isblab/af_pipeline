@@ -54,6 +54,7 @@ from Bio.PDB.Residue import Residue
 from Bio.PDB.Chain import Chain
 from Bio.PDB.Structure import Structure
 from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.MMCIFParser import FastMMCIFParser
 from Bio.PDB.PDBParser import PDBParser
 from typing import Any, Generator
 from af_pipeline.constants.af_constants import (
@@ -81,14 +82,19 @@ class StructureParser:
     > `preserve_header_footer` is only applicable for .cif files.
     """
 
+    use_fast_cif_parser: bool
+    """ If `True`, uses the FastMMCIFParser for parsing .cif files."""
+
     def __init__(
         self,
         structure_file_path: str,
         preserve_header_footer: bool = False,
+        use_fast_cif_parser: bool = False,
     ):
 
         self.structure_file_path = structure_file_path
         self.preserve_header_footer = preserve_header_footer
+        self.use_fast_cif_parser = use_fast_cif_parser
 
     @property
     def structure_type(self) -> str:
@@ -105,6 +111,9 @@ class StructureParser:
 
         ext = os.path.splitext(self.structure_file_path)[1].replace(".", "")
 
+        if ext == "cif" and self.use_fast_cif_parser:
+            ext = "fast_cif"
+
         if ext not in ALLOWED_STRUCTURE_FORMATS:
             raise Exception(
                 f"""
@@ -117,7 +126,7 @@ class StructureParser:
         return ext
 
     @property
-    def parser(self) -> PDBParser | MMCIFParser:
+    def parser(self) -> PDBParser | MMCIFParser | FastMMCIFParser:
         """Parser (PDB/CIF) for the input structure file.
 
         Returns:

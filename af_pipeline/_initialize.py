@@ -44,6 +44,9 @@ class _Initialize:
     metric_level: str
     """ Metric level for the parser, either "per_token" or "representative_token". """
 
+    use_fast_cif_parser: bool
+    """ Whether to use the FastMMCIFParser for cif file. """
+
     def __init__(
         self,
         data_file_path: str,
@@ -53,6 +56,7 @@ class _Initialize:
         average_token_pae: bool = True,
         average_token_plddt: bool = True,
         metric_level: str = "per_token",
+        use_fast_cif_parser: bool = False,
     ):
 
         self.structure_file_path = structure_file_path
@@ -62,11 +66,13 @@ class _Initialize:
         self.average_token_pae = average_token_pae
         self.average_token_plddt = average_token_plddt
         self.metric_level = metric_level
+        self.use_fast_cif_parser = use_fast_cif_parser
         self.structure = None
 
         self.structure_parser = StructureParser(
             structure_file_path=self.structure_file_path,
             preserve_header_footer=False,
+            use_fast_cif_parser=self.use_fast_cif_parser,
         )
 
         self.data_parser = DataParser(

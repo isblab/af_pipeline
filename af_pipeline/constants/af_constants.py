@@ -1,6 +1,7 @@
 # some constants
 
 from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.MMCIFParser import FastMMCIFParser
 from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
 from typing import Final
@@ -18,6 +19,7 @@ JOB_LIMIT_PER_JSON = 100
 AVAILABLE_PARSERS = {
     "pdb": PDBParser,
     "cif": MMCIFParser,
+    "fast_cif": FastMMCIFParser,
 }
 
 @dataclass(frozen=True)
