@@ -282,7 +282,7 @@ class RankAF3JobSet:
             af_input_jobs (dict): Dictionary containing AF input data
 
         Returns:
-            `best_pred_info (list)`: List of dictionaries containing paths to the best model and
+            `best_pred_info (dict)`: List of dictionaries containing paths to the best model and
                 data for a given prediction directory along with offsets
         """
 
@@ -799,14 +799,14 @@ class RankAF3JobSet:
         job_set_id = -1 # in case job set name is not found
 
         for idx, job in enumerate(job_sets):
-            if job.get("name", "") == self.job_set_name:
+            if job.get("job_set_name", "") == self.job_set_name:
                 job_set_id = idx + 1  # Job IDs are 1-indexed
 
         if job_set_id == -1 and soft_match:
             for idx, job in enumerate(job_sets):
                 if (
-                    self.job_set_name in job.get("name", "")
-                    or job.get("name", "") in self.job_set_name
+                    self.job_set_name in job.get("job_set_name", "")
+                    or job.get("job_set_name", "") in self.job_set_name
                 ):
                     job_set_id = idx + 1
 

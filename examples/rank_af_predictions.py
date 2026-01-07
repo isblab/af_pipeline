@@ -26,15 +26,6 @@ if __name__ == "__main__":
         help="Path to input yaml file containing the target proteins and their uniprot ids",
     )
 
-    args.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        required=False,
-        default="./output/ranked_af3_predictions",
-        help="Output directory for ranked predictions",
-    )
-
     args = args.parse_args()
 
     config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
