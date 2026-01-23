@@ -146,6 +146,7 @@ class AlphaFoldServer:
         job_cycles = {}
         job_set_names = {}
         af_offsets = {}
+        cycle_seeds = {}
 
         for job_cycle_id, job_sets_list in self.input_dict.items():
 
@@ -162,8 +163,9 @@ class AlphaFoldServer:
             job_cycles[job_cycle_id] = af_cycle.job_list
             job_set_names[job_cycle_id] = af_cycle.job_set_names
             af_offsets[job_cycle_id] = af_cycle.job_set_af_offsets
+            cycle_seeds[job_cycle_id] = af_cycle.cycle_seeds
 
-        return job_cycles, job_set_names, af_offsets
+        return job_cycles, job_set_names, af_offsets, cycle_seeds
 
     @staticmethod
     def write_to_json(
@@ -323,6 +325,7 @@ class AFCycle:
         self.job_list = []
         self.job_set_names = []
         self.job_set_af_offsets = []  # offset for each job set in the cycle
+        self.cycle_seeds = []
 
     def update_cycle(self):
         """Update the cycle with the jobs
@@ -346,6 +349,7 @@ class AFCycle:
             job_set_dict = af_job_set.create_job_set()
             self.job_set_names.append(af_job_set.job_set_name)
             self.job_set_af_offsets.append(af_job_set.job_set_af_offset)
+            self.cycle_seeds.append(af_job_set.model_seeds)
             self.seed_jobs(job_set_dict)
 
     def seed_jobs(
