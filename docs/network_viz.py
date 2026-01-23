@@ -815,8 +815,11 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
         edges = []
         node_idx = 0
         node_list = []
+        all_methods = []
+        all_classes = []
+        filtered_graph = {}
 
-        for script_path in script_paths:
+        for script_path in script_paths + script_paths:
 
             (
                 classes,
@@ -836,13 +839,14 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
 
             dependency_graph = get_dependency_graph(script_path, module_dir)
             class_compositions = dict(class_compositions)
-            filtered_graph = {}
 
             for k, v in dependency_graph.items():
-                filtered_graph[k] = set()
+                filtered_graph[k] = set() if k not in filtered_graph else filtered_graph[k]
                 for dep in v:
+                    if "save_rb_assessment" in dep and "save_rigid_bodies" in k:
+                        print("Considering call edge:", k, "->", dep)
                     if (
-                        dep in classes + methods + orphan_funcs + all_imports
+                        dep in classes + methods + orphan_funcs + all_imports + all_methods
                     ) or (
                         dep in class_compositions
                     ):
@@ -851,6 +855,8 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
             filtered_graph = {k: v for k, v in filtered_graph.items() if v}
 
             for class_name in classes:
+                # if "RigidBodyAssessment" in class_name:
+                #     print("Adding node:", class_name)
                 nodes[node_idx] = {
                     "type": "class",
                     "name": class_name,
@@ -861,6 +867,9 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
                 node_list.append(class_name)
 
             for method_name in methods:
+                all_methods.append(method_name) if method_name not in all_methods else None
+                # if "save_rigid_bodies" in method_name:
+                #     print("Adding method node:", method_name)
                 if method_name in node_list:
                     continue
                 nodes[node_idx] = {
@@ -894,6 +903,7 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
                             "color": EDGE_COLORS["defines"],
                             "font": {"color": EDGE_COLORS["defines"]},
                         })
+
             for k, v in class_inheritance.items():
                 for parent_class in v:
                     if k in node_list and parent_class in node_list:
@@ -919,8 +929,13 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
                             })
 
             for k, v in filtered_graph.items():
+                if "RigidBodies.save_rigid_bodies" in k:
+                    print("Processing call edges for:", k)
+                    pprint(f"    {v}", )
                 for dep in v:
-                    if k in node_list and dep in node_list:
+                    if "save_rb_assessment" in dep:# and "save_rigid_bodies" in k:
+                        print("###########call edge:", k, "->", dep)
+                    if k in node_list + all_methods and dep in node_list + all_methods:
                         edges.append({
                             "from": k,
                             "to": dep,
