@@ -3,6 +3,7 @@ import yaml
 from argparse import ArgumentParser
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
 from af_pipeline.constants.af_constants import ConfigYaml
+from af_pipeline.utils.file_utils import read_json
 
 if __name__ == "__main__":
 
@@ -13,8 +14,8 @@ if __name__ == "__main__":
         "--input",
         type=str,
         required=False,
-        default="./input/config.yaml",
-        help="Path to input yaml file",
+        default="./input/config.json",
+        help="Path to input json file",
     )
 
     args.add_argument(
@@ -136,7 +137,8 @@ if __name__ == "__main__":
     assert args.num_proteins > 0, \
         f"Invalid value for num_proteins {args.num_proteins}"
 
-    config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
+    # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
+    config_yaml = read_json(args.input)
     input_dict = config_yaml.get(ConfigYaml.best_pred, None)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
 
