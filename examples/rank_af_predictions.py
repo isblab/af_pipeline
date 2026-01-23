@@ -9,7 +9,7 @@ from af_pipeline.rank_predictions.rank_af import (
     is_valid_cycle_dir,
     is_valid_job_set_dir,
 )
-from af_pipeline.utils.file_utils import update_config
+from af_pipeline.utils.file_utils import read_json, write_json
 from af_pipeline.rank_predictions.rank_af import RankAF3JobSet
 from af_pipeline.constants.af_constants import ConfigYaml
 
@@ -22,13 +22,23 @@ if __name__ == "__main__":
         "--input",
         type=str,
         required=False,
-        default="./input/config.yaml",
+        default="./input/config.json",
         help="Path to input yaml file containing the target proteins and their uniprot ids",
+    )
+
+    args.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=False,
+        default="./output",
+        help="Output directory for ranked alphafold predictions",
     )
 
     args = args.parse_args()
 
-    config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
+    # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
+    config_yaml = read_json(args.input)
 
     job_set_dirs = []
 
@@ -105,10 +115,16 @@ if __name__ == "__main__":
             # )
             best_predictions.update(best_pred_info)
 
-    # Add the best predictions to the config file
-    if len(best_predictions) > 0:
-        update_config(
-            input_file=args.input,
-            updates={ConfigYaml.best_pred: best_predictions},
-            mode="replace",
-        )
+    os.makedirs(args.output, exist_ok=True)
+    write_json(
+        file_path=os.path.join(args.output, "best_af_predictions.json"),
+        data=best_predictions,
+    )
+
+    # # Add the best predictions to the config file
+    # if len(best_predictions) > 0:
+    #     update_config(
+    #         input_file=args.input,
+    #         updates={ConfigYaml.best_pred: best_predictions},
+    #         mode="replace",
+    #     )

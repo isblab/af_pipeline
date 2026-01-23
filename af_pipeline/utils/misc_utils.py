@@ -7,6 +7,8 @@ import copy
 import time
 import string
 import warnings
+
+import yaml
 import numpy as np
 from typing import Any, Dict
 from collections import Counter
@@ -14,6 +16,114 @@ from af_pipeline.constants.af_constants import SEED_MULTIPLIER
 from typing import List
 import random
 from functools import wraps
+
+def add_attribute(
+    config_yaml: dict,
+    attribute_name: str,
+    attribute_value: Any,
+    mode: str = "replace",
+    add_first: bool = False,
+):
+    """Update a generic attribute in the config file.
+
+    Arguments:
+
+    - **config_yaml (dict)**:<br />
+        Configuration dictionary.
+
+    - **attribute_name (str)**:<br />
+        Name of the attribute to update.
+
+    - **attribute_value (Any)**:<br />
+        Value of the attribute to update.
+
+    - **mode (str, optional)**:<br />
+        Mode to update the config file.
+    """
+
+    from af_pipeline.constants.af_constants import ConfigYaml
+
+    af_input_jobs = config_yaml.get(ConfigYaml.input, {})
+
+    for job_cycle, job_sets in af_input_jobs.items():
+        for idx, job_set in enumerate(job_sets):
+            if attribute_name in job_set:
+                af_input_jobs[job_cycle][idx][attribute_name] = (
+                    attribute_value[job_cycle][idx]
+                )
+            elif add_first:
+                af_input_jobs[job_cycle][idx] = {
+                    attribute_name: attribute_value[job_cycle][idx],
+                    **job_set,
+                }
+            else:
+                af_input_jobs[job_cycle][idx] = {
+                    **job_set,
+                    attribute_name: attribute_value[job_cycle][idx],
+                }
+
+    updated_config = update_config(
+        config_yaml=config_yaml,
+        updates={ConfigYaml.input: af_input_jobs},
+        mode=mode
+    )
+
+    return updated_config
+
+def update_config(
+    config_yaml: dict,
+    updates: dict = None,
+    mode: str = "replace",
+):
+    """Update config file with a new field or update an existing field.
+
+    Arguments:
+
+    - **config_yaml (dict)**:<br />
+        Configuration dictionary.
+
+    - **updates (dict, optional)**:<br />
+        Fields to update in the config file.
+
+    - **mode (str, optional)**:<br />
+        Mode to update the config file. ("append" or "replace").
+
+    """
+
+    update_fields = list(updates.keys()) if updates else []
+
+    if len(update_fields) == 0:
+
+        print("No fields to update in config")
+        return None
+
+    existing_fields = list(config_yaml.keys())
+
+    for field in update_fields:
+
+        add_field = False
+
+        if field in existing_fields:
+            if mode == "replace":
+                config_yaml[field] = updates[field]
+            elif mode == "soft_replace":
+                #! only update if the field is not already set
+                if config_yaml[field] is None or config_yaml[field] == "":
+                    config_yaml[field] = updates[field]
+            else:
+                raise ValueError("Invalid mode. Use 'replace' or 'append")
+
+        else:
+            print(f"{field} not found in config")
+            print("Adding field to config")
+            add_field = True
+
+        if add_field:
+            config_yaml[field] = updates[field]
+            add_field = False
+
+    print(f"Config dict updated with {update_fields}")
+    return config_yaml
 
 def time_it(func):
     """ Decorator to measure the execution time of a function.

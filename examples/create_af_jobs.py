@@ -3,12 +3,8 @@ from argparse import ArgumentParser
 from af_pipeline.af_input.alphafold3 import AlphaFoldServer
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from af_pipeline.af_input.colabfold import ColabFold
-from af_pipeline.utils.file_utils import (
-    read_fasta,
-    update_config,
-    update_job_names_in_config,
-    update_af_offsets_in_config
-)
+from af_pipeline.utils.misc_utils import add_attribute
+from af_pipeline.utils.file_utils import read_fasta, write_json
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -70,7 +66,7 @@ if __name__ == "__main__":
         entities_map=protein_uniprot_map,
     )
 
-    job_cycles, job_set_names, af_offsets = af_input.create_af3_job_cycles()
+    job_cycles, job_set_names, af_offsets, cycle_seeds = af_input.create_af3_job_cycles()
     # pprint(job_cycles)
     AlphaFoldServer.write_job_files(
         job_cycles=job_cycles,
@@ -79,17 +75,32 @@ if __name__ == "__main__":
     )
 
     # This replaces/adds the job names in the config file
-    update_job_names_in_config(
-        input_file=args.input,
-        job_set_names=job_set_names,
+    updated_config = add_attribute(
+        config_yaml=config_yaml,
+        attribute_name="job_set_name",
+        attribute_value=job_set_names,
         mode="replace",
+        add_first=True,
     )
 
     # This replaces/adds the af_offsets in the config file
-    update_af_offsets_in_config(
-        input_file=args.input,
-        af_offsets=af_offsets,
+    updated_config = add_attribute(
+        config_yaml=updated_config,
+        attribute_name="af_offset",
+        attribute_value=af_offsets,
         mode="replace",
+    )
+
+    updated_config = add_attribute(
+        config_yaml=updated_config,
+        attribute_name="modelSeeds",
+        attribute_value=cycle_seeds,
+        mode="replace",
+    )
+
+    write_json(
+        file_path=args.input.replace(".yaml", ".json"),
+        data=updated_config,
     )
 
     # For AlphaFold2
