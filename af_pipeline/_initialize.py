@@ -99,6 +99,13 @@ class _Initialize:
             token_atom_names=self.token_atom_names,
         )
 
+        self.rep_idx_to_num, self.rep_num_to_idx = self.renumber.residue_map(
+            token_chain_ids=self.token_chain_ids,
+            token_res_ids=self.token_res_ids,
+            token_atom_names=self.token_atom_names,
+            depth="residue",
+        )
+
     def set_attributes(self) -> None:
         """ Set the attributes of the class based on the metric_level.
 

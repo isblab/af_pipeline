@@ -536,7 +536,7 @@ class RenumberResidues:
         """
 
         if chain_id in self.offset:
-            chain_res_num -= self.offset[chain_id][0] - 1
+            chain_res_num -= (self.offset[chain_id][0] - 1)
 
         return chain_res_num
 
@@ -615,6 +615,7 @@ class RenumberResidues:
         token_chain_ids: list,
         token_res_ids: list,
         token_atom_names: list,
+        depth: str = "atom",
     ):
         """Create a map of residue indices to residue numbers and vice-versa.
 
@@ -715,16 +716,31 @@ class RenumberResidues:
 
             idx_to_num[token_idx] = {
                 "chain_id": chain_id,
-                "token_num": token_num,
-                "atom_name": atom_name,
+                "token_num": token_num,    
             }
 
+            if depth == "atom":
+                idx_to_num[token_idx]["atom_name"] = atom_name
+
             if token_num not in num_to_idx[chain_id]:
-                num_to_idx[chain_id][token_num] = {
-                    atom_name: token_idx
-                }
+                if depth == "atom":
+                    num_to_idx[chain_id][token_num] = {
+                        atom_name: token_idx
+                    }
+                elif depth == "residue":
+                    num_to_idx[chain_id][token_num] = token_idx
             else:
-                num_to_idx[chain_id][token_num][atom_name] = token_idx
+                if depth == "atom":
+                    num_to_idx[chain_id][token_num][atom_name] = token_idx
+                elif depth == "residue":
+                    warnings.warn(
+                        f"""
+
+                        Multiple tokens found for residue number {token_num}
+                        in chain {chain_id}. Overwriting the previous token index.
+                        """
+                    )
+                    num_to_idx[chain_id][token_num] = token_idx
 
         return idx_to_num, num_to_idx
 
