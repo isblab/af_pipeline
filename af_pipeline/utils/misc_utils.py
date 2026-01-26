@@ -737,7 +737,7 @@ def update_matrix_row_col(
     return matrix
 
 def extract_protein_chain_mapping(
-    protein_chain_mapping: dict | None = None
+    protein_chain_mapping: dict,
 ) -> dict[str, str]:
     """ Extract the protein chain mapping from the provided dictionary.
 
@@ -770,26 +770,24 @@ def extract_protein_chain_mapping(
     Example:
 
         >>> protein_chain_mapping = {
-        ... "ProteinA:A,B",
-        ... "ProteinB:C"
+        ... "ProteinA" : "A,B",
+        ... "ProteinB": "C"
         ... }
         >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
         [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
     """
 
-    protein_chain_map = {}
+    chain_protein_map = {}
 
-    if protein_chain_mapping is None:
-        return protein_chain_map
+    if len(protein_chain_mapping) == 0:
+        return chain_protein_map
 
-    for p_c_maps in protein_chain_mapping:
-        protein_name, chain_ids = p_c_maps.split(":")
-        chain_ids = chain_ids.split(",")
+    for protein_name, chain_ids in protein_chain_mapping.items():
         for chain_id in chain_ids:
-            if chain_id not in protein_chain_map:
-                protein_chain_map[chain_id] = protein_name
+            if chain_id not in chain_protein_map:
+                chain_protein_map[chain_id] = protein_name
 
-    return protein_chain_map
+    return chain_protein_map
 
 def generate_cmap(n, scheme="soft-warm"):
     """ Generate a list of n colors
