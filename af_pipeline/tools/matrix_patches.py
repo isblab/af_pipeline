@@ -383,6 +383,7 @@ class MatrixPatches:
             .apply(",".join)
             .reset_index()
         )
+        df_group[agg_col] = df_group[agg_col].astype(object)
         for idx, row in df_group.iterrows():
             one_set = row[agg_col].split(",")
             one_set = [int(x) for x in one_set]
