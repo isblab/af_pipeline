@@ -514,11 +514,11 @@ class RigidBodies(_Initialize):
             Protein-to-chain mapping dictionary.
         """
 
+        os.makedirs(output_dir, exist_ok=True)
+
         dir_name = os.path.basename(
             os.path.dirname(os.path.dirname(self.structure_file_path))
         )
-        output_dir = os.path.join(output_dir, dir_name)
-        os.makedirs(output_dir, exist_ok=True)
 
         file_name = f"{dir_name}_rigid_bodies"
 

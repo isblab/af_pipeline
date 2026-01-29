@@ -347,6 +347,8 @@ class Interaction(_Initialize):
             contact_probability (bool, optional): Whether to add contact probability column to the output. Defaults to True.
         """
 
+        os.makedirs(output_dir, exist_ok=True)
+
         chain1, chain2 = list(region_of_interest.keys())
         p1_region, p2_region = (
             region_of_interest[chain1],
@@ -382,12 +384,6 @@ class Interaction(_Initialize):
                 for k, v in region_of_interest.items()
             ])
 
-            dir_name = (
-                os.path.basename(self.structure_file_path).split(".")[0]
-            )
-
-            os.makedirs(os.path.join(output_dir, dir_name), exist_ok=True)
-
             save_map(
                 contact_map=contact_map,
                 avg_contact_probs_mat=self.contact_probs,
@@ -398,7 +394,7 @@ class Interaction(_Initialize):
                 p2_name=p_names[chain2],
                 p1_region=p1_region,
                 p2_region=p2_region,
-                out_file=os.path.join(output_dir, dir_name, f"patches_{file_name}.html"),
+                out_file=os.path.join(output_dir, f"patches_{file_name}.html"),
                 save_plot=save_plot,
                 plot_type=plot_type,
                 concat_residues=concat_residues,
