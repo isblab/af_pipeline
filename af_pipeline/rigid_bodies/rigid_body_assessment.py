@@ -1419,7 +1419,10 @@ class RigidBodyAssessment:
         )
 
         # Average ipLDDT scores for IDR chains in the rigid body
-        if len(self.rb_c_assess.idr_chains) == 0:
+        if (
+            len(self.rb_c_assess.idr_chains) == 0 or
+            global_iplddt_scores.size == 0
+        ):
             overall_assessment["avg_idr_iplddt"] = np.nan
         else:
             _idr_chain_mask = np.isin(
