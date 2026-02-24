@@ -1,10 +1,20 @@
 import numpy as np
-from typing import Dict
 import Bio.PDB.Structure
+from typing import Dict
 from Bio.PDB.Structure import Structure
 from af_pipeline.parser.structure_parser import StructureParser
 from af_pipeline.parser.data_parser import DataParser
 from af_pipeline.tools.structure_tools import RenumberResidues
+from af_pipeline.constants.af_constants import InitializeConstants as InitCons
+from af_pipeline.constants.af_constants import StructureParserConstants as SPCons
+from af_pipeline.constants.af_constants import (
+    MetricLevel,
+    ResidueMapDepth,
+    ResidueQuantity,
+    ReturnType,
+    MaskedInteractionType,
+    MiscStrEnum,
+)
 from af_pipeline.utils.misc_utils import (
     get_duplicate_indices,
     update_matrix_row_col,
@@ -17,8 +27,11 @@ from af_pipeline.utils.misc_utils import (
 # average_token_pae will only take effect if metric_level is "representative_token"
 # average_token_pae and average_token_plddt supersedes rep_atom_dict
 
-class _Initialize:
-    """ Initialize the parser.
+class Initialize:
+    """ Initializer for RigidBodies and Interaction classes.
+
+    Stores attributes related to the structure and data files that are used
+    by the RigidBodies and Interaction classes. \n
     """
 
     structure_file_path: str
@@ -47,16 +60,34 @@ class _Initialize:
     use_fast_cif_parser: bool
     """ Whether to use the FastMMCIFParser for cif file. """
 
+    structure: Bio.PDB.Structure.Structure
+    """ Bio.PDB.Structure.Structure object for the predicted structure. """
+
+    structure_parser: StructureParser
+    """ StructureParser object for parsing the structure file. """
+
+    data_parser: DataParser
+    """ DataParser object for parsing the data file. """
+
+    avg_pae: np.ndarray
+    """ Average PAE matrix. """
+
+    lengths_dict: Dict[str, int]
+    """ Dictionary containing the chain lengths and total length. """
+
+    renumber: RenumberResidues
+    """ RenumberResidues object for renumbering the residues. """
+
     def __init__(
         self,
         data_file_path: str,
         structure_file_path: str,
         af_offset: dict = {},
         rep_atom_dict: dict = {},
-        average_token_pae: bool = True,
-        average_token_plddt: bool = True,
-        metric_level: str = "per_token",
-        use_fast_cif_parser: bool = False,
+        average_token_pae: bool = InitCons.average_token_pae,
+        average_token_plddt: bool = InitCons.average_token_plddt,
+        metric_level: str = InitCons.metric_level,
+        use_fast_cif_parser: bool = InitCons.use_fast_cif_parser,
     ):
 
         self.structure_file_path = structure_file_path
@@ -71,7 +102,7 @@ class _Initialize:
 
         self.structure_parser = StructureParser(
             structure_file_path=self.structure_file_path,
-            preserve_header_footer=False,
+            preserve_header_footer=SPCons.preserve_header_footer,
             use_fast_cif_parser=self.use_fast_cif_parser,
         )
 
@@ -103,39 +134,36 @@ class _Initialize:
             token_chain_ids=self.token_chain_ids,
             token_res_ids=self.token_res_ids,
             token_atom_names=self.token_atom_names,
-            depth="residue",
+            depth=ResidueMapDepth.RESIDUE,
         )
 
     def set_attributes(self) -> None:
-        """ Set the attributes of the class based on the metric_level.
+        """ Set the attributes of the class based on the `metric_level`."""
 
-        ! Add description of the metric_level here.
-        """
-
-        if self.metric_level not in ["per_token", "representative_token"]:
+        if self.metric_level not in InitCons.valid_metric_levels:
             raise Exception(
                 f"""
 
-                Metric level should be either 'per_token' or 'representative_token'.
+                Metric level should be from {InitCons.valid_metric_levels}.
                 Got '{self.metric_level}' instead. \n
                 """
             )
-        if self.metric_level == "per_token":
+
+        if self.metric_level == MetricLevel.PER_TOKEN:
             self.only_representative = False
             self.average_token_plddt = False
 
-        elif self.metric_level == "representative_token":
+        elif self.metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
             self.only_representative = True
             self.average_token_plddt = self.average_token_plddt
 
     def get_attributes(self, metric_level: str) -> None:
-        """ Get the attributes of the class based on the metric_level.
+        """ Get the attributes of the class based on the `metric_level`.
 
-        ! Add description of the metric_level here.
+        ## Arguments:
 
-        Args:
-            metric_level (str):
-                Metric level for the parser, either "per_token" or "representative_token".
+        - **metric_level (str)**:<br />
+            Metric level for the parser, either "per_token" or "representative_token".
         """
 
         data = self.data_parser.get_data_dict()
@@ -187,7 +215,7 @@ class _Initialize:
             only_representative=self.only_representative,
         )
 
-        if metric_level == "representative_token":
+        if metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
 
             self.idxs_to_keep = self.get_idxs_to_keep(
                 structure=self.structure,
@@ -204,8 +232,6 @@ class _Initialize:
                 token_res_ids=self.data_parser.get_token_res_ids(data),
             )
 
-    @staticmethod
-    def get_chain_lengths(token_chain_ids: list) -> Dict[str, int]:
         """Get the chain lengths.
 
         lengths_dict is a dictionary containing the chain lengths. \n
@@ -214,8 +240,10 @@ class _Initialize:
         For example, if the system has 2 chains A and B, \n
         lengths_dict = {"A": 100, "B": 50, "total": 150} \n
 
-        Args:
-            token_chain_ids (list): Token chain IDs.
+        ## Arguments:
+
+        - **token_chain_ids (list)**:
+            Token chain IDs.
 
         Returns:
         - **lengths_dict (Dict)**:
@@ -228,16 +256,43 @@ class _Initialize:
             >>> print(lengths_dict)
             {'total': 5, 'A': 2, 'B': 3}
         """
+    @staticmethod
+    def get_chain_lengths(token_chain_ids: list) -> Dict[str, int]:
+        """Get the chain lengths.
+
+        lengths_dict is a dictionary containing the chain lengths. \n
+        {chain_id: length} \n
+        "total" is the total length of the system. \n
+        For example, if the system has 2 chains A and B, \n
+        lengths_dict = {"A": 100, "B": 50, "total": 150} \n
+
+        ## Arguments:
+
+        - **token_chain_ids (list)**:<br />
+            Token chain IDs.
+
+        ## Returns:
+
+        - **Dict[str, int]**:<br />
+            Dictionary containing the chain lengths and total length.
+
+        ## Example:
+
+            >>> token_chain_ids = ['A', 'A', 'B', 'B', 'B']
+            >>> lengths_dict = _Initialize.get_chain_lengths(token_chain_ids)
+            >>> print(lengths_dict)
+            {'total': 5, 'A': 2, 'B': 3}
+        """
 
         lengths_dict = {}
-        lengths_dict["total"] = 0
+        lengths_dict[MiscStrEnum.TOTAL] = 0
 
         for chain_id in token_chain_ids:
             if chain_id not in lengths_dict:
                 lengths_dict[chain_id] = 1
             else:
                 lengths_dict[chain_id] += 1
-            lengths_dict["total"] += 1
+            lengths_dict[MiscStrEnum.TOTAL] += 1
 
         return lengths_dict
 
@@ -246,39 +301,48 @@ class _Initialize:
         structure: Structure,
         rep_atom_dict: dict = {},
     ) -> Dict[tuple, int]:
-        """Get the indices to keep in the PAE matrix.
+        """ Get the indices to keep in the PAE matrix.
 
-        Args:
-            token_chain_ids (list):
-                Token chain IDs.
-            token_res_ids (list):
-                Token residue IDs.
-            rep_atom_dict (dict, optional):
-                Dictionary with residue names as keys and representative
-                atoms as values. \n
-                If `only_representative` is `True`, this dictionary is used to
-                get the representative atom for the specified residue.
+        ## Arguments:
 
-        Returns:
-        - **idxs_to_keep (dict)**: Dictionary with indices to keep.
+        - **structure (Structure)**:<br />
+            Bio.PDB.Structure.Structure object for the predicted structure.
+
+        - **rep_atom_dict (dict, optional):**:<br />
+            Dictionary with residue names as keys and representative
+            atoms as values.
+
+        ## Returns:
+
+        - **Dict[tuple, int]**:<br />
+            Dictionary with indices to keep.
         """
 
         idxs_to_keep = {}
 
-        for residue, ch_id in StructureParser.get_residues(structure):
+        for residue, _ch_id in StructureParser.get_residues(structure):
             rep_atom = rep_atom_dict.get(
                 residue.get_resname(),
                 StructureParser.get_rep_atom(residue=residue)
             )
             quants = StructureParser.extract_perresidue_quantities(
                 residue=residue,
-                quantities=["res_pos", "chain_id", "res_name", "rep_atom", "rep_atom_local_idx"],
+                quantities=[
+                    ResidueQuantity.RES_POS,
+                    ResidueQuantity.CHAIN_ID,
+                    ResidueQuantity.RES_NAME,
+                    ResidueQuantity.REP_ATOM,
+                    ResidueQuantity.REP_ATOM_LOCAL_IDX,
+                ],
                 rep_atom=rep_atom,
             )
-            key = (quants["chain_id"], quants["res_pos"])
+            key = (
+                quants[ResidueQuantity.CHAIN_ID],
+                quants[ResidueQuantity.RES_POS]
+            )
 
             if key not in idxs_to_keep:
-                idxs_to_keep[key] = quants["rep_atom_local_idx"]
+                idxs_to_keep[key] = quants[ResidueQuantity.REP_ATOM_LOCAL_IDX]
 
         return idxs_to_keep
 
@@ -287,20 +351,25 @@ class _Initialize:
         token_res_ids: list | None,
         token_chain_ids: list | None,
     ) -> np.ndarray:
-        """Update the PAE matrix based on the keyword.
+        """ Update the PAE matrix based on the keyword.
 
-        If `average_token_pae` is set to `True`, the repeated residue
+        If `self.average_token_pae` is set to `True`, the repeated residue
         IDs are removed. \n
         PAE values for the repeated residue IDs are replaced with
         the mean of the PAE values. \n
 
-        Args:
-            pae (np.ndarray): PAE matrix.
-            token_res_ids (list): Token residue IDs.
-            token_chain_ids (list): Token chain IDs.
+        ## Arguments:
 
-        Returns:
-            - **pae (np.ndarray)**: Updated PAE matrix.
+        - **token_res_ids (list | None)**:<br />
+            Token residue IDs.
+
+        - **token_chain_ids (list | None)**:<br />
+            =Token chain IDs.
+
+        ## Returns:
+
+        - **np.ndarray**:<br />
+            Updated PAE matrix.
         """
 
         if token_chain_ids is None or token_res_ids is None:
@@ -311,7 +380,7 @@ class _Initialize:
 
         dup_token_indices = get_duplicate_indices(
             my_li=token_ids,
-            return_type="dict",
+            return_type=ReturnType.DICT,
             keep_which=None,  # Keep all duplicates
         )
 
@@ -339,18 +408,23 @@ class _Initialize:
     ) -> np.ndarray | None:
         """Update the contact probabilities matrix based on the keyword.
 
-        If `average_token_pae` is set to `True`, the repeated residue
+        If `self.average_token_pae` is set to `True`, the repeated residue
         IDs are removed. \n
         Contact probabilities for the repeated residue IDs are replaced with
         the mean of the contact probabilities. \n
 
-        Args:
-            contact_probs_mat (np.ndarray): Contact probabilities matrix.
-            token_chain_ids (list): Token chain IDs.
-            token_res_ids (list): Token residue IDs.
+        ## Arguments:
 
-        Returns:
-            - **contact_probs_mat (np.ndarray)**: Updated contact probabilities matrix.
+        - **token_chain_ids (list | None)**:<br />
+            Token chain IDs.
+
+        - **token_res_ids (list | None)**:<br />
+            Token residue IDs.
+
+        ## Returns:
+
+        - **np.ndarray | None**:<br />
+            Updated contact probabilities matrix.
         """
 
         if token_chain_ids is None or token_res_ids is None:
@@ -361,7 +435,7 @@ class _Initialize:
 
         dup_token_indices = get_duplicate_indices(
             my_li=token_ids,
-            return_type="dict",
+            return_type=ReturnType.DICT,
             keep_which=None,  # Keep all duplicates
         )
 
@@ -387,7 +461,7 @@ class _Initialize:
         pae_matrix: np.ndarray,
         lengths_dict: Dict,
         along_axis: int | None = None,
-        return_type: str = "array",
+        return_type: ReturnType = ReturnType.ARRAY,
     ) -> np.ndarray | Dict[str, list] | list:
         """ Per-residue minimum PAE values.
 
@@ -399,24 +473,29 @@ class _Initialize:
         list containing the min PAE values for all residues is returned
         respectively. \n
 
-        Args:
-            pae_matrix (np.ndarray):
-                Average PAE matrix.
-            lengths_dict (Dict):
-                Dictionary containing the chain lengths.
-            along_axis (int | None):
-                Axis along which to get the min PAE values.
-                If None, average PAE is calculated and along_axis is set to 1.
-            return_type (str):
-                Whether to return min_pae as dict or list or array.
+        ## Arguments:
 
-        Returns:
-        - **min_pae_dict (Dict)**:
-            Dictionary containing the min PAE values for each chain.
-        - **min_pae (np.ndarray)**:
-            Minimum PAE values for all residues in a 2D numpy array.
+        - **pae_matrix (np.ndarray)**:<br />
+            Average PAE matrix.
 
-        Examples:
+        - **lengths_dict (Dict)**:<br />
+            Dictionary containing the chain lengths.
+
+        - **along_axis (int | None, optional):**:<br />
+            Axis along which to get the min PAE values.
+            If None, average PAE is calculated and along_axis is set to 1.
+
+        - **return_type (str, optional):**:<br />
+            Whether to return min_pae as dict or list or array.
+
+        ## Returns:
+
+        - **np.ndarray | Dict[str, list] | list**:<br />
+            A dictionary containing the min PAE values for each chain OR
+            a numpy array or a list containing the min PAE values for all
+            residues is returned respectively.
+
+        ## Examples:
 
             >>> pae_matrix = np.array([
             ... [0, 1, 1],
@@ -453,7 +532,7 @@ class _Initialize:
 
         interchain_mask = create_mask(
             partition_dict=lengths_dict,
-            hide_interactions="intra_part",
+            hide_interactions=MaskedInteractionType.INTRA_PART,
             masked_value=1,
             unmasked_value=0,
         )
@@ -464,20 +543,20 @@ class _Initialize:
 
         min_pae = np.min(masked_pae_matrix, axis=along_axis)
 
-        if return_type == "array":
+        if return_type == ReturnType.ARRAY:
             return min_pae.data
 
-        elif return_type == "list":
+        elif return_type == ReturnType.LIST:
             return min_pae.tolist()
 
-        elif return_type == "dict":
+        elif return_type == ReturnType.DICT:
 
             min_pae_dict = {}
             start = 0
             min_pae = min_pae.tolist()
 
             for chain_id in lengths_dict:
-                if chain_id != "total":
+                if chain_id != MiscStrEnum.TOTAL:
 
                     end = start + lengths_dict[chain_id]
                     min_pae_dict[chain_id] = min_pae[start:end]
@@ -488,7 +567,8 @@ class _Initialize:
             raise Exception(
                 f"""
 
-                return_type should be either 'array', 'list' or 'dict'.
+                return_type should be one of the following.
+                {ReturnType.ARRAY}, {ReturnType.LIST} or {ReturnType.DICT}.
                 Got '{return_type}' instead.
                 """
             )

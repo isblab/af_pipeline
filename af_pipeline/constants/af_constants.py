@@ -6,6 +6,128 @@ from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
 from typing import Final
 from dataclasses import dataclass
+from enum import StrEnum, auto
+from string import Template
+
+class MiscStrEnum(StrEnum):
+    TOTAL = auto()
+
+class MaskedInteractionType(StrEnum):
+    INTRA_PART = auto()
+    INTER_PART = auto()
+
+class ReturnType(StrEnum):
+    DICT = auto()
+    DATAFRAME = auto()
+    LIST = auto()
+    ARRAY = auto()
+
+class MetricLevel(StrEnum):
+    PER_TOKEN = auto()
+    REPRESENTATIVE_TOKEN = auto()
+
+@dataclass
+class InitializeConstants:
+    average_token_pae = True
+    average_token_plddt = True
+    metric_level = MetricLevel.PER_TOKEN
+    valid_metric_levels = [
+        MetricLevel.PER_TOKEN,
+        MetricLevel.REPRESENTATIVE_TOKEN,
+    ]
+    use_fast_cif_parser = False
+
+class CommunityDetectionLibrary(StrEnum):
+    IGRAPH = auto()
+    NETWORKX = auto()
+    LABEL_PROPAGATION = auto()
+
+class FileFormat(StrEnum):
+    PDB = auto()
+    CIF = auto()
+    TXT = auto()
+    JSON = auto()
+
+@dataclass
+class RigidBodiesConstants:
+    valid_libraries = [
+        CommunityDetectionLibrary.IGRAPH,
+        CommunityDetectionLibrary.NETWORKX,
+        CommunityDetectionLibrary.LABEL_PROPAGATION,
+    ]
+    library = CommunityDetectionLibrary.NETWORKX
+    pae_cutoff = 12.0
+    pae_power = 1
+    plddt_cutoff = 70.0
+    plddt_cutoff_idr = 50.0
+    resolution = 0.5
+    random_seed = 47
+    valid_rb_out_fmts = [
+        FileFormat.TXT,
+        FileFormat.JSON,
+    ]
+    rb_out_fmt = FileFormat.TXT
+    valid_rb_struct_fmts = [
+        FileFormat.PDB,
+        FileFormat.CIF,
+    ]
+    rb_struct_fmt = FileFormat.CIF
+    save_structure = True
+    filter_struct_by_plddt = True
+    rb_name_template = Template("rigid_body_${rb_idx}")
+    rb_assessment_name_template = Template("rigid_body_${rb_idx}_assessment")
+
+@dataclass
+class InteractionConstants:
+    contact_threshold = 8.0 # Distance threshold in (Angstorm) to define a contact between residue pairs.
+    plddt_cutoff = 70.0 # pLDDT cutoff to consider a confident prediction.
+    pae_cutoff = 5.0 # PAE cutoff to consider a confident prediction.
+    plddt_cutoff_idr = 50.0 # pLDDT cutoff for IDR chains.
+    save_plot = False
+    save_table = False
+    plot_type = "static"
+    valid_plot_types = ["static", "interactive", "both"]
+
+class ResidueMapDepth(StrEnum):
+    ATOM = auto()
+    RESIDUE = auto()
+
+class ResidueDecoration(StrEnum):
+    ENTITY_TYPE = "entityType"
+    IS_MODIFIED = auto()
+    IS_CA_ONLY = auto()
+    IS_LIGAND = auto()
+    IS_ION = auto()
+    IS_PURINE = auto()
+    IS_PYRIMIDINE = auto()
+
+class EntityType(StrEnum):
+    PROTEIN_CHAIN = "proteinChain"
+    DNA_SEQUENCE = "dnaSequence"
+    RNA_SEQUENCE = "rnaSequence"
+    LIGAND = auto()
+    ION = auto()
+
+class InteractionMapType(StrEnum):
+    DISTANCE = auto()
+    CONTACT = auto()
+
+VALID_INTERACTION_MAP_TYPES = [
+    InteractionMapType.DISTANCE,
+    InteractionMapType.CONTACT,
+]
+
+# @dataclass
+# class RenumberResiduesConstants:
+#     valid_depths = [
+#         ResidueMapDepth.ATOM,
+#         ResidueMapDepth.RESIDUE,
+#     ]
+
+@dataclass
+class StructureParserConstants:
+    preserve_header_footer = False
+    use_fast_cif_parser = False
 
 RES_RANGE_SEP: Final[str] = "t"
 
@@ -39,28 +161,55 @@ AVAILABLE_DATA_READERS = {
 
 ALLOWED_DATA_FORMATS = list(AVAILABLE_DATA_READERS.keys())
 
+class AtomQuantity(StrEnum):
+    COORD = auto()
+    PLDDT = auto()
+    ATOM_NAME = auto()
+    RES_POS = auto()
+    RES_NAME = auto()
+    CHAIN_ID = auto()
+    ENTITY_TYPE = auto()
+    ATOM_LOCAL_IDX = auto()
+
 AVAILABLE_ATOM_QUANTITIES = [
-    "coord",
-    "plddt",
-    "atom_name",
-    "res_pos",
-    "res_name",
-    "chain_id",
-    "entity_type",
-    "atom_local_idx",
+    AtomQuantity.COORD,
+    AtomQuantity.PLDDT,
+    AtomQuantity.ATOM_NAME,
+    AtomQuantity.RES_POS,
+    AtomQuantity.RES_NAME,
+    AtomQuantity.CHAIN_ID,
+    AtomQuantity.ENTITY_TYPE,
+    AtomQuantity.ATOM_LOCAL_IDX,
 ]
 
+class ResidueQuantity(StrEnum):
+    RES_POS = auto()
+    RES_NAME = auto()
+    COORD = auto()
+    PLDDT = auto()
+    CHAIN_ID = auto()
+    ENTITY_TYPE = auto()
+    ATOMS = auto()
+    ATOM_LOCAL_IDXS = auto()
+    REP_ATOM = auto()
+    REP_ATOM_LOCAL_IDX = auto()
+
+class QuantityLevel(StrEnum):
+    REPRENTATIVE_ATOM = auto()
+    PER_ATOM = auto()
+    AVERAGE_ATOM = auto()
+
 AVAILABLE_RESIDUE_QUANTITIES =[
-    "res_pos",
-    "res_name",
-    "coord",
-    "plddt",
-    "chain_id",
-    "entity_type",
-    "atoms",
-    "atom_local_idxs",
-    "rep_atom",
-    "rep_atom_local_idx",
+    ResidueQuantity.RES_POS,
+    ResidueQuantity.RES_NAME,
+    ResidueQuantity.COORD,
+    ResidueQuantity.PLDDT,
+    ResidueQuantity.CHAIN_ID,
+    ResidueQuantity.ENTITY_TYPE,
+    ResidueQuantity.ATOMS,
+    ResidueQuantity.ATOM_LOCAL_IDXS,
+    ResidueQuantity.REP_ATOM,
+    ResidueQuantity.REP_ATOM_LOCAL_IDX,
 ]
 
 PTM = [
@@ -326,7 +475,10 @@ OVERALL_ASSESSMENT_COLUMNS = {
         "Number of Chains": "num_chains",
         "Number of Interacting Chain Pairs": "num_interacting_chain_pairs",
         "Interface Residues": "num_interface_residues",
+        "Total Residues": "num_total_residues",
+        "Sequence Coverage": "rb_coverage",
         "Number of Contacts": "num_contacts",
+        "Average pLDDT": "avg_plddt",
         "Average ipLDDT": "avg_iplddt",
         "Average IDR ipLDDT": "avg_idr_iplddt",
         "Average iPAE": "avg_ipae",
@@ -335,7 +487,10 @@ OVERALL_ASSESSMENT_COLUMNS = {
         "Number of Chains": "num_chains",
         "Number of Interacting Chain Pairs": "num_interacting_chain_pairs",
         "Interface Residues": "num_interface_residues",
+        "Total Residues": "num_total_residues",
+        "Sequence Coverage": "rb_coverage",
         "Number of Contacts": "num_contacts",
+        "Average pLDDT": "avg_plddt",
         "Average ipLDDT": "avg_iplddt",
         "Average IDR ipLDDT": "avg_idr_iplddt",
         "Average iPAE ij": "avg_ipae_ij",
