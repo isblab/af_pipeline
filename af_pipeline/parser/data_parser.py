@@ -22,6 +22,7 @@ from typing import Dict, Callable, List
 from af_pipeline.constants.af_constants import (
     ALLOWED_DATA_FORMATS,
     AVAILABLE_DATA_READERS,
+    DataFileKeys,
 )
 
 class DataParser:
@@ -109,8 +110,8 @@ class DataParser:
             Token chain IDs.
         """
 
-        if "token_chain_ids" in data:
-            token_chain_ids = data["token_chain_ids"]
+        if DataFileKeys.TOKEN_CHAIN_IDS in data:
+            token_chain_ids = data[DataFileKeys.TOKEN_CHAIN_IDS]
 
         else:
             warnings.warn(
@@ -146,8 +147,8 @@ class DataParser:
             Token residue IDs provided in the AF3 `JSON` file.
         """
 
-        if "token_res_ids" in data:
-            token_res_ids = data["token_res_ids"]
+        if DataFileKeys.TOKEN_RES_IDS in data:
+            token_res_ids = data[DataFileKeys.TOKEN_RES_IDS]
 
         else:
             warnings.warn(
@@ -179,12 +180,12 @@ class DataParser:
         """
 
         # For AF2.
-        if "predicted_aligned_error" in data:
-            pae = np.array(data["predicted_aligned_error"])
+        if DataFileKeys.PREDICTED_ALIGNED_ERROR in data:
+            pae = np.array(data[DataFileKeys.PREDICTED_ALIGNED_ERROR])
 
         # For AF3.
-        elif "pae" in data:
-            pae = np.array(data["pae"])
+        elif DataFileKeys.PAE in data:
+            pae = np.array(data[DataFileKeys.PAE])
 
         else:
             raise Exception("PAE matrix not found...")
@@ -209,8 +210,8 @@ class DataParser:
             Contact probabilities matrix from AlphaFold3 output.
         """
 
-        if "contact_probs" in data:
-            contact_probs_mat = np.array(data["contact_probs"])
+        if DataFileKeys.CONTACT_PROBS in data:
+            contact_probs_mat = np.array(data[DataFileKeys.CONTACT_PROBS])
 
         else:
             warnings.warn(
@@ -241,8 +242,8 @@ class DataParser:
             Atom chain IDs provided in the AF3 JSON file.
         """
 
-        if "atom_chain_ids" in data:
-            atom_chain_ids = data["atom_chain_ids"]
+        if DataFileKeys.ATOM_CHAIN_IDS in data:
+            atom_chain_ids = data[DataFileKeys.ATOM_CHAIN_IDS]
 
         else:
             warnings.warn(
@@ -273,8 +274,8 @@ class DataParser:
             Per atom pLDDT scores provided in the AF3 JSON file.
         """
 
-        if "atom_plddts" in data:
-            atom_plddts = data["atom_plddts"]
+        if DataFileKeys.ATOM_PLDDTS in data:
+            atom_plddts = data[DataFileKeys.ATOM_PLDDTS]
 
         else:
             warnings.warn(

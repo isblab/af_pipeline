@@ -26,6 +26,15 @@ class MetricLevel(StrEnum):
     PER_TOKEN = auto()
     REPRESENTATIVE_TOKEN = auto()
 
+class DataFileKeys(StrEnum):
+    TOKEN_CHAIN_IDS = auto()
+    TOKEN_RES_IDS = auto()
+    ATOM_CHAIN_IDS = auto()
+    ATOM_PLDDTS = auto()
+    PAE = auto()
+    PREDICTED_ALIGNED_ERROR = auto()
+    CONTACT_PROBS = auto()
+
 @dataclass
 class InitializeConstants:
     average_token_pae = True
@@ -47,6 +56,7 @@ class FileFormat(StrEnum):
     CIF = auto()
     TXT = auto()
     JSON = auto()
+    PKL = auto()
 
 @dataclass
 class RigidBodiesConstants:
@@ -139,8 +149,8 @@ MAX_TEMPLATE_DATE = "2021-09-30"
 JOB_LIMIT_PER_JSON = 100
 
 AVAILABLE_PARSERS = {
-    "pdb": PDBParser,
-    "cif": MMCIFParser,
+    FileFormat.PDB: PDBParser,
+    FileFormat.CIF: MMCIFParser,
     "fast_cif": FastMMCIFParser,
 }
 
@@ -155,8 +165,8 @@ class ConfigYaml:
 ALLOWED_STRUCTURE_FORMATS = list(AVAILABLE_PARSERS.keys())
 
 AVAILABLE_DATA_READERS = {
-    "pkl": read_pkl,
-    "json": read_json,
+    FileFormat.PKL: read_pkl,
+    FileFormat.JSON: read_json,
 }
 
 ALLOWED_DATA_FORMATS = list(AVAILABLE_DATA_READERS.keys())
