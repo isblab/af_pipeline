@@ -1,6 +1,7 @@
 import os
 import yaml
 from argparse import ArgumentParser
+from af_pipeline.initialize import Initialize
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
 from af_pipeline.constants.af_constants import ConfigYaml
 from af_pipeline.utils.file_utils import read_json
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     )
 
     args.add_argument(
-        "--num_res",
+        "--min_res",
         type=int,
         required=False,
         default=1,
@@ -84,7 +85,7 @@ if __name__ == "__main__":
     )
 
     args.add_argument(
-        "--num_proteins",
+        "--min_proteins",
         type=int,
         required=False,
         default=1,
@@ -131,11 +132,11 @@ if __name__ == "__main__":
     assert args.library in ["igraph", "networkx", "label_propagation"], \
         f"Invalid library {args.library}"
 
-    assert args.num_res > 0, \
-        f"Invalid value for num_res {args.num_res}"
+    assert args.min_res > 0, \
+        f"Invalid value for min_res {args.min_res}"
 
-    assert args.num_proteins > 0, \
-        f"Invalid value for num_proteins {args.num_proteins}"
+    assert args.min_proteins > 0, \
+        f"Invalid value for min_proteins {args.min_proteins}"
 
     # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
     config_yaml = read_json(args.input)
@@ -148,43 +149,55 @@ if __name__ == "__main__":
         structure_path = pred_to_analyse.get("structure_path", None)
         data_path = pred_to_analyse.get("data_path", None)
 
-        rigid_bodies_extractor = RigidBodies(
+        initialize = Initialize(
             data_file_path=data_path,
             structure_file_path=structure_path,
             af_offset=af_offset,
-            idr_chains=idr_chains,
             rep_atom_dict={},
             average_token_pae=False,
             average_token_plddt=False,
             metric_level="per_token",
+            use_fast_cif_parser=False,
         )
 
-        rigid_bodies_extractor.plddt_cutoff = args.plddt_cutoff
-        rigid_bodies_extractor.plddt_cutoff_idr = args.plddt_cutoff_idr
-        rigid_bodies_extractor.pae_cutoff = args.pae_cutoff
-        rigid_bodies_extractor.pae_power = args.pae_power
-        rigid_bodies_extractor.resolution = args.resolution
-        rigid_bodies_extractor.library = args.library
+        rigid_bodies_extractor = RigidBodies(
+            library=args.library,
+            pae_cutoff=args.pae_cutoff,
+            pae_power=args.pae_power,
+            resolution=args.resolution,
+            plddt_cutoff=args.plddt_cutoff,
+            plddt_cutoff_idr=args.plddt_cutoff_idr,
+            idr_chains=idr_chains,
+        )
 
         domains = rigid_bodies_extractor.extract_rigid_bodies(
-            num_res=args.num_res,
-            num_proteins=args.num_proteins,
+            pae_matrix=rigid_bodies_extractor.pae,
+            min_res=args.min_res,
+            min_proteins=args.min_proteins,
             plddt_filter=args.apply_plddt_filter,
         )
 
         rigid_bodies_extractor.save_rigid_bodies(
             domains=domains,
             output_dir=args.output,
-            output_format="txt",
+            rb_out_fmt="txt",
             save_structure=True,
-            structure_file_type="pdb",
-            no_plddt_filter_for_structure=False,
-            pae_plot=False,
-            rb_assessment={
-                "as_average": True,
-                "symmetric_pae": True,
-            },
+            rb_struct_fmt="pdb",
+            filter_struct_by_plddt=True,
             protein_chain_map=None
+        )
+
+        rigid_bodies_extractor.assess_rigid_bodies(
+            domains=domains,
+            output_dir=args.output,
+            protein_chain_map=args.protein_chain_map,
+            symmetric_pae=True,
+            as_average=True,
+        )
+
+        rigid_bodies_extractor.show_rigid_bodies_on_pae_matrix(
+            domains=domains,
+            output_dir=args.output,
         )
 
         print(f"Rigid bodies for {os.path.basename(structure_path)} saved in {args.output}")

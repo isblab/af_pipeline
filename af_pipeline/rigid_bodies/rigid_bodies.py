@@ -460,7 +460,7 @@ class RigidBodies:
 
             return rigid_bodies
 
-        elif isinstance(list(rigid_bodies[0].values())[0][0], int):
+        elif isinstance(list(rigid_bodies[0].values())[0][0], int): #! this is a weak check
 
             return rigid_bodies
 
@@ -576,7 +576,7 @@ class RigidBodies:
             )
 
         # txt or json output format
-        if rb_out_fmt == RBCons.valid_rb_out_fmts[0]: # txt
+        if rb_out_fmt == FileFormat.TXT:
 
             domains = self._keep_residue_numbers_only(domains)
 
@@ -587,7 +587,7 @@ class RigidBodies:
                 file_name=file_name,
             )
 
-        elif rb_out_fmt == RBCons.valid_rb_out_fmts[1]: # json
+        elif rb_out_fmt == FileFormat.JSON:
 
             save_rigid_bodies_json(
                 output_dir=output_dir,
@@ -607,7 +607,7 @@ class RigidBodies:
                 )
 
             if (
-                rb_struct_fmt == RBCons.valid_rb_struct_fmts[1] and
+                rb_struct_fmt == FileFormat.CIF and
                 has_modifications(self.structure)
             ):
                 warnings.warn(
@@ -682,19 +682,12 @@ class RigidBodies:
         symmetric_pae: bool = True,
         as_average: bool = True,
     ):
-        # assessment_file_name = (
-        #     os.path.basename(self.structure_file_path).split(".")[0]
-        #     + "_rb_assessment.xlsx"
-        # )
-        # save_path = os.path.join(output_dir, assessment_file_name)
 
         for rb_idx, rb_dict in enumerate(domains):
-            # rb_save_path = save_path.replace(
-            #     ".xlsx", f"_rb_{rb_idx}.xlsx"
-            # )
+
             rb_save_path = os.path.join(
                 output_dir,
-                RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)
+                f"{RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)}.{FileFormat.XLSX}"
             )
 
             rb_assess = RigidBodyAssessment(

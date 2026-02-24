@@ -87,6 +87,7 @@ class FileFormat(StrEnum):
     TXT = auto()
     JSON = auto()
     PKL = auto()
+    XLSX = auto()
 
 @dataclass
 class RigidBodiesConstants:
