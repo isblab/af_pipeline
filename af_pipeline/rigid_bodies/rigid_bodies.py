@@ -12,7 +12,7 @@ from itertools import product
 from typing import Dict, List
 from collections import defaultdict
 from Bio.PDB.Structure import Structure
-from af_pipeline._initialize import _Initialize
+from af_pipeline.initialize import Initialize
 import matplotlib.patches
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -20,7 +20,6 @@ import matplotlib
 from af_pipeline.tools.structure_tools import (
     save_structure_obj,
     ResidueSelect,
-    get_interaction_map,
 )
 from af_pipeline.pae_to_domains.pae_to_domains import (
     domains_from_pae_matrix_igraph,
@@ -34,46 +33,53 @@ from af_pipeline.utils.misc_utils import (
 )
 from af_pipeline.tools.structure_tools import has_modifications
 from af_pipeline.rigid_bodies.rigid_body_assessment import RigidBodyAssessment
+from af_pipeline.constants.af_constants import RigidBodiesConstants as RBCons
+from af_pipeline.constants.af_constants import (
+    RES_SEPARATOR,
+    FileFormat,
+    KeywordArg,
+    MiscStrEnum,
+    CommunityDetectionLibrary,
+    ResidueMapKeys,
+)
 
-class RigidBodies(_Initialize):
+_error_not_set_up = """
+The RigidBodies instance is not set up yet. Please set up the instance
+by calling the `set_from_initializer` method with an instance of the
+Initialize class.
+
+Alternatively, if you know what attributes to set, you can set the attributes of
+the RigidBodies instance directly without using the `set_from_initializer` method.
+and set the `is_set_up` attribute to True.
+
+The following attributes need to be set for the RigidBodies instance to work properly:
+- structure_file_path: str
+- structure: Structure
+- af_offset: dict | None
+- token_coords: list
+- token_plddts: list
+- pae: np.ndarray
+- avg_pae: np.ndarray
+- lengths_dict: dict
+- renumber: af_pipeline.tools.structure_tools.RenumberResidues
+- idx_to_num: dict (can be obtained from renumber object)
+- num_to_idx: dict (can be obtained from renumber object)
+
+See specific methods for more details on the required attributes for each method.
+"""
+
+class RigidBodies:
     """ Class to extract rigid bodies from AlphaFold prediction."""
-
-    data_file_path: str
-    """ Path to the data file provided with the prediction (json or pkl). """
-
-    structure_file_path: str
-    """ Path to the structure file (PDB or CIF). """
-
-    af_offset: dict | None
-    """ Offset describing start and end residue number for each chain in
-    the predicted structure.\n
-    example: `{'A': [1, 100], 'B': [101, 200]}`."""
-
-    idr_chains: list
-    """ List of chain IDs that represent IDR protein chains."""
-
-    rep_atom_dict: dict
-    """ Dictionary containing the representative atoms for residue object.
-    e.g., `{"HY3": "N"}` or `{"6MA": "P"}`."""
-
-    average_token_pae: bool
-    """ Whether to average the PAE in case of per atom tokens."""
-
-    average_token_plddt: bool
-    """ Whether to average the pLDDT in case of per atom tokens."""
-
-    metric_level: str
-    """ Metric level. ("per_token" or "representative_token")."""
 
     library: str
     """ Library to use for graph-based community detection.
     ('igraph' or 'networkx' or 'label_propagation')"""
 
-    pae_power: int
-    """ Exponent to raise the PAE matrix to."""
-
     pae_cutoff: float
     """ PAE cutoff to consider an edge between two tokens."""
+
+    pae_power: int
+    """ Exponent to raise the PAE matrix to."""
 
     resolution: float
     """ Resolution parameter for graph-based community detection."""
@@ -89,40 +95,75 @@ class RigidBodies(_Initialize):
 
     def __init__(
         self,
-        data_file_path: str,
-        structure_file_path: str,
-        af_offset: dict = {},
-        idr_chains: list = [],
-        rep_atom_dict: dict = {},
-        average_token_pae: bool = True,
-        average_token_plddt: bool = True,
-        metric_level: str = "per_token",
+        library: str = RBCons.library,
+        pae_cutoff: float = RBCons.pae_cutoff,
+        pae_power: int = RBCons.pae_power,
+        resolution: float = RBCons.resolution,
+        plddt_cutoff: float = RBCons.plddt_cutoff,
+        **kwargs,
     ):
 
-        super().__init__(
-            data_file_path=data_file_path,
-            structure_file_path=structure_file_path,
-            af_offset=af_offset,
-            rep_atom_dict=rep_atom_dict,
-            average_token_pae=average_token_pae,
-            average_token_plddt=average_token_plddt,
-            metric_level=metric_level,
+        self.library = library
+        self.pae_cutoff = pae_cutoff
+        self.pae_power = pae_power
+        self.resolution = resolution
+        self.plddt_cutoff = plddt_cutoff
+        self.idr_chains = kwargs.get(KeywordArg.IDR_CHAINS, [])
+        self.plddt_cutoff_idr = kwargs.get(
+            KeywordArg.PLDDT_CUTOFF_IDR, RBCons.plddt_cutoff_idr
+        )
+        self.random_seed = kwargs.get(
+            KeywordArg.RANDOM_SEED, RBCons.random_seed
         )
 
-        self.library = "networkx"
-        self.pae_power = 1
-        self.pae_cutoff = 12
-        self.resolution = 0.5
-        self.plddt_cutoff = 70
-        self.plddt_cutoff_idr = 50
-        self.random_seed = 47
-        self.idr_chains = idr_chains
+        self._is_set_up = False
+
+    def check_is_set_up(self):
+        """ Check if the RigidBodies instance is set up. """
+
+        if not self._is_set_up:
+            raise ValueError(_error_not_set_up)
+
+    def set_attributes_from(self, instance: Initialize):
+        """ Set the attributes of RigidBodies instance from the initializer instance.
+
+        This method can be used to set the attributes of RigidBodies instance
+        from the initializer instance after the RigidBodies instance is created.
+        This is useful when the initializer instance is created after the
+        RigidBodies instance is created.
+
+        ## Arguments:
+
+        - **instance (Initialize)**:<br />
+            An instance of the Initialize class.
+        """
+
+        assert isinstance(instance, Initialize), "The instance should be of type Initialize."
+
+        self.structure = instance.structure
+        self.structure_file_path = instance.structure_file_path
+        self.af_offset = instance.af_offset
+
+        self.token_coords = instance.token_coords
+        self.token_plddts = instance.token_plddts
+
+        self.pae = instance.pae
+        self.avg_pae = instance.avg_pae
+
+        self.lengths_dict = instance.lengths_dict
+
+        self.renumber = instance.renumber
+        self.idx_to_num = instance.idx_to_num
+        self.num_to_idx = instance.num_to_idx
+
+        self._is_set_up = True
 
     def extract_rigid_bodies(
         self,
-        num_res: int = 1,
-        num_proteins: int = 1,
-        plddt_filter: bool = True
+        pae_matrix: np.ndarray,
+        min_res: int = RBCons.min_res,
+        min_proteins: int = RBCons.min_proteins,
+        plddt_filter: bool = RBCons.plddt_filter,
     ) -> list[dict[str, list[tuple[str, int]]]]:
         """Extract Rigid bodies from a PAE file.
 
@@ -138,28 +179,32 @@ class RigidBodies(_Initialize):
         Communities are detected using the specified implementation.
         Each community is considered as a pseudo-domain.
 
-        Arguments:
+        ## Arguments:
 
-        - **num_res (int)**:<br />
+        - **min_res (int)**:<br />
             Minimum number of residues in a rigid body.
 
-        - **num_proteins (int)**:<br />
+        - **min_proteins (int)**:<br />
             Minimum number of proteins in a rigid body.
 
         - **plddt_filter (bool)**:<br />
             Filter the residues based on the pLDDT cutoff.
 
-        Returns:
+        ## Returns:
 
         - **rigid_bodies (list)**:<br />
             List of extracted rigid bodies.
         """
 
+        self.check_is_set_up()
         print("Extracting rigid bodies...")
+        if self.library not in RBCons.valid_libraries:
+            raise ValueError(
+                "Invalid library specified."\
+                f"Use one of {RBCons.valid_libraries}."
+            )
 
-        pae_matrix = self.pae
-
-        if self.library == "igraph":
+        if self.library == CommunityDetectionLibrary.IGRAPH:
             pseudo_domains = domains_from_pae_matrix_igraph(
                 pae_matrix,
                 pae_power=self.pae_power,
@@ -167,7 +212,7 @@ class RigidBodies(_Initialize):
                 graph_resolution=self.resolution,
             )
 
-        elif self.library == "networkx":
+        elif self.library == CommunityDetectionLibrary.NETWORKX:
             pseudo_domains = domains_from_pae_matrix_networkx(
                 pae_matrix,
                 pae_power=self.pae_power,
@@ -175,20 +220,12 @@ class RigidBodies(_Initialize):
                 graph_resolution=self.resolution,
             )
 
-        elif self.library == "label_propagation":
+        elif self.library == CommunityDetectionLibrary.LABEL_PROPAGATION:
             pseudo_domains = domains_from_pae_matrix_label_propagation(
                 pae_matrix,
                 pae_power=self.pae_power,
                 pae_cutoff=self.pae_cutoff,
                 random_seed=self.random_seed,
-            )
-
-        else:
-            raise ValueError(
-                """
-                Invalid library specified.
-                Use 'igraph' or 'networkx' or 'label_propagation'.
-                """
             )
 
         # domains is a list of lists
@@ -205,16 +242,19 @@ class RigidBodies(_Initialize):
             # removing residues with pLDDT score below the cutoff
             # different cutoffs can be used for IDR and non-IDR chains
             if plddt_filter:
-                rb_dict = self._filter_by_plddt(domain_dict=domain_dict)
+                rb_dict = self._filter_by_plddt(
+                    domain_dict=domain_dict,
+                    token_plddts=self.token_plddts,
+                )
             else:
                 rb_dict = domain_dict
 
             # Remove domains with number of proteins less than certain size
-            # The size is determind by `num_res` or `num_proteins`
+            # The size is determind by `min_res` or `min_proteins`
             rb_dict = RigidBodies._filter_by_domain_size(
                 rb_dict=rb_dict,
-                num_res=num_res,
-                num_proteins=num_proteins,
+                min_res=min_res,
+                min_proteins=min_proteins,
             )
 
             if len(rb_dict) > 0:
@@ -248,24 +288,25 @@ class RigidBodies(_Initialize):
         *(See :py:class:`af_pipeline.tools.structure_tools.RenumberResidues` to
         check how the residue numbering is done based on the `offset`.)*
 
-        Arguments:
+        ## Arguments:
 
         - **pseudo_domain (list)**:<br />
             Token indices in a rigid body.
 
-        Returns:
+        ## Returns:
 
         - **domain_dict (dict)**:<br />
             `{chain_id: [(atom_name, token_num), ...]}`.
         """
 
+        self.check_is_set_up()
         domain_dict = defaultdict(list)
 
         for token_idx in pseudo_domain:
 
-            token_num = self.idx_to_num[token_idx].get("token_num")
-            chain_id = self.idx_to_num[token_idx].get("chain_id")
-            atom_name = self.idx_to_num[token_idx].get("atom_name")
+            token_num = self.idx_to_num[token_idx].get(ResidueMapKeys.TOKEN_NUM)
+            chain_id = self.idx_to_num[token_idx].get(ResidueMapKeys.CHAIN_ID)
+            atom_name = self.idx_to_num[token_idx].get(ResidueMapKeys.ATOM_NAME)
 
             if chain_id not in domain_dict:
                 domain_dict[chain_id] = [(atom_name, token_num)]
@@ -277,6 +318,7 @@ class RigidBodies(_Initialize):
     def _filter_by_plddt(
         self,
         domain_dict: dict,
+        token_plddts: list,
     ) -> dict[str, list[tuple[str, int]]]:
         """Filter the residues in the pseudo-domains based on the pLDDT cutoff.
 
@@ -284,17 +326,18 @@ class RigidBodies(_Initialize):
         Different cutoffs can be used for IDR and non-IDR chains.\n
         *(See :py:attr:`plddt_cutoff_idr` and :py:attr:`plddt_cutoff`.)*
 
-        Arguments:
+        ## Arguments:
 
         - **domain_dict (dict)**:<br />
             Dictionary of pseudo-domains.
 
-        Returns:
+        ## Returns:
 
         - **rb_dict (dict)**:<br />
             pLDDT filtered dictionary of rigid bodies.
         """
 
+        self.check_is_set_up()
         rb_dict = {}
 
         # Filter each chain in the pseudo-domain based on the pLDDT cutoff
@@ -311,14 +354,14 @@ class RigidBodies(_Initialize):
             if chain_id in self.idr_chains:
                 plddt_cutoff = self.plddt_cutoff_idr
 
-            chain_plddt_mask = np.array(self.token_plddts)[
+            chain_plddt_mask = np.array(token_plddts)[
                 chain_token_idxs
             ] >= plddt_cutoff
 
             confident_tokens = [
                 (
-                    self.idx_to_num[token_idx].get("atom_name"),
-                    self.idx_to_num[token_idx].get("token_num")
+                    self.idx_to_num[token_idx].get(ResidueMapKeys.ATOM_NAME),
+                    self.idx_to_num[token_idx].get(ResidueMapKeys.TOKEN_NUM)
                 )
                 for token_idx in chain_token_idxs[chain_plddt_mask]
             ]
@@ -339,46 +382,46 @@ class RigidBodies(_Initialize):
     @staticmethod
     def _filter_by_domain_size(
         rb_dict: dict,
-        num_res: int,
-        num_proteins: int,
+        min_res: int,
+        min_proteins: int,
     ) -> dict:
         """Filter the domain based on the size of the domain.
 
         Only keep the domain if it exceeds certain size.
-        The size is determined by `num_res` or `num_proteins`.
+        The size is determined by `min_res` or `min_proteins`.
         ```python
-        - num_res # Minimum number of residues in a rigid body.
-        - num_proteins # Minimum number of proteins in a rigid body.
+        - min_res # Minimum number of residues in a rigid body.
+        - min_proteins # Minimum number of proteins in a rigid body.
         ```
 
-        Arguments:
+        ## Arguments:
 
         - **rb_dict (dict)**:<br />
             Dictionary of a rigid body.
 
-        - **num_res (int)**:<br />
+        - **min_res (int)**:<br />
             Minimum number of residues in a rigid body.
 
-        - **num_proteins (int)**:<br />
+        - **min_proteins (int)**:<br />
             Minimum number of proteins in a rigid body.
 
-        Returns:
+        ## Returns:
 
         - **rb_dict (dict)**:<br />
             Filtered dictionary of a rigid body.
         """
 
-        if len(rb_dict) < num_proteins:
+        if len(rb_dict) < min_proteins:
             return {}
 
         total_residues = 0
-        for chain_id, chain_atom_res_list in rb_dict.items():
+        for _chain_id, chain_atom_res_list in rb_dict.items():
             chain_res_set = set()
-            for atom_name, res_num in chain_atom_res_list:
+            for _atom_name, res_num in chain_atom_res_list:
                 chain_res_set.add(res_num)
             total_residues += len(chain_res_set)
 
-        if total_residues < num_res:
+        if total_residues < min_res:
             return {}
 
         return rb_dict
@@ -399,14 +442,14 @@ class RigidBodies(_Initialize):
 
             {"A": [1, 2]}
 
-        Arguments:
+        ## Arguments:
 
         - **rigid_bodies (list)**:<br />
             List of rigid bodies, where each rigid body is a dictionary
             with chain IDs as keys and a list of tuples containing
             atom names and residue numbers as values.
 
-        Returns:
+        ## Returns:
 
         - **rigid_bodies (list)**:<br />
             List of rigid bodies, where each rigid body is a dictionary
@@ -417,26 +460,25 @@ class RigidBodies(_Initialize):
 
             return rigid_bodies
 
-        elif isinstance(
-            list(rigid_bodies[0].values())[0][0], int
-        ):
+        elif isinstance(list(rigid_bodies[0].values())[0][0], int):
+
             return rigid_bodies
 
         rigid_bodies = copy.deepcopy(rigid_bodies)
 
+        # Convert the rigid body dictionary to a list of residue numbers
         for idx, rb_dict in enumerate(rigid_bodies):
-            # Convert the rigid body dictionary to a list of residue numbers
 
             for chain_id, chain_res_num_list in rb_dict.items():
 
                 only_res_num_list = []
-                for atom_name, res_num in chain_res_num_list:
+                for _atom_name, res_num in chain_res_num_list:
                     only_res_num_list.append(res_num)
 
                 only_res_num_list.sort()
 
                 rb_dict[chain_id] = list(set(only_res_num_list))
-            # Update the rigid body dictionary with the sorted list
+
             rigid_bodies[idx] = rb_dict
 
         return rigid_bodies
@@ -445,13 +487,11 @@ class RigidBodies(_Initialize):
         self,
         domains: list,
         output_dir: str,
-        output_format: str = "txt",
-        save_structure: bool = True,
-        structure_file_type: str = "cif",
-        no_plddt_filter_for_structure: bool = False,
-        pae_plot: bool = False,
-        rb_assessment: dict | None = None,
-        protein_chain_map: dict | None = None,
+        rb_out_fmt: str = RBCons.rb_out_fmt,
+        save_structure: bool = RBCons.save_structure,
+        rb_struct_fmt: str = RBCons.rb_struct_fmt,
+        filter_struct_by_plddt: bool = RBCons.filter_struct_by_plddt,
+        protein_chain_map: dict = {},
     ):
         """ Save the rigid bodies to a file and/or save the structure of the
         rigid bodies and assess the rigid bodies.
@@ -476,7 +516,7 @@ class RigidBodies(_Initialize):
                 value for PAE assessment metrics.
         - The assessment is saved in an Excel file.
 
-        Arguments:
+        ## Arguments:
 
         - **domains (list)**:<br />
             list of rigid bodies, where each rigid body is a dictionary with
@@ -485,16 +525,16 @@ class RigidBodies(_Initialize):
         - **output_dir (str)**:<br />
             Directory to save the output files.
 
-        - **output_format (str, optional)**:<br />
+        - **rb_out_fmt (str, optional)**:<br />
             Defaults to "txt". ("txt" or "csv")
 
         - **save_structure (bool, optional)**:<br />
             Whether to save the structure of the rigid bodies.
 
-        - **structure_file_type (str, optional)**:<br />
+        - **rb_struct_fmt (str, optional)**:<br />
             File type to save the structure ("pdb" or "cif").
 
-        - **no_plddt_filter_for_structure (bool, optional)**:<br />
+        - **filter_struct_by_plddt (bool, optional)**:<br />
             Whether to save the structure without filtering based on pLDDT.
 
         - **pae_plot (bool, optional)**:<br />
@@ -514,6 +554,7 @@ class RigidBodies(_Initialize):
             Protein-to-chain mapping dictionary.
         """
 
+        self.check_is_set_up()
         os.makedirs(output_dir, exist_ok=True)
 
         dir_name = os.path.basename(
@@ -528,71 +569,14 @@ class RigidBodies(_Initialize):
 
         ##################################################
 
-        # Save the PAE plot for the rigid bodies
-        # the region of the PAE matrix corresponding to the rigid bodies will
-        # be highlighted
-        if pae_plot:
-
-            for rb_idx, rb_dict in enumerate(domains):
-
-                pae_patches = PAEPatches(
-                    num_to_idx=self.num_to_idx,
-                    pae=self.pae,
-                    lengths_dict=self.lengths_dict,
-                    rb_idx=rb_idx,
-                    af_offset=self.af_offset,
-                )
-
-                # patches are the highlighted rectangles in the PAE matrix
-                patches = pae_patches.extract_pae_patches(rb_dict=rb_dict)
-                pae_patches.plot_pae_patches(
-                    patches=patches,
-                    output_dir=output_dir,
-                )
-
-        if rb_assessment is not None:
-
-            assessment_file_name = (
-                os.path.basename(self.structure_file_path).split(".")[0]
-                + "_rb_assessment.xlsx"
+        if rb_out_fmt not in RBCons.valid_rb_out_fmts:
+            raise ValueError(
+                "Invalid rigid body output format specified."\
+                f"Use one of {RBCons.valid_rb_out_fmts}."
             )
-            save_path = os.path.join(output_dir, assessment_file_name)
-
-            coords = np.array(self.token_coords)
-
-            contact_map = get_interaction_map(
-                coords1=coords,
-                coords2=coords,
-                contact_threshold=8,
-                map_type="contact",
-            )
-
-            for rb_idx, rb_dict in enumerate(domains):
-
-                rb_save_path = save_path.replace(
-                    ".xlsx", f"_rb_{rb_idx}.xlsx"
-                )
-
-                rb_assess = RigidBodyAssessment(
-                    rb_dict=rb_dict,
-                    num_to_idx=self.num_to_idx,
-                    idx_to_num=self.idx_to_num,
-                    contact_map=contact_map,
-                    plddt_list=self.token_plddts,
-                    pae=self.pae,
-                    avg_pae=self.avg_pae,
-                    lengths_dict=self.lengths_dict,
-                    save_path=rb_save_path,
-                    symmetric_pae=rb_assessment.get("symmetric_pae", True),
-                    as_average=rb_assessment.get("as_average", True),
-                    idr_chains=self.idr_chains,
-                    protein_chain_map=protein_chain_map,
-                )
-
-                rb_assess.save_rb_assessment()
 
         # txt or json output format
-        if output_format == "txt":
+        if rb_out_fmt == RBCons.valid_rb_out_fmts[0]: # txt
 
             domains = self._keep_residue_numbers_only(domains)
 
@@ -603,7 +587,7 @@ class RigidBodies(_Initialize):
                 file_name=file_name,
             )
 
-        elif output_format == "json":
+        elif rb_out_fmt == RBCons.valid_rb_out_fmts[1]: # json
 
             save_rigid_bodies_json(
                 output_dir=output_dir,
@@ -616,7 +600,16 @@ class RigidBodies(_Initialize):
 
             domains = self._keep_residue_numbers_only(domains)
 
-            if structure_file_type == "cif" and has_modifications(self.structure):
+            if rb_struct_fmt not in RBCons.valid_rb_struct_fmts:
+                raise ValueError(
+                    "Invalid rigid body structure output format specified."\
+                    f"Use one of {RBCons.valid_rb_struct_fmts}."
+                )
+
+            if (
+                rb_struct_fmt == RBCons.valid_rb_struct_fmts[1] and
+                has_modifications(self.structure)
+            ):
                 warnings.warn(
                     """
 
@@ -640,23 +633,86 @@ class RigidBodies(_Initialize):
                 # filtered residues but, the structure file will ignore this
                 # filter use this flag when you don't want missing residues in
                 # the structure file
-                if no_plddt_filter_for_structure:
+                if filter_struct_by_plddt is False:
                     for chain_id, res_list in rb_dict.items():
                         if len(res_list) > 0:
                             res_list = fill_up_the_blanks(res_list)
                             rb_dict[chain_id] = res_list
 
                 output_path = os.path.join(
-                    output_dir, f"rigid_body_{idx}.{structure_file_type}"
+                    output_dir,
+                    f"{RBCons.rb_name_template.substitute(rb_idx=idx)}.{rb_struct_fmt}"
                 )
 
                 save_structure_obj(
                     structure=structure,
                     out_file=output_path,
                     res_select_obj=ResidueSelect(rb_dict),
-                    save_type=structure_file_type,
+                    save_type=rb_struct_fmt,
                     preserve_header_footer=True,
                 )
+
+    def show_rigid_bodies_on_pae_matrix(
+        self,
+        domains: list[dict],
+        output_dir: str,
+    ):
+        for rb_idx, rb_dict in enumerate(domains):
+
+            pae_patches = PAEPatches(
+                num_to_idx=self.num_to_idx,
+                pae=self.pae,
+                lengths_dict=self.lengths_dict,
+                rb_idx=rb_idx,
+                af_offset=self.af_offset,
+            )
+
+            # patches are the highlighted rectangles in the PAE matrix
+            patches = pae_patches.extract_pae_patches(rb_dict=rb_dict)
+            pae_patches.plot_pae_patches(
+                patches=patches,
+                output_dir=output_dir,
+            )
+
+    def assess_rigid_bodies(
+        self,
+        domains: list[dict],
+        output_dir: str,
+        protein_chain_map: dict = {},
+        symmetric_pae: bool = True,
+        as_average: bool = True,
+    ):
+        # assessment_file_name = (
+        #     os.path.basename(self.structure_file_path).split(".")[0]
+        #     + "_rb_assessment.xlsx"
+        # )
+        # save_path = os.path.join(output_dir, assessment_file_name)
+
+        for rb_idx, rb_dict in enumerate(domains):
+            # rb_save_path = save_path.replace(
+            #     ".xlsx", f"_rb_{rb_idx}.xlsx"
+            # )
+            rb_save_path = os.path.join(
+                output_dir,
+                RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)
+            )
+
+            rb_assess = RigidBodyAssessment(
+                rb_dict=rb_dict,
+                symmetric_pae=symmetric_pae,
+                as_average=as_average,
+                idr_chains=self.idr_chains,
+                protein_chain_map=protein_chain_map,
+            )
+
+            rb_assess.set_attributes_from(instance=self)
+            rb_assess.perform_assessment()
+            rb_assess.save_rb_assessment(
+                rb_c_assess=rb_assess.rb_c_assess,
+                rb_cp_assess=rb_assess.rb_cp_assess,
+                overall_assessment=rb_assess.overall_assessment,
+                save_path=rb_save_path,
+            )
 
 
 class PAEPatches:
@@ -697,13 +753,13 @@ class PAEPatches:
     def extract_pae_patches(self, rb_dict: dict) -> list[list]:
         """ Extract PAE patches for the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **rb_dict (dict)**:<br />
             Dictionary of a rigid body with following `key`:`value` pair:
             `chain_id`: `(atom_name, res_num)`.
 
-        Returns:
+        ## Returns:
 
         - **patches (list)**:<br />
             List of patches in the format:
@@ -737,12 +793,15 @@ class PAEPatches:
 
             for res_idx_1, res_idx_2 in res_pair_combinations:
 
-                if "-" not in res_idx_1 or "-" not in res_idx_2:
+                if (
+                    f"{RES_SEPARATOR}" not in res_idx_1 or
+                    f"{RES_SEPARATOR}" not in res_idx_2
+                ):
                     continue
-                res1_y0 = int(res_idx_1.split("-")[0])
-                res1_y1 = int(res_idx_1.split("-")[1])
-                res2_x0 = int(res_idx_2.split("-")[0])
-                res2_x1 = int(res_idx_2.split("-")[1])
+                res1_y0 = int(res_idx_1.split(RES_SEPARATOR)[0])
+                res1_y1 = int(res_idx_1.split(RES_SEPARATOR)[1])
+                res2_x0 = int(res_idx_2.split(RES_SEPARATOR)[0])
+                res2_x1 = int(res_idx_2.split(RES_SEPARATOR)[1])
 
                 xy_ = (res2_x0, res1_y0) # xy (0,0) coordinates for rectangle
                 h_ = res1_y1 - res1_y0 + 1 # patch height
@@ -760,7 +819,7 @@ class PAEPatches:
     ):
         """ Show the PAE patches for the rigid body on the PAE matrix plot.
 
-        Arguments:
+        ## Arguments:
 
         - **patches (list)**:<br />
             List of patches in the format:
@@ -802,7 +861,7 @@ class PAEPatches:
         ticks_labels = []
 
         for chain_id, p_length in self.lengths_dict.items():
-            if chain_id == "total":
+            if chain_id == MiscStrEnum.TOTAL:
                 continue
 
             cumu_len += p_length
@@ -878,7 +937,7 @@ def save_rigid_bodies_txt(
     The output file will contain the rigid body index, chain ID, protein name
     (if available), and the residue range.
 
-    Arguments:
+    ## Arguments:
 
     - **output_dir (str)**:<br />
         Directory where the output file will be saved.
@@ -908,13 +967,9 @@ def save_rigid_bodies_txt(
 
                 if len(res_list) > 0:
                     if protein_name:
-                        f.write(
-                            f"{protein_name}_{chain_id}: {res_range}\n"
-                        )
+                        f.write(f"{protein_name}_{chain_id}: {res_range}\n")
                     else:
-                        f.write(
-                            f"{chain_id}:{res_range}\n"
-                        )
+                        f.write(f"{chain_id}:{res_range}\n")
 
             f.write("\n")
 
@@ -929,7 +984,7 @@ def save_rigid_bodies_json(
     This function writes the rigid bodies information to a JSON file.<br />
     For per-atom tokens JSON format is recommended over text format.
 
-    Arguments:
+    ## Arguments:
 
     - **output_dir (str)**:<br />
         Directory where the output file will be saved.
@@ -944,7 +999,7 @@ def save_rigid_bodies_json(
         Name of the output file without extension.
     """
 
-    file_name += ".json"
+    file_name += FileFormat.JSON
     output_path = os.path.join(output_dir, file_name)
 
     rigid_bodies = []
@@ -953,7 +1008,7 @@ def save_rigid_bodies_json(
         for chain_id, res_num_list in rb_dict.items():
             protein_name = protein_chain_map.get(chain_id, None)
             if not protein_name:
-                protein_name = "Unknown"
+                protein_name = MiscStrEnum.UNKNOWN
             ch_dict[chain_id] = {
                 "protein": protein_name,
                 "residues": []
