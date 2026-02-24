@@ -6,11 +6,40 @@ from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
 from typing import Final
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import StrEnum, IntEnum, auto
 from string import Template
+
+RANDOM_SEED = 47
+
+class ColorMapScheme(StrEnum):
+    SOFT_WARM = auto()
+    STANDARD = auto()
+    NON_BRIGHT = auto()
+    EARTH_TONE = auto()
+    COOL_TONE = auto()
+    CONTRASTING_NON_BRIGHT = auto()
+    BINARY = auto()
+
+class BinaryColorMap(StrEnum):
+    ZERO_C = "black"
+    ONE_C = "green"
 
 class MiscStrEnum(StrEnum):
     TOTAL = auto()
+    FIRST = auto()
+    LAST = auto()
+    UNKNOWN = auto()
+
+RES_SEPARATOR = "-"
+RES_SPLITTER = ","
+
+class UpdateConfigMode(StrEnum):
+    REPLACE = auto()
+    SOFT_REPLACE = auto()
+
+class MaskedInteractionValue(IntEnum):
+    MASKED_V = 1
+    UNMASKED_V = 0
 
 class MaskedInteractionType(StrEnum):
     INTRA_PART = auto()
@@ -21,6 +50,7 @@ class ReturnType(StrEnum):
     DATAFRAME = auto()
     LIST = auto()
     ARRAY = auto()
+    SET = auto()
 
 class MetricLevel(StrEnum):
     PER_TOKEN = auto()
@@ -60,18 +90,17 @@ class FileFormat(StrEnum):
 
 @dataclass
 class RigidBodiesConstants:
-    valid_libraries = [
-        CommunityDetectionLibrary.IGRAPH,
-        CommunityDetectionLibrary.NETWORKX,
-        CommunityDetectionLibrary.LABEL_PROPAGATION,
-    ]
+    valid_libraries = list(CommunityDetectionLibrary)
     library = CommunityDetectionLibrary.NETWORKX
     pae_cutoff = 12.0
     pae_power = 1
     plddt_cutoff = 70.0
     plddt_cutoff_idr = 50.0
     resolution = 0.5
-    random_seed = 47
+    min_res = 1
+    min_proteins = 1
+    plddt_filter = True
+    random_seed = RANDOM_SEED
     valid_rb_out_fmts = [
         FileFormat.TXT,
         FileFormat.JSON,
@@ -87,6 +116,13 @@ class RigidBodiesConstants:
     rb_name_template = Template("rigid_body_${rb_idx}")
     rb_assessment_name_template = Template("rigid_body_${rb_idx}_assessment")
 
+class KeywordArg(StrEnum):
+    PLDDT_CUTOFF_IDR = auto()
+    IDR_CHAINS = auto()
+    SAVE_PLOT = auto()
+    SAVE_TABLE = auto()
+    RANDOM_SEED = auto()
+
 @dataclass
 class InteractionConstants:
     contact_threshold = 8.0 # Distance threshold in (Angstorm) to define a contact between residue pairs.
@@ -97,6 +133,11 @@ class InteractionConstants:
     save_table = False
     plot_type = "static"
     valid_plot_types = ["static", "interactive", "both"]
+
+class ResidueMapKeys(StrEnum):
+    CHAIN_ID = auto()
+    TOKEN_NUM = auto()
+    ATOM_NAME = auto()
 
 class ResidueMapDepth(StrEnum):
     ATOM = auto()
@@ -110,6 +151,9 @@ class ResidueDecoration(StrEnum):
     IS_ION = auto()
     IS_PURINE = auto()
     IS_PYRIMIDINE = auto()
+
+class AtomDecoration(StrEnum):
+    IS_REPRESENTATIVE = auto()
 
 class EntityType(StrEnum):
     PROTEIN_CHAIN = "proteinChain"

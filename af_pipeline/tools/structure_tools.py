@@ -31,37 +31,93 @@ from af_pipeline.constants.af_constants import (
     ALLOWED_RNA_MODS,
     ALLOWED_LIGANDS,
     ONLY_CA_RESIDUES,
+    AtomDecoration,
+    EntityType,
+    FileFormat,
+    InteractionMapType,
+    ResidueDecoration,
+    ResidueMapDepth,
+    VALID_INTERACTION_MAP_TYPES,
+    ResidueMapKeys,
 )
 
 def get_interaction_map(
     coords1: np.ndarray,
     coords2: np.ndarray,
     contact_threshold: float,
-    map_type: str
+    map_type: InteractionMapType,
     ):
-    """
-    Create an interaction map, given the input coordinates.
+    """ Create an interaction map, given the input coordinates.
 
     Returns a distance map or a contact map, based on the map_type specified.
+
+    ## Arguments:
+
+    - **coords1 (np.ndarray)**:<br />
+        Coordinates of shape (N, 3) for the first set of atoms/residues.
+
+    - **coords2 (np.ndarray)**:<br />
+        Coordinates of shape (M, 3) for the second set of atoms/residues.
+
+    - **contact_threshold (float)**:<br />
+        Distance threshold to define a contact.
+        Only used if `map_type` is `InteractionMapType.CONTACT`.
+
+    - **map_type (InteractionMapType)**:<br />
+        Type of interaction map to create.
+        Can be either `InteractionMapType.DISTANCE` or `InteractionMapType.CONTACT`.
+
+         - `InteractionMapType.DISTANCE`:
+            Returns a distance map of shape (N, M)
+            where each element (i, j) is the distance between the i-th atom/residue
+            in `coords1` and the j-th atom/residue in `coords2`.
+
+         - `InteractionMapType.CONTACT`:
+            Returns a binary contact map of shape (N, M)
+            where each element (i, j) is 1 if the distance between the i-th atom/residue
+            in `coords1` and the j-th atom/residue in `coords2` is less than or equal to
+            `contact_threshold`, and 0 otherwise.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        The interaction map as a numpy array.
     """
+
+    if map_type not in VALID_INTERACTION_MAP_TYPES:
+        raise ValueError(
+            f"Invalid map_type specified."\
+            f"Expected one of {VALID_INTERACTION_MAP_TYPES}, got {map_type}"
+        )
 
     distance_map = get_distance_map(coords1, coords2)
 
-    if map_type == "distance":
+    if map_type == InteractionMapType.DISTANCE:
         return distance_map
 
-    elif map_type == "contact":
+    elif map_type == InteractionMapType.CONTACT:
         contact_map = get_contact_map(distance_map, contact_threshold)
         return contact_map
 
-    else:
-        raise Exception("Invalid map_type specified...")
-
 def get_distance_map(coords1: np.ndarray, coords2: np.ndarray):
-    """
-    Create an all-v-all distance map.
+    """ Create an all-v-all distance map.
 
-    Returns a matrix of distances between all pairs of atoms/residues in the two sets of coordinates.
+    Returns a matrix of distances between all pairs of atoms/residues in the
+    two sets of coordinates.
+
+    ## Arguments:
+
+    - **coords1 (np.ndarray)**:<br />
+        Coordinates of shape (N, 3) for the first set of atoms/residues.
+
+    - **coords2 (np.ndarray)**:<br />
+        Coordinates of shape (M, 3) for the second set of atoms/residues.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        A matrix of shape (N, M) where each element (i, j) is the Euclidean distance
+        between the i-th atom/residue in `coords1` and the j-th atom/residue in `coords2`.
     """
 
     from scipy.spatial import distance_matrix
@@ -70,12 +126,27 @@ def get_distance_map(coords1: np.ndarray, coords2: np.ndarray):
 
     return distance_map
 
-
 def get_contact_map(distance_map: np.ndarray, contact_threshold: float):
-    """
-    Given the distance map, create a binary contact map by thresholding distances.
+    """ Given the distance map, create a binary contact map by thresholding distances.
 
     Returns a binary matrix, where 1 indicates a contact and 0 indicates no contact.
+
+    ## Arguments:
+
+    - **distance_map (np.ndarray)**:<br />
+        A matrix of shape (N, M) where each element (i, j) is the Euclidean distance
+        between the i-th atom/residue in `coords1` and the j-th atom/residue in `coords2`.
+
+    - **contact_threshold (float)**:<br />
+        Distance threshold to define a contact. If the distance between two atoms/residues
+        is less than or equal to this threshold, they are considered to be in contact.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        A binary matrix of shape (N, M) where each element (i, j) is 1 if the distance
+        between the i-th atom/residue in `coords1` and the j-th atom/residue in `coords2`
+        is less than or equal to `contact_threshold`, and 0 otherwise.
     """
 
     contact_map = np.where(
@@ -104,9 +175,9 @@ def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     """
 
     condition = (
-        residue.xtra.get("is_modified")
-        or residue.xtra.get("is_ligand")
-        or residue.xtra.get("entityType") is None
+        residue.xtra.get(ResidueDecoration.IS_MODIFIED)
+        or residue.xtra.get(ResidueDecoration.IS_LIGAND)
+        or residue.xtra.get(ResidueDecoration.ENTITY_TYPE) is None
     )
 
     if isinstance(condition, bool) is False:
@@ -139,7 +210,7 @@ def has_modifications(structure: Bio.PDB.Structure.Structure) -> bool:
     for model in structure:
         for chain in model:
             for residue in chain:
-                if residue.xtra.get("is_modified", False):
+                if residue.xtra.get(ResidueDecoration.IS_MODIFIED, False):
                     return True
 
     return False
@@ -148,7 +219,7 @@ def save_structure_obj(
     structure: Bio.PDB.Structure.Structure,
     out_file: str,
     res_select_obj: Select = Select(),
-    save_type: str = "cif",
+    save_type: str = FileFormat.CIF,
     preserve_header_footer = False,
 ):
     """Save the selection in Biopython structure object as a PDB or CIF file.
@@ -176,7 +247,7 @@ def save_structure_obj(
         > The header and footer information can only be preserved for CIF files.
     """
 
-    if save_type == "pdb":
+    if save_type == FileFormat.PDB:
 
         io = PDBIO()
         io.set_structure(structure)
@@ -191,7 +262,7 @@ def save_structure_obj(
                 """
             )
 
-    elif save_type == "cif":
+    elif save_type == FileFormat.CIF:
 
         io = MMCIFIO()
         io.set_structure(structure)
@@ -336,33 +407,32 @@ def decorate_residue(
     symbol = residue.get_resname()
 
     if symbol in PROTEIN_ENTITIES:
-        residue.xtra["entityType"] = "proteinChain"
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.PROTEIN_CHAIN
 
         if symbol in ALLOWED_PTMS:
-            residue.xtra["is_modified"] = True
+            residue.xtra[ResidueDecoration.IS_MODIFIED] = True
 
         if symbol in ONLY_CA_RESIDUES:
-            residue.xtra["is_ca_only"] = True
+            residue.xtra[ResidueDecoration.IS_CA_ONLY] = True
 
     elif symbol in DNA_ENTITIES:
-        residue.xtra["entityType"] = "dnaSequence"
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.DNA_SEQUENCE
 
         if symbol in ALLOWED_DNA_MODS:
-            residue.xtra["is_modified"] = True
-
+            residue.xtra[ResidueDecoration.IS_MODIFIED] = True
     elif symbol in RNA_ENTITIES:
-        residue.xtra["entityType"] = "rnaSequence"
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.RNA_SEQUENCE
 
         if symbol in ALLOWED_RNA_MODS:
-            residue.xtra["is_modified"] = True
+            residue.xtra[ResidueDecoration.IS_MODIFIED] = True
 
     elif symbol in ALLOWED_LIGANDS:
-        residue.xtra["entitiyType"] = "ligand"
-        residue.xtra["is_ligand"] = True
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.LIGAND
+        residue.xtra[ResidueDecoration.IS_LIGAND] = True
 
     elif symbol in ION:
-        residue.xtra["entityType"] = "ion"
-        residue.xtra["is_ion"] = True
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.ION
+        residue.xtra[ResidueDecoration.IS_ION] = True
 
     else:
         warnings.warn(
@@ -372,13 +442,13 @@ def decorate_residue(
             Setting 'entityType' to None.
             """
         )
-        residue.xtra["entityType"] = None
+        residue.xtra[ResidueDecoration.ENTITY_TYPE] = None
 
     if symbol in PURINES:
-        residue.xtra["is_purine"] = True
+        residue.xtra[ResidueDecoration.IS_PURINE] = True
 
     elif symbol in PYRIMIDINES:
-        residue.xtra["is_pyrimidine"] = True
+        residue.xtra[ResidueDecoration.IS_PYRIMIDINE] = True
 
     if xtra_field is not None and xtra_value is not None:
         if xtra_field in residue.xtra:
@@ -440,7 +510,9 @@ def decorate_atom(
         (False, False, False, True, "C2"): True,
     }
 
-    atom.xtra["is_representative"] = atom_xtra_dict.get(residue_attrs, False)
+    atom.xtra[AtomDecoration.IS_REPRESENTATIVE] = atom_xtra_dict.get(
+        residue_attrs, False
+    )
 
     if (
         xtra_field is not None
@@ -615,7 +687,7 @@ class RenumberResidues:
         token_chain_ids: list,
         token_res_ids: list,
         token_atom_names: list,
-        depth: str = "atom",
+        depth: ResidueMapDepth = ResidueMapDepth.ATOM,
     ):
         """Create a map of residue indices to residue numbers and vice-versa.
 
@@ -715,24 +787,24 @@ class RenumberResidues:
             )
 
             idx_to_num[token_idx] = {
-                "chain_id": chain_id,
-                "token_num": token_num,    
+                ResidueMapKeys.CHAIN_ID: chain_id,
+                ResidueMapKeys.TOKEN_NUM: token_num,
             }
 
-            if depth == "atom":
-                idx_to_num[token_idx]["atom_name"] = atom_name
+            if depth == ResidueMapDepth.ATOM:
+                idx_to_num[token_idx][ResidueMapKeys.ATOM_NAME] = atom_name
 
             if token_num not in num_to_idx[chain_id]:
-                if depth == "atom":
+                if depth == ResidueMapDepth.ATOM:
                     num_to_idx[chain_id][token_num] = {
                         atom_name: token_idx
                     }
-                elif depth == "residue":
+                elif depth == ResidueMapDepth.RESIDUE:
                     num_to_idx[chain_id][token_num] = token_idx
             else:
-                if depth == "atom":
+                if depth == ResidueMapDepth.ATOM:
                     num_to_idx[chain_id][token_num][atom_name] = token_idx
-                elif depth == "residue":
+                elif depth == ResidueMapDepth.RESIDUE:
                     warnings.warn(
                         f"""
 

@@ -1,3 +1,12 @@
+"""
+Interaction module
+==============================
+Interaction class to handle interaction data for the predicted structure. \n
+One can obtain:
+1. Interaction map: A binary contact map or distance map.
+2. Restraints: Contacts as pairwise residues in a DataFrame format.
+3. Interacting patches: contiguous regions in the interaction map obtained in (1).
+"""
 import os
 import warnings
 import numpy as np
@@ -9,73 +18,156 @@ from af_pipeline.utils.misc_utils import (
     get_key_from_res_range,
     generate_cmap,
 )
-from af_pipeline._initialize import _Initialize
+from af_pipeline.initialize import Initialize
 from af_pipeline.tools.matrix_patches import MatrixPatches
+from af_pipeline.constants.af_constants import InteractionConstants as IntCons
+from af_pipeline.constants.af_constants import (
+    ColorMapScheme,
+    KeywordArg,
+)
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
-class Interaction(_Initialize):
-    """ Class to handle interaction data for the predicted structure. \n
-    One can obtain:
-    1. Interaction map: A binary contact map or distance map.
-    2. Restraints: Contacts as pairwise residues in a DataFrame format.
-    3. Interacting patches: contiguous regions in the interaction map obtained in (1).
-    """
+_error_not_set_up = """
+The RigidBodies instance is not set up yet. Please set up the instance
+by calling the `set_from_initializer` method with an instance of the
+Initialize class.
+
+Alternatively, if you know what attributes to set, you can set the attributes of
+the RigidBodies instance directly without using the `set_from_initializer` method.
+and set the `is_set_up` attribute to True.
+
+The following attributes need to be set for the RigidBodies instance to work properly:
+- structure: Structure
+- structure_parser: StructureParser
+- token_chain_ids: list
+- token_coords: np.ndarray
+- token_plddts: np.ndarray
+- lengths_dict: dict
+- rep_atom_dict: dict
+- pae: np.ndarray
+- avg_pae: np.ndarray
+- contact_probs: np.ndarray
+- renumber: af_pipeline.tools.structure_tools.RenumberResidues
+- rep_num_to_idx: dict
+
+
+See specific methods for more details on the required attributes for each method.
+"""
+
+class Interaction:
+    """ Class to handle interaction data for the predicted structure. """
+
+    contact_threshold: float
+    """ Threshold for defining a contact between residues in Angstroms. """
+
+    plddt_cutoff: float
+    """ Threshold for defining a confident residue based on pLDDT values. """
+
+    plddt_cutoff_idr: float
+    """ Threshold for defining a confident residue based on pLDDT values for
+    intrinsically disordered regions. """
+
+    pae_cutoff: float
+    """ Threshold for defining a confident residue pair based on PAE values. """
+
+    idr_chains: list
+    """ List of chains that are intrinsically disordered. """
+
+    save_plot: bool
+    """ Whether to save the plot of the interaction map. """
+
+    save_table: bool
+    """ Whether to save the table of interacting residues. """
 
     def __init__(
         self,
-        data_file_path: str,
-        structure_file_path: str,
-        af_offset: dict = {},
-        idr_chains: list = [],
-        rep_atom_dict: dict = {},
-        average_token_pae: bool = False,
-        average_token_plddt: bool = False,
-        metric_level: str = "per_token",
+        contact_threshold: float = IntCons.contact_threshold,
+        plddt_cutoff: float = IntCons.plddt_cutoff,
+        pae_cutoff: float = IntCons.pae_cutoff,
+        **kwargs,
     ):
 
-        super().__init__(
-            data_file_path=data_file_path,
-            structure_file_path=structure_file_path,
-            af_offset=af_offset,
-            rep_atom_dict=rep_atom_dict,
-            average_token_pae=average_token_pae,
-            average_token_plddt=average_token_plddt,
-            metric_level=metric_level,
+        self.contact_threshold = contact_threshold
+        self.plddt_cutoff = plddt_cutoff
+        self.plddt_cutoff_idr = kwargs.get(
+            KeywordArg.PLDDT_CUTOFF_IDR, IntCons.plddt_cutoff_idr
         )
+        self.pae_cutoff = pae_cutoff
+        self.idr_chains = kwargs.get(KeywordArg.IDR_CHAINS, []) # List of chains that are disordered
 
-        self.contact_threshold = 8.0  # Distance threshold in (Angstorm) to define a contact between residue pairs.
-        self.plddt_cutoff = 70.0  # pLDDT cutoff to consider a confident prediction.
-        self.idr_plddt_cutoff = 50.0  # pLDDT cutoff for IDR chains.
-        self.pae_cutoff = 5.0 # PAE cutoff to consider a confident prediction.
-        self.idr_chains = idr_chains # List of chains that are disordered
+        self.save_plot = kwargs.get(KeywordArg.SAVE_PLOT, IntCons.save_plot)
+        self.save_table = kwargs.get(KeywordArg.SAVE_TABLE, IntCons.save_table)
 
-        self.save_plot = False
-        self.save_table = False
+        self._is_set_up = False
+
+    def check_is_set_up(self):
+        """ Check if the Interaction instance is set up. """
+
+        if not self._is_set_up:
+            raise ValueError(_error_not_set_up)
+
+    def set_attributes_from(self, instance: Initialize):
+        """ Set the attributes of Interaction instance from the Initialize instance.
+
+        This method can be used to set the attributes of Interaction instance
+        from the Initialize instance after the Interaction instance is created.
+
+        This is useful when the Initialize instance is created after the
+        Interaction instance is created.
+
+        ## Arguments:
+
+        - **instance (Initialize)**:<br />
+            An instance of the Initialize class.
+        """
+
+        self.structure = instance.structure
+        self.structure_parser = instance.structure_parser
+
+        self.token_chain_ids = instance.token_chain_ids
+        self.token_coords = instance.token_coords
+        self.token_plddts = instance.token_plddts
+
+        self.lengths_dict = instance.lengths_dict
+
+        self.rep_atom_dict = instance.rep_atom_dict
+
+        self.pae = instance.pae
+        self.avg_pae = instance.avg_pae
+
+        self.contact_probs = instance.contact_probs
+
+        self.renumber = instance.renumber
+        self.rep_num_to_idx = instance.rep_num_to_idx
+
+        self._is_set_up = True
 
     @staticmethod
     def get_contact_map(
         coords1: np.ndarray,
         coords2: np.ndarray,
-        contact_threshold: float = 8.0,
+        contact_threshold: float = IntCons.contact_threshold,
     ) -> np.ndarray:
         """ Get the contact map between two arrays of coordinates.
 
-        Args:
+        ## Arguments:
 
-            coords1 (np.ndarray):
-                Coordinates of the chain1 residues.
+        - **coords1 (np.ndarray)**:<br />
+            Coordinates of the chain1 residues.
 
-            coords2 (np.ndarray):
-                Coordinates of the chain2 residues.
+        - **coords2 (np.ndarray)**:<br />
+            Coordinates of the chain2 residues.
 
-            contact_threshold (float, optional):
-                Threshold for defining a contact between residues in 
-                Angstroms. Defaults to 8.0.
+        - **contact_threshold (float, optional):**:<br />
+            Threshold for defining a contact between residues in
+            Angstroms. Defaults to 8.0.
 
-        Returns:
+        ## Returns:
 
-            contact_map (np.ndarray):
-                Binary contact map where 1 indicates a contact and 0 indicates
-                no contact.
+        - **np.ndarray**:<br />
+            Binary contact map where 1 indicates a contact and 0 indicates
+            no contact.
         """
 
         distance_map = distance_matrix(coords1, coords2)
@@ -84,14 +176,19 @@ class Interaction(_Initialize):
 
         return contact_map
 
-    def create_regions_of_interest(self):
+    def create_regions_of_interest(self) -> list:
         """
         Create regions of interest for all possible chain pairs.
 
-        Returns:
-            regions_of_interest (list): list of regions of interest
+        ## Returns:
+
+        - **list**:<br />
+            A list of dictionaries, where each dictionary contains the chain IDs
+            and the start and end residue numbers for the region of interest
+            for a pair of chains.
         """
 
+        self.check_is_set_up()
         regions_of_interest = []
         token_chain_ids = self.token_chain_ids
         chain_pairs = set()
@@ -132,20 +229,31 @@ class Interaction(_Initialize):
 
         return regions_of_interest
 
-    def get_interaction_data(self, region_of_interest: Dict):
+    def get_interaction_data(self, region_of_interest: Dict) -> tuple:
+        """ Get the interaction amp, pLDDT, and PAE for the region of interest.
+
+        ## Arguments:
+
+        - **region_of_interest (Dict)**:<br />
+            Dictionary containing the chain IDs and the residue numbers for the
+            region of interest. The keys should be the chain IDs and the values
+            should be lists of the form [start_res_num, end_res_num].
+
+        ## Returns:
+
+        - **tuple**:<br />
+            A tuple containing the following elements:
+            - **interaction_map (np.array)**:<br />
+                Binary contact map or distance map for the region of interest.
+            - **plddt1 (dict)**:<br />
+                pLDDT values for the residues in chain 1 of the region of interest.
+            - **plddt2 (dict)**:<br />
+                pLDDT values for the residues in chain 2 of the region of interest.
+            - **avg_pae (np.array)**:<br />
+                Average PAE values for the region of interest.
         """
-        Get the interaction amp, pLDDT, and PAE for the region of interest.
 
-        Args:
-            region_of_interest (Dict): Dictionary containing the chain IDs and the residue numbers for the region of interest.
-
-        Returns:
-            interaction_map (np.array): binary contact map or distance map
-            plddt1 (np.array): plddt values for chain 1
-            plddt2 (np.array): plddt values for chain 2
-            pae (np.array): PAE matrix for the region of interest
-        """
-
+        self.check_is_set_up()
         chain1, chain2 = list(region_of_interest.keys())
         p1_region, p2_region = (
             region_of_interest[chain1],
@@ -170,7 +278,7 @@ class Interaction(_Initialize):
             idx for idx, (ch_id, res_id)
             in enumerate(zip(token_rep_chain_ids, token_rep_res_ids))
             if (
-                ch_id == chain1 and 
+                ch_id == chain1 and
                 self.renumber.renumber_chain_res_num(res_id, chain1) in c1_res_nums
             )
         ]
@@ -178,7 +286,7 @@ class Interaction(_Initialize):
             idx for idx, (ch_id, res_id)
             in enumerate(zip(token_rep_chain_ids, token_rep_res_ids))
             if (
-                ch_id == chain2 and 
+                ch_id == chain2 and
                 self.renumber.renumber_chain_res_num(res_id, chain2) in c2_res_nums
             )
         ]
@@ -208,18 +316,25 @@ class Interaction(_Initialize):
         self,
         plddt1: dict,
         plddt2: dict,
-        avg_pae: np.array
-    ):
-        """
-        mask low-confidence interactions.
+        avg_pae: np.ndarray
+    ) -> tuple:
+        """ Mask low-confidence interactions based on pLDDT and PAE cutoffs.
 
-        Args:
-            plddt1 (dict): pLDDT values for chain 1
-            plddt2 (dict): pLDDT values for chain 2
+        ## Arguments:
 
-        Returns:
-            plddt_matrix (np.array): binary matrix for plddt values >= plddt_cutoff
-            avg_pae (np.array): binary matrix for avg_pae values <= pae_cutoff
+        - **plddt1 (dict)**:<br />
+            pLDDT values for chain 1.
+
+        - **plddt2 (dict)**:<br />
+            pLDDT values for chain 2.
+
+        - **avg_pae (np.ndarray)**:<br />
+            Average PAE values matrix.
+
+        ## Returns:
+
+        - **tuple**:<br />
+            Binary matrices for pLDDT and PAE values that are above the respective cutoffs.
         """
 
         chain1, chain2 = next(iter(plddt1)), next(iter(plddt2))
@@ -234,10 +349,10 @@ class Interaction(_Initialize):
         ch1_cutoff = ch2_cutoff = self.plddt_cutoff
 
         if chain1 in self.idr_chains:
-            ch1_cutoff = self.idr_plddt_cutoff
+            ch1_cutoff = self.plddt_cutoff_idr
 
         if chain2 in self.idr_chains:
-            ch2_cutoff = self.idr_plddt_cutoff
+            ch2_cutoff = self.plddt_cutoff_idr
 
         plddt1 = np.where(plddt1 >= ch1_cutoff, 1, 0)
         plddt2 = np.where(plddt2 >= ch2_cutoff, 1, 0)
@@ -248,14 +363,22 @@ class Interaction(_Initialize):
 
         return plddt_matrix, avg_pae
 
-    def get_confident_interaction_map(self, region_of_interest: Dict):
-        """
-        For the specified regions in the predicted structure, obtain all
+    def get_confident_interaction_map(self, region_of_interest: Dict) -> np.ndarray:
+        """ For the specified regions in the predicted structure, obtain all
         confident interacting residue pairs.
 
-        Returns:
-            confident_interactions (np.array): binary map of confident
-            interacting residues
+        ## Arguments:
+
+        - **region_of_interest (Dict)**:<br />
+            Dictionary containing the chain IDs and the residue numbers for the
+            region of interest. The keys should be the chain IDs and the values
+            should be lists of the form [start_res_num, end_res_num].
+
+        ## Returns:
+
+        - **np.ndarray**:<br />
+            Binary map of confident interacting residues, where 1 indicates a
+            confident interaction and 0 indicates no confident interaction.
         """
 
         interaction_map, plddt1, plddt2, avg_pae = self.get_interaction_data(
@@ -272,19 +395,31 @@ class Interaction(_Initialize):
 
     def get_interacting_patches(
         self,
-        contact_map: np.array,
+        contact_map: np.ndarray,
         region_of_interest: dict,
-    ):
-        """This is a dirty implementation to get the interacting patches. \n
+    ) -> dict:
+        """ This is a dirty implementation to get the interacting patches. \n
         This is a temporary solution until we find a better way to get interacting
         patches for the given contact map.
 
-        Args:
-            contact_map (np.array): binary contact map.
-            region_of_interest (dict): region of interest for the protein pair.
+        ## Arguments:
 
-        Returns:
-            patches (dict): interacting patches for the given region of interest of the protein pair.
+        - **contact_map (np.ndarray)**:<br />
+            Binary contact map for the region of interest, where 1 indicates a
+            contact and 0 indicates no contact.
+
+        - **region_of_interest (dict)**:<br />
+            Dictionary containing the chain IDs and the residue numbers for the
+            region of interest. The keys should be the chain IDs and the values
+            should be lists of the form [start_res_num, end_res_num].
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary containing the interacting patches for the given region of
+            interest of the protein pair. The keys are the patch indices and the
+            values are dictionaries containing the chain IDs and the residue numbers
+            for the interacting patches.
         """
 
         patches = {}
@@ -328,23 +463,43 @@ class Interaction(_Initialize):
         self,
         region_of_interest: dict,
         output_dir: str,
-        save_plot: bool = False,
-        plot_type: str = "static",
+        save_plot: bool = IntCons.save_plot,
+        plot_type: str = IntCons.plot_type,
         p1_name: str | None = None,
         p2_name: str | None = None,
         concat_residues: bool = True,
         contact_probability: bool = True,
     ):
-        """Save the interacting patches for the given region of interest of the protein pair.
+        """ Save the interacting patches for the given region of interest of the protein pair.
 
-        Args:
-            region_of_interest (Dict): Dictionary containing the chain IDs and the residue indices for the region of interest.
-            save_plot (bool, optional): Outputs the plot if True. Defaults to False.
-            plot_type (str, optional): Type of plot to be saved. Defaults to "static"; options: ["static", "interactive", "both"].
-            p1_name (str, optional): Name of the first protein. Defaults to None.
-            p2_name (str, optional): Name of the second protein. Defaults to None.
-            concat_residues (bool, optional): Whether to concatenate the residues into residue ranges. Defaults to True.
-            contact_probability (bool, optional): Whether to add contact probability column to the output. Defaults to True.
+        ## Arguments:
+
+        - **region_of_interest (dict)**:<br />
+            Dictionary containing the chain IDs and the residue numbers for the
+            region of interest. The keys should be the chain IDs and the values
+            should be lists of the form [start_res_num, end_res_num].
+
+        - **output_dir (str)**:<br />
+            Directory to save the output files.
+
+        - **save_plot (bool, optional):**:<br />
+            Whether to save the plot of the interaction map. Defaults to False.
+
+        - **plot_type (str, optional):**:<br />
+            Type of plot to be saved. Defaults to "static". Valid options are:
+            "static", "interactive", and "both".
+
+        - **p1_name (str | None, optional):**:<br />
+            Name of the first protein. Defaults to None.
+
+        - **p2_name (str | None, optional):**:<br />
+            Name of the second protein. Defaults to None.
+
+        - **concat_residues (bool, optional):**:<br />
+            Whether to concatenate the residues into residue ranges. Defaults to True.
+
+        - **contact_probability (bool, optional):**:<br />
+            Whether to add contact probability column to the output. Defaults to True.
         """
 
         os.makedirs(output_dir, exist_ok=True)
@@ -403,24 +558,7 @@ class Interaction(_Initialize):
             )
 
 
-def save_map(
-    contact_map: np.ndarray,
-    avg_contact_probs_mat: np.ndarray | None,
-    patches: dict,
-    chain1: str,
-    chain2: str,
-    p1_region: tuple,
-    p2_region: tuple,
-    out_file: str,
-    save_plot=False,
-    plot_type="static",
-    p1_name: str | None = None,
-    p2_name: str | None = None,
-    concat_residues: bool = True,
-    contact_probability: bool = False,
-    num_to_idx: dict = None,
-):
-    """Save the interacting patches and the contact map to a file.
+    """
 
     Args:
         contact_map (np.ndarray): binary contact map or contact map
@@ -430,9 +568,88 @@ def save_map(
         out_file (str): path to save the output file
         save_plot (bool, optional): save the plot. Defaults to False.
     """
+def save_map(
+    contact_map: np.ndarray,
+    avg_contact_probs_mat: np.ndarray | None,
+    patches: dict,
+    chain1: str,
+    chain2: str,
+    p1_region: tuple,
+    p2_region: tuple,
+    out_file: str,
+    save_plot=IntCons.save_plot,
+    plot_type=IntCons.plot_type,
+    p1_name: str | None = None,
+    p2_name: str | None = None,
+    concat_residues: bool = True,
+    contact_probability: bool = False,
+    num_to_idx: dict = None,
+):
+    """ Save the interacting patches and the contact map to a file.
+
+    ## Arguments:
+
+    - **contact_map (np.ndarray)**:<br />
+        Binary contact map or contact map for the region of interest, where 1
+        indicates a contact and 0 indicates no contact.
+
+    - **avg_contact_probs_mat (np.ndarray | None)**:<br />
+        Average contact probabilities matrix for the region of interest.
+        This is used to calculate the average contact probability for each patch
+        if contact_probability is True.
+
+    - **patches (dict)**:<br />
+        Dictionary containing the interacting patches for the given region of
+        interest of the protein pair. The keys are the patch indices and the
+        values are dictionaries containing the chain IDs and the residue numbers
+        for the interacting patches.
+
+    - **chain1 (str)**:<br />
+        Chain ID for the first chain in the region of interest.
+
+    - **chain2 (str)**:<br />
+        Chain ID for the second chain in the region of interest.
+
+    - **p1_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the first chain in
+        the region of interest.
+
+    - **p2_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the second chain in
+        the region of interest.
+
+    - **out_file (str)**:<br />
+        Path to save the output file. The file will be saved in CSV format and
+        the plot will be saved in the format specified by plot_type.
+
+    - **save_plot (_type_, optional):**:<br />
+        Whether to save the plot of the interaction map. Defaults to False.
+
+    - **plot_type (_type_, optional):**:<br />
+        Type of plot to be saved. Defaults to "static". Valid options are:
+        "static", "interactive", and "both".
+
+    - **p1_name (str | None, optional):**:<br />
+        Name of the first chain in the region of interest.
+
+    - **p2_name (str | None, optional):**:<br />
+        Name of the second chain in the region of interest.
+
+    - **concat_residues (bool, optional):**:<br />
+        Whether to concatenate the residues into residue ranges. Defaults to True.
+
+    - **contact_probability (bool, optional):**:<br />
+        Whether to add contact probability column to the output. Defaults to False.
+
+    - **num_to_idx (dict, optional):**:<br />
+        Dictionary mapping residue numbers to indices in the contact probabilities
+         matrix. This is required if contact_probability is True. Defaults to None.
+    """
 
     if contact_probability:
-        assert avg_contact_probs_mat is not None; "avg_contact_probs_mat must be provided if contact_probability is True"
+        assert avg_contact_probs_mat is not None; (
+            "avg_contact_probs_mat must be provided if contact_probability is True"
+        )
 
     out_dir = os.path.dirname(out_file)
     file_name = os.path.basename(out_file).split(".")[0]
@@ -457,7 +674,7 @@ def save_map(
     )
 
     if save_plot:
-        if plot_type == "interactive" or plot_type == "both":
+        if plot_type in IntCons.valid_plot_types[1:3]: # interactive or both
 
             fig = plot_map(
                 contact_map=contact_map,
@@ -465,7 +682,7 @@ def save_map(
                 chain2=chain2 if p2_name is None else f"{p2_name}_{chain2}",
                 p1_region=p1_region,
                 p2_region=p2_region,
-                plot_type="interactive",
+                plot_type=IntCons.valid_plot_types[1],
             )
             out_file = os.path.join(out_dir, f"{file_name}.html")
             fig.write_html(
@@ -473,10 +690,10 @@ def save_map(
                 full_html=False,
             )
 
-            if plot_type == "both":
-                plot_type = "static"
+            if plot_type == IntCons.valid_plot_types[2]:
+                plot_type = IntCons.valid_plot_types[0] # static
 
-        if plot_type == "static":
+        if plot_type == IntCons.valid_plot_types[0]:
 
             fig = plot_map(
                 contact_map=contact_map,
@@ -484,7 +701,7 @@ def save_map(
                 chain2=chain2 if p2_name is None else f"{p2_name}_{chain2}",
                 p1_region=p1_region,
                 p2_region=p2_region,
-                plot_type="static",
+                plot_type=IntCons.valid_plot_types[0],
             )
 
             out_file = os.path.join(out_dir, f"{file_name}.png")
@@ -492,19 +709,67 @@ def save_map(
 
 
 def save_interaction_patches_df(
-    avg_contact_probs_mat,
-    patches,
-    chain1,
-    chain2,
-    p1_region,
-    p2_region,
-    p1_name,
-    p2_name,
-    concat_residues,
-    contact_probability,
-    num_to_idx,
-    csv_outfile
+    avg_contact_probs_mat: np.ndarray | None,
+    patches: dict,
+    chain1: str,
+    chain2: str,
+    p1_region: tuple,
+    p2_region: tuple,
+    p1_name: str | None,
+    p2_name: str | None,
+    concat_residues: bool,
+    contact_probability: bool,
+    num_to_idx: dict | None,
+    csv_outfile: str,
 ):
+    """ Save the interacting patches df as csv file.
+
+    ## Arguments:
+
+    - **avg_contact_probs_mat (np.ndarray | None)**:<br />
+        Average contact probabilities matrix for the region of interest. This is
+        used to calculate the average contact probability for each patch if
+        contact_probability is True.
+
+    - **patches (dict)**:<br />
+        Dictionary containing the interacting patches for the given region of
+        interest of the protein pair. The keys are the patch indices and the
+        values are dictionaries containing the chain IDs and the residue numbers
+        for the interacting patches.
+
+    - **chain1 (str)**:<br />
+        Chain ID for the first chain in the region of interest.
+
+    - **chain2 (str)**:<br />
+        Chain ID for the second chain in the region of interest.
+
+    - **p1_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the first chain in
+        the region of interest.
+
+    - **p2_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the second chain in
+        the region of interest.
+
+    - **p1_name (str | None)**:<br />
+        Name of the first protein in the region of interest.
+
+    - **p2_name (str | None)**:<br />
+        Name of the second protein in the region of interest.
+
+    - **concat_residues (bool)**:<br />
+        Whether to concatenate the residues into residue ranges.
+
+    - **contact_probability (bool)**:<br />
+        Whether to add contact probability column to the output.
+
+    - **num_to_idx (dict | None)**:<br />
+        Dictionary mapping residue numbers to indices in the contact probabilities
+
+    - **csv_outfile (str)**:<br />
+        Path to save the output CSV file.
+    """
+
     import pandas as pd
     df_rows = []
     for _, patch in patches.items():
@@ -561,31 +826,58 @@ def plot_map(
     p1_region: tuple,
     p2_region: tuple,
     plot_type: str
-):
-    """Plot the contact map
+) -> go.Figure | plt.Figure:
+    """ Plot the contact map.
 
-    Args:
-        contact_map (np.ndarray): binary contact map or segmented map with labels
+    ## Arguments:
+
+    - **contact_map (np.ndarray)**:<br />
+        Binary contact map
+
+    - **chain1 (str)**:<br />
+        Chain ID for the first chain in the region of interest.
+
+    - **chain2 (str)**:<br />
+        Chain ID for the second chain in the region of interest.
+
+    - **p1_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the first chain in
+        the region of interest.
+
+    - **p2_region (tuple)**:<br />
+        Tuple containing the start and end residue numbers for the second chain in
+        the region of interest.
+
+    - **plot_type (str)**:<br />
+        Type of plot to generate. Options are "static" or "interactive".
+
+    ## Returns:
+
+    - ****:<br />
+        The generated plot object. The type of the plot object depends on the
+        plot_type argument.
+        - For "static", it returns a matplotlib figure object.
+        - For "interactive", it returns a plotly figure object.
     """
-
-    xtick_vals = np.arange(
-        0, p2_region[1] - p2_region[0] + 1
-    )
+    xtick_vals = np.arange(0, p2_region[1] - p2_region[0] + 1)
     xtick_labels = [str(x+p2_region[0]) for x in xtick_vals]
 
-    ytick_vals = np.arange(
-        0, p1_region[1] - p1_region[0] + 1
-    )
+    ytick_vals = np.arange(0, p1_region[1] - p1_region[0] + 1)
     ytick_labels = [str(x+p1_region[0]) for x in ytick_vals]
 
     num_unique_patches = len(np.unique(contact_map))
 
     colorscale = generate_cmap(
         n=num_unique_patches,
-        scheme="binary" if num_unique_patches == 2 else "soft-warm",
+        scheme=ColorMapScheme.BINARY if num_unique_patches == 2 else ColorMapScheme.SOFT_WARM,
     )
 
-    if plot_type == "interactive":
+    if plot_type not in IntCons.valid_plot_types:
+        raise ValueError(
+            f"Invalid plot type: {plot_type}. Valid options are: {IntCons.valid_plot_types}"
+        )
+
+    if plot_type == IntCons.valid_plot_types[1]: # interactive
 
         import plotly.graph_objects as go
 
@@ -616,7 +908,7 @@ def plot_map(
             ),
         )
 
-    elif plot_type == "static":
+    elif plot_type == IntCons.valid_plot_types[0]: # static
 
             import matplotlib.pyplot as plt
             import matplotlib.colors as mcolors
