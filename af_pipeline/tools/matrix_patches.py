@@ -130,9 +130,9 @@ class MatrixPatches:
             ... [1, 1, 0]
             ... ])
             >>> MatrixPatches.get_one_sets_from_matrix(matrix=matrix, axis=0)
-            {0: {0, 2}, 1: {1}, 2: {0, 1}}
+            {0: {np.int64(0), np.int64(2)}, 1: {np.int64(1)}, 2: {np.int64(0), np.int64(1)}}
             >>> MatrixPatches.get_one_sets_from_matrix(matrix=matrix, axis=1)
-            {0: {0, 2}, 1: {1, 2}, 2: {0}}
+            {0: {np.int64(0), np.int64(2)}, 1: {np.int64(1), np.int64(2)}, 2: {np.int64(0)}}
         """
 
         assert np.unique(matrix).tolist() == [0, 1]

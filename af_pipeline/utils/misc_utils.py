@@ -235,15 +235,15 @@ def create_mask(
     ... )
     >>> print(mask)
     [[1 1 0]
-        [1 1 0]
-        [0 0 1]]
+     [1 1 0]
+     [0 0 1]]
     >>> mask = create_mask(
     ... partition_dict, hide_interactions="inter_part"
     ... )
     >>> print(mask)
     [[0 0 1]
-        [0 0 1]
-        [1 1 0]]
+     [0 0 1]
+     [1 1 0]]
     """
 
     assert hide_interactions in list(MaskedInteractionType), (
@@ -306,7 +306,7 @@ def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
     >>> matrix = np.array([[1, 2], [3, 4]])
     >>> print(symmetrize_matrix(matrix))
     [[1.  2.5]
-        [2.5 4. ]]
+     [2.5 4. ]]
     """
 
     assert isinstance(matrix, np.ndarray), "Input must be a numpy array"
@@ -701,14 +701,14 @@ def update_matrix_row_col(
     ... matrix, idxs_to_update, False, idxs_to_keep
     ... )
     array([[1., 3.],
-            [7., 9.]])
+           [7., 9.]])
     >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     >>> idxs_to_update = {1: [0, 1]}
     >>> update_matrix_row_col(
     ... matrix, idxs_to_update, True, {}
     ... )
     array([[3. , 4.5],
-            [7.5, 9. ]])
+           [7.5, 9. ]])
     """
 
     if matrix is None:
@@ -806,8 +806,8 @@ def extract_protein_chain_mapping(
     For e.g., if the user provides the following mapping:
     ```python
     {
-        "ProteinA": "A,B",
-        "ProteinB": "C"
+        "ProteinA": ["A", "B"],
+        "ProteinB": ["C"]
     }
     ```
     The function will return the following dictionary:
@@ -832,8 +832,8 @@ def extract_protein_chain_mapping(
     ## Examples:
 
     >>> protein_chain_mapping = {
-    ... "ProteinA" : "A,B",
-    ... "ProteinB": "C"
+    ... "ProteinA" : ["A", "B"],
+    ... "ProteinB": ["C"]
     ... }
     >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
     [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
