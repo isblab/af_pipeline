@@ -1,3 +1,4 @@
+import os
 import yaml
 from argparse import ArgumentParser
 from af_pipeline.af_input.alphafold3 import AlphaFoldServer
@@ -6,6 +7,10 @@ from af_pipeline.af_input.colabfold import ColabFold
 from af_pipeline.utils.misc_utils import add_attribute
 from af_pipeline.utils.file_utils import read_fasta, write_json
 from pprint import pprint
+from af_pipeline.constants.af_constants import (
+    ConfigYaml,
+    AFInputJobFields,
+)
 
 if __name__ == "__main__":
 
@@ -45,9 +50,13 @@ if __name__ == "__main__":
     )
     args = args.parse_args()
 
-    config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
-    protein_uniprot_map = config_yaml.get("proteins", None)
-    input_dict = config_yaml.get("af_input_jobs", None)
+    config_path = os.path.abspath(args.input)
+    output_dir = os.path.abspath(args.output)
+    os.makedirs(output_dir, exist_ok=True)
+
+    config_yaml = yaml.load(open(config_path), Loader=yaml.FullLoader)
+    protein_uniprot_map = config_yaml.get(ConfigYaml.PROTEIN_UNIPROT_MAP, None)
+    input_dict = config_yaml.get(ConfigYaml.AF_INPUT_JOBS, None)
 
     protein_sequences = read_fasta(args.protein_sequences)
     nucleic_acid_sequences = (
@@ -70,14 +79,14 @@ if __name__ == "__main__":
     # pprint(job_cycles)
     AlphaFoldServer.write_job_files(
         job_cycles=job_cycles,
-        output_dir=args.output,
+        output_dir=output_dir,
         num_jobs_per_file=20,
     )
 
     # This replaces/adds the job names in the config file
     updated_config = add_attribute(
         config_yaml=config_yaml,
-        attribute_name="job_set_name",
+        attribute_name=AFInputJobFields.JOB_SET_NAME,
         attribute_value=job_set_names,
         mode="replace",
         add_first=True,
@@ -86,20 +95,20 @@ if __name__ == "__main__":
     # This replaces/adds the af_offsets in the config file
     updated_config = add_attribute(
         config_yaml=updated_config,
-        attribute_name="af_offset",
+        attribute_name=AFInputJobFields.AF_OFFSET,
         attribute_value=af_offsets,
         mode="replace",
     )
 
     updated_config = add_attribute(
         config_yaml=updated_config,
-        attribute_name="modelSeeds",
+        attribute_name=AFInputJobFields.MODEL_SEEDS,
         attribute_value=cycle_seeds,
         mode="replace",
     )
 
     write_json(
-        file_path=args.input.replace(".yaml", ".json"),
+        file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
         data=updated_config,
     )
 

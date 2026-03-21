@@ -3,6 +3,11 @@ from argparse import ArgumentParser
 from af_pipeline.interaction.interaction import Interaction
 from af_pipeline.initialize import Initialize
 from IMP_Toolbox.utils.file_helpers import read_json
+from af_pipeline.constants.af_constants import (
+    BestPredictionFields,
+    MetricLevel,
+    PlotType
+)
 
 # af_pred = AlphaFoldPred()
 
@@ -86,7 +91,11 @@ if __name__ == "__main__":
     )
 
     args = args.parse_args()
-
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(
+            "Could not find best_af_predictions.json"
+            "Please run `rank_af_predictions.py` to obtain it."
+        )
     best_preds = read_json(args.input)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
     os.makedirs(args.output, exist_ok=True)
@@ -94,9 +103,9 @@ if __name__ == "__main__":
     for pred_, pred_to_analyse in best_preds.items():
         if "monomer" in pred_.lower():
             continue
-        structure_path = pred_to_analyse.get("structure_path")
-        data_path = pred_to_analyse.get("data_path")
-        af_offset = pred_to_analyse.get("af_offset", {})
+        structure_path = pred_to_analyse.get(BestPredictionFields.STRUCTURE_PATH)
+        data_path = pred_to_analyse.get(BestPredictionFields.DATA_PATH)
+        af_offset = pred_to_analyse.get(BestPredictionFields.AF_OFFSET, {})
         pred_dir_name = os.path.basename(
             os.path.dirname(os.path.dirname(structure_path))
         )
@@ -113,7 +122,7 @@ if __name__ == "__main__":
             rep_atom_dict={},
             average_token_pae=False,
             average_token_plddt=False,
-            metric_level="per_token",
+            metric_level=MetricLevel.PER_TOKEN,
             use_fast_cif_parser=False,
         )
 
@@ -138,7 +147,7 @@ if __name__ == "__main__":
                 region_of_interest=region_of_interest,
                 output_dir=output_dir,
                 save_plot=False,
-                plot_type="static",
+                plot_type=PlotType.STATIC,
                 p1_name=None,
                 p2_name=None,
                 concat_residues=True,

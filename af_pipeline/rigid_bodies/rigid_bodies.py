@@ -911,7 +911,7 @@ class PAEPatches:
         )
 
         plt.savefig(
-            os.path.join(output_dir, f"rigid_body_{self.rb_idx}.png"),
+            os.path.join(output_dir, f"rigid_body_{self.rb_idx}.{FileFormat.PNG}"),
             transparent=True
         )
         plt.close(fig)
@@ -945,7 +945,7 @@ def save_rigid_bodies_txt(
         Name of the output file without extension.
     """
 
-    file_name += ".txt"
+    file_name += f".{FileFormat.TXT}"
     output_path = os.path.join(output_dir, file_name)
 
     with open(output_path, "w") as f:

@@ -17,6 +17,12 @@ from af_pipeline.utils.misc_utils import (
 from af_pipeline.tools.structure_tools import get_interaction_map
 from af_pipeline.initialize import Initialize
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
+from af_pipeline.constants.af_constants import (
+    MaskedInteractionType,
+    MaskedInteractionValue,
+    InteractionMapType,
+    MiscStrEnum
+)
 
 _error_not_set_up="""
 The RigidBodyAssessment instance is not set up yet. Please set up the instance
@@ -141,9 +147,9 @@ class _Mask:
 
         _interchain_mask = create_mask(
             partition_dict=lengths_dict,
-            hide_interactions="intra_part",
-            masked_value=0,
-            unmasked_value=1,
+            hide_interactions=MaskedInteractionType.INTRA_PART,
+            masked_value=MaskedInteractionValue.UNMASKED_V,
+            unmasked_value=MaskedInteractionValue.MASKED_V,
         )
 
         self.unique_chains = self.get_unique_chains()
@@ -248,7 +254,7 @@ class _Mask:
         """
 
         _Mask.sanity_check_mask_dimensions(dimensions)
-        total_len = lengths_dict.get("total", 0)
+        total_len = lengths_dict.get(MiscStrEnum.TOTAL, 0)
 
         rb_res_idxs = [
             token_idx
@@ -295,7 +301,7 @@ class _Mask:
         """
 
         _Mask.sanity_check_mask_dimensions(dimensions)
-        total_len = lengths_dict.get("total", 0)
+        total_len = lengths_dict.get(MiscStrEnum.TOTAL, 0)
 
         chain_res_idxs = self.rb_dict.get(chain_id, [])
 
@@ -342,7 +348,7 @@ class _Mask:
         """
 
         _Mask.sanity_check_mask_dimensions(dimensions)
-        total_len = lengths_dict.get("total", 0)
+        total_len = lengths_dict.get(MiscStrEnum.TOTAL, 0)
 
         chain_1_res_idxs = self.rb_dict.get(chain_id_1, [])
         chain_2_res_idxs = self.rb_dict.get(chain_id_2, [])
@@ -1406,7 +1412,7 @@ class RigidBodyAssessment:
             coords1=np.array(self.token_coords),
             coords2=np.array(self.token_coords),
             contact_threshold=IntCons.contact_threshold,
-            map_type="contact",
+            map_type=InteractionMapType.CONTACT,
         )
 
         self.is_set_up = True
@@ -1534,7 +1540,7 @@ class RigidBodyAssessment:
         )
         overall_assessment["rb_coverage"] = (
             overall_assessment["num_total_residues"] /
-            self.lengths_dict["total"]
+            self.lengths_dict[MiscStrEnum.TOTAL]
         )
 
         # Number of contacts formed in the rigid body

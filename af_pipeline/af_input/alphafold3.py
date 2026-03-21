@@ -37,7 +37,17 @@ from typing import List, Dict, Any, Tuple
 from af_pipeline.utils.misc_utils import chain_id_gen, generate_seeds
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
-    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON
+    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE
+)
+from af_pipeline.constants.af_constants import (
+    NucleicAcidModificationFields,
+    ProteinModificationFields,
+    GlycanModificationFields,
+    AFServerSequenceFields,
+    AFInputEntityFields,
+    AFInputJobFields,
+    EntityType,
+    FileFormat,
 )
 
 
@@ -190,12 +200,17 @@ class AlphaFoldServer:
         os.makedirs(output_dir, exist_ok=True)
         for i, job in enumerate(sets_of_n_jobs):
 
-            save_path = os.path.join(output_dir, f"{file_name}_set_{i}.json")
+            f_name = AF_JOB_FILE.substitute(fname=file_name, set_idx=i)
+
+            save_path = os.path.join(
+                output_dir,
+                f"{f_name}.{FileFormat.JSON}",
+            )
 
             with open(save_path, "w") as f:
                 json.dump(job, f, indent=4)
 
-            print(f"{len(job)} jobs written for {file_name}_set_{i}")
+            print(f"{len(job)} jobs written for {f_name}")
 
     @staticmethod
     def write_job_files(
@@ -387,14 +402,14 @@ class AFCycle:
         """
 
         # this will lead to AF3 server deciding the seed
-        if len(job_set_dict["modelSeeds"]) == 0:
+        if len(job_set_dict[AFInputJobFields.MODEL_SEEDS]) == 0:
             self.job_list.append(job_set_dict)
 
         else:
-            for seed in job_set_dict["modelSeeds"]:
+            for seed in job_set_dict[AFInputJobFields.MODEL_SEEDS]:
                 job_copy = job_set_dict.copy()
-                job_copy["modelSeeds"] = [seed]
-                job_copy["name"] = f"{job_set_dict['name']}_{seed}"
+                job_copy[AFInputJobFields.MODEL_SEEDS] = [seed]
+                job_copy[AFInputJobFields.NAME] = f"{job_set_dict[AFInputJobFields.NAME]}_{seed}"
                 self.job_list.append(job_copy)
 
 
@@ -495,9 +510,9 @@ class AFJobSet:
             self.generate_job_set_name()
 
         job_set_dict = {
-            "name": self.job_set_name,
-            "modelSeeds": self.model_seeds,
-            "sequences": self.af_sequences,
+            AFInputJobFields.NAME: self.job_set_name,
+            AFInputJobFields.MODEL_SEEDS: self.model_seeds,
+            AFInputJobFields.ENTITIES: self.af_sequences,
         }
 
         return job_set_dict
@@ -508,7 +523,7 @@ class AFJobSet:
         Tries to get the job name from the `job_set_info`.
         """
 
-        self.job_set_name = self.job_set_info.get("job_set_name")
+        self.job_set_name = self.job_set_info.get(AFInputJobFields.JOB_SET_NAME)
 
     def update_model_seeds(self):
         """Update the `model_seeds`.
@@ -518,9 +533,9 @@ class AFJobSet:
         - If "modelSeeds" is not provided, return an empty list (auto seed by AF3).
         """
 
-        model_seeds = self.job_set_info.get("modelSeeds")
+        model_seeds = self.job_set_info.get(AFInputJobFields.MODEL_SEEDS)
 
-        if "modelSeeds" in self.job_set_info:
+        if AFInputJobFields.MODEL_SEEDS in self.job_set_info:
 
             if isinstance(model_seeds, int):
                 self.model_seeds = generate_seeds(
@@ -545,7 +560,7 @@ class AFJobSet:
         chainGen = chain_id_gen()
 
         # add af_sequence for each entity
-        for entity_info in self.job_set_info["entities"]:
+        for entity_info in self.job_set_info[AFInputJobFields.ENTITIES]:
             af_sequence = AFSequence(
                 entity_info=entity_info,
                 protein_sequences=self.protein_sequences,
@@ -674,9 +689,11 @@ class Entity:
         self.nucleic_acid_sequences = nucleic_acid_sequences
 
         self.entity_info = entity_info
-        self.sanity_check_entity_type(entity_type=entity_info["type"])
-        self.entity_type = entity_info["type"]
-        self.entity_name = entity_info["name"]
+        self.sanity_check_entity_type(
+            entity_type=entity_info[AFInputEntityFields.TYPE]
+        )
+        self.entity_type = entity_info[AFInputEntityFields.TYPE]
+        self.entity_name = entity_info[AFInputEntityFields.NAME]
 
         self.entity_count = 1
         self.real_sequence = ""
@@ -710,14 +727,14 @@ class Entity:
 
         template_dict = {}
 
-        if self.entity_type != "proteinChain":
+        if self.entity_type != EntityType.PROTEIN_CHAIN:
             return template_dict
 
         max_template_date = self.entity_info.get(
-            "maxTemplateDate", MAX_TEMPLATE_DATE
+            AFInputEntityFields.MAX_TEMPLATE_DATE, MAX_TEMPLATE_DATE
         )
         use_structure_template = self.entity_info.get(
-            "useStructureTemplate", True
+            AFInputEntityFields.USE_STRUCTURE_TEMPLATE, True
         )
 
         assert isinstance(use_structure_template, bool), \
@@ -725,18 +742,18 @@ class Entity:
 
         template_dict_configs = {
             True: {
-                "useStructureTemplate": True,
-                "maxTemplateDate": max_template_date,
+                AFInputEntityFields.USE_STRUCTURE_TEMPLATE: True,
+                AFInputEntityFields.MAX_TEMPLATE_DATE: max_template_date,
             },
             False: {
-                "useStructureTemplate": False,
+                AFInputEntityFields.USE_STRUCTURE_TEMPLATE: False,
             },
         }
 
         template_dict = template_dict_configs[use_structure_template]
 
         if (
-            "maxTemplateDate" in self.entity_info
+            AFInputEntityFields.MAX_TEMPLATE_DATE in self.entity_info
             and use_structure_template is False
         ):
             warnings.warn(
@@ -755,7 +772,7 @@ class Entity:
             Count or copy number of the entity (default: 1).
         """
 
-        entity_count = self.entity_info.get("count", 1)
+        entity_count = self.entity_info.get(AFInputEntityFields.COUNT, 1)
 
         return entity_count
 
@@ -774,7 +791,7 @@ class Entity:
         real_sequence = ""
 
         if (
-            self.entity_type == "proteinChain"
+            self.entity_type == EntityType.PROTEIN_CHAIN
             and self.protein_sequences is not None
         ):
 
@@ -793,7 +810,7 @@ class Entity:
                     )
 
         elif (
-            self.entity_type in ["dnaSequence", "rnaSequence"]
+            self.entity_type in [EntityType.DNA_SEQUENCE, EntityType.RNA_SEQUENCE]
             and self.nucleic_acid_sequences is not None
         ):
 
@@ -812,7 +829,11 @@ class Entity:
                     )
 
         ivalid_case = (
-            self.entity_type in ["proteinChain", "dnaSequence", "rnaSequence"]
+            self.entity_type in [
+                EntityType.PROTEIN_CHAIN,
+                EntityType.DNA_SEQUENCE,
+                EntityType.RNA_SEQUENCE
+            ]
             and real_sequence == ""
         )
 
@@ -836,13 +857,13 @@ class Entity:
             `start` and `end` of the entity.
         """
 
-        if "range" in self.entity_info:
+        if AFInputEntityFields.RANGE in self.entity_info:
 
             assert (
-                len(self.entity_info["range"]) == 2
+                len(self.entity_info[AFInputEntityFields.RANGE]) == 2
             ), "Invalid range; must be a list of two integers (start and end)"
 
-            start, end = self.entity_info["range"]
+            start, end = self.entity_info[AFInputEntityFields.RANGE]
 
         else: # use full sequence or (1, 1) for small molecules
             start, end = 1, max(1, len(self.real_sequence))
@@ -861,12 +882,15 @@ class Entity:
 
         glycans = []
 
-        if self.entity_type == "proteinChain" and "glycans" in self.entity_info:
-            glycans = self.entity_info["glycans"]
+        if (
+            self.entity_type == EntityType.PROTEIN_CHAIN and
+            AFInputEntityFields.GLYCANS in self.entity_info
+        ):
+            glycans = self.entity_info[AFInputEntityFields.GLYCANS]
             glycans = [
                 {
-                    "residues": glycan[0],
-                    "position": glycan[1] - self.start + 1,
+                    GlycanModificationFields.RESIDUES: glycan[0],
+                    GlycanModificationFields.POSITION: glycan[1] - self.start + 1,
                 }
                 for glycan in glycans
             ]
@@ -893,9 +917,18 @@ class Entity:
             return modifications
 
         modification_keys = {
-            "proteinChain": ["ptmType", "ptmPosition"],
-            "dnaSequence": ["modificationType", "basePosition"],
-            "rnaSequence": ["modificationType", "basePosition"],
+            EntityType.PROTEIN_CHAIN: [
+                ProteinModificationFields.PTM_TYPE,
+                ProteinModificationFields.PTM_POSITION
+            ],
+            EntityType.DNA_SEQUENCE: [
+                NucleicAcidModificationFields.MODIFICATION_TYPE,
+                NucleicAcidModificationFields.BASE_POSITION
+            ],
+            EntityType.RNA_SEQUENCE: [
+                NucleicAcidModificationFields.MODIFICATION_TYPE,
+                NucleicAcidModificationFields.BASE_POSITION
+            ],
         }
 
         if self.entity_type not in modification_keys:
@@ -928,8 +961,8 @@ class Entity:
     def sanity_check_small_molecule(entity_type, entity_name):
         """Sanity check the small molecules."""
 
-        if (entity_type == "ligand" and entity_name not in LIGAND) or (
-            entity_type == "ion" and entity_name not in ION
+        if (entity_type == EntityType.LIGAND and entity_name not in LIGAND) or (
+            entity_type == EntityType.ION and entity_name not in ION
         ):
             raise Exception(f"Invalid small molecule {entity_name}.")
 
@@ -941,11 +974,11 @@ class Entity:
         - `glycans` are only supported for `proteinChain`, raise exception otherwise
         """
 
-        if self.entity_type == "proteinChain" and len(self.glycans) > 0:
+        if self.entity_type == EntityType.PROTEIN_CHAIN and len(self.glycans) > 0:
 
             # check if the glycosylation position is valid
             for glycan in self.glycans:
-                glyc_pos = glycan["position"]
+                glyc_pos = glycan[GlycanModificationFields.POSITION]
 
                 if glyc_pos < 1 or glyc_pos > len(self.real_sequence):
                     raise Exception(
@@ -953,7 +986,7 @@ class Entity:
                         in {self.entity_name}"
                     )
 
-        if self.entity_type != "proteinChain" and len(self.glycans) > 0:
+        if self.entity_type != EntityType.PROTEIN_CHAIN and len(self.glycans) > 0:
             raise Exception(
                 """
 
@@ -975,7 +1008,9 @@ class Entity:
 
         if (
             self.entity_type not in [
-                "proteinChain", "dnaSequence", "rnaSequence"
+                EntityType.PROTEIN_CHAIN,
+                EntityType.DNA_SEQUENCE,
+                EntityType.RNA_SEQUENCE,
             ]
             and len(self.modifications) > 0
         ):
@@ -987,26 +1022,26 @@ class Entity:
             )
 
         # check if the modification type is valid
-        if self.entity_type == "proteinChain":
+        if self.entity_type == EntityType.PROTEIN_CHAIN:
 
             if not all([
-                mod["ptmType"] in PTM
+                mod[ProteinModificationFields.PTM_TYPE] in PTM
                 for mod in self.modifications
             ]):
                 raise Exception("Invalid modification type.")
 
-        elif self.entity_type == "dnaSequence":
+        elif self.entity_type == EntityType.DNA_SEQUENCE:
 
             if not all([
-                mod["modificationType"] in DNA_MOD
+                mod[NucleicAcidModificationFields.MODIFICATION_TYPE] in DNA_MOD
                 for mod in self.modifications
             ]):
                 raise Exception("Invalid modification type.")
 
-        elif self.entity_type == "rnaSequence":
+        elif self.entity_type == EntityType.RNA_SEQUENCE:
 
             if not all([
-                mod["modificationType"] in RNA_MOD
+                mod[NucleicAcidModificationFields.MODIFICATION_TYPE] in RNA_MOD
                 for mod in self.modifications]
             ):
                 raise Exception("Invalid modification type.")
@@ -1015,9 +1050,9 @@ class Entity:
         for mod in self.modifications:
 
             mod_pos = (
-                mod["ptmPosition"]
-                if self.entity_type == "proteinChain"
-                else mod["basePosition"]
+                mod[ProteinModificationFields.PTM_POSITION]
+                if self.entity_type == EntityType.PROTEIN_CHAIN
+                else mod[NucleicAcidModificationFields.BASE_POSITION]
             )
 
             if mod_pos < 1 or mod_pos > len(self.real_sequence):
@@ -1183,30 +1218,33 @@ class AFSequence(Entity):
 
         af_sequence_dict = {}
 
-        if self.type == "proteinChain":
+        if self.type == EntityType.PROTEIN_CHAIN:
             af_sequence_dict = {
                 self.type: {
-                    "sequence": self.real_sequence,
-                    "glycans": self.glycans,
-                    "modifications": self.modifications,
-                    "count": self.count,
+                    AFServerSequenceFields.SEQUENCE: self.real_sequence,
+                    AFServerSequenceFields.GLYCANS: self.glycans,
+                    AFServerSequenceFields.MODIFICATIONS: self.modifications,
+                    AFServerSequenceFields.COUNT: self.count,
                 }
             }
 
             af_sequence_dict[self.type].update(self.template_settings)
 
-        elif self.type in ["dnaSequence", "rnaSequence"]:
+        elif self.type in [EntityType.DNA_SEQUENCE, EntityType.RNA_SEQUENCE]:
             af_sequence_dict = {
                 self.type: {
-                    "sequence": self.real_sequence,
-                    "modifications": self.modifications,
-                    "count": self.count,
+                    AFServerSequenceFields.SEQUENCE: self.real_sequence,
+                    AFServerSequenceFields.MODIFICATIONS: self.modifications,
+                    AFServerSequenceFields.COUNT: self.count,
                 }
             }
 
-        elif self.type in ["ligand", "ion"]:
+        elif self.type in [EntityType.LIGAND, EntityType.ION]:
             af_sequence_dict = {
-                self.type: {self.type: self.name, "count": self.count}
+                self.type: {
+                    self.type: self.name,
+                    AFServerSequenceFields.COUNT: self.count
+                }
             }
 
         return af_sequence_dict
@@ -1228,7 +1266,11 @@ class AFSequence(Entity):
         real_sequence = self.real_sequence
         start, end = self.start, self.end
 
-        if self.type in ["proteinChain", "dnaSequence", "rnaSequence"]:
+        if self.type in [
+            EntityType.PROTEIN_CHAIN,
+            EntityType.DNA_SEQUENCE,
+            EntityType.RNA_SEQUENCE
+        ]:
             real_sequence = real_sequence[start - 1 : end]
 
         return real_sequence
