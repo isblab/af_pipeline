@@ -191,7 +191,7 @@ the [example script](https://github.com/isblab/af_pipeline/tree/main/examples/cr
 </details>
 
 
-**Q. Is it `YAML` format of the config file necessary?**
+**Q. Is the `YAML` format of the config file necessary?**
 <details>
 <summary>No, it is not necessary.</summary>
 For :py:mod:`af_pipeline.af_input` only, as long as the input data is provided as a dictionary
