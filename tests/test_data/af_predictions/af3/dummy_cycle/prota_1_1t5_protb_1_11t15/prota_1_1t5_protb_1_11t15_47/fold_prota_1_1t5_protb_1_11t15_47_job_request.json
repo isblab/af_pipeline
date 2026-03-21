@@ -1,0 +1,27 @@
+[{
+ "name": "protA_1_1-5_protB_1_11-15_47",
+ "modelSeeds": [
+  "47"
+ ],
+ "sequences": [
+  {
+   "proteinChain": {
+    "sequence": "MEVML",
+    "count": 1,
+    "useStructureTemplate": true,
+    "maxTemplateDate": "2021-09-30"
+   }
+  },
+  {
+   "proteinChain": {
+    "sequence": "MSCNG",
+    "count": 1,
+    "useStructureTemplate": true,
+    "maxTemplateDate": "2021-09-30"
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 1
+}
+]

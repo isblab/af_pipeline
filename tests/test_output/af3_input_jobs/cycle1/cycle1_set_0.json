@@ -1,0 +1,90 @@
+[
+    {
+        "name": "jobset_min_0",
+        "modelSeeds": [
+            0
+        ],
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "GAVLILLLVAVAVVAGVAA",
+                    "glycans": [],
+                    "modifications": [],
+                    "count": 1,
+                    "useStructureTemplate": true,
+                    "maxTemplateDate": "2021-09-30"
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
+                    "modifications": [],
+                    "count": 1
+                }
+            },
+            {
+                "rnaSequence": {
+                    "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
+                    "modifications": [],
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_ATP",
+                    "count": 2
+                }
+            },
+            {
+                "ion": {
+                    "ion": "MG",
+                    "count": 2
+                }
+            }
+        ]
+    },
+    {
+        "name": "jobset_min_1",
+        "modelSeeds": [
+            1
+        ],
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "GAVLILLLVAVAVVAGVAA",
+                    "glycans": [],
+                    "modifications": [],
+                    "count": 1,
+                    "useStructureTemplate": true,
+                    "maxTemplateDate": "2021-09-30"
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
+                    "modifications": [],
+                    "count": 1
+                }
+            },
+            {
+                "rnaSequence": {
+                    "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
+                    "modifications": [],
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_ATP",
+                    "count": 2
+                }
+            },
+            {
+                "ion": {
+                    "ion": "MG",
+                    "count": 2
+                }
+            }
+        ]
+    }
+]

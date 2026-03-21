@@ -1,0 +1,19 @@
+[{
+ "name": "dummy_job_2",
+ "modelSeeds": [
+  "996788583"
+ ],
+ "sequences": [
+  {
+   "proteinChain": {
+    "sequence": "MEVM",
+    "count": 1,
+    "useStructureTemplate": true,
+    "maxTemplateDate": "2021-09-30"
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 1
+}
+]

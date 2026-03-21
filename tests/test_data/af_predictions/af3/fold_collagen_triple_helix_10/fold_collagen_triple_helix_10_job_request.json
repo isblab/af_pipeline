@@ -1,0 +1,32 @@
+[{
+ "name": "collagen_triple_helix_10",
+ "modelSeeds": [
+  "1"
+ ],
+ "sequences": [
+  {
+   "proteinChain": {
+    "sequence": "GPPGPPGPPGPPGPPGPPGPPGPPGPPGPP",
+    "count": 1,
+    "useStructureTemplate": true
+   }
+  },
+  {
+   "proteinChain": {
+    "sequence": "PGPPGPPGPPGPPGPPGPPGPPGPPGPPGP",
+    "count": 1,
+    "useStructureTemplate": true
+   }
+  },
+  {
+   "proteinChain": {
+    "sequence": "PPGPPGPPGPPGPPGPPGPPGPPGPPGPPG",
+    "count": 1,
+    "useStructureTemplate": true
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 1
+}
+]
