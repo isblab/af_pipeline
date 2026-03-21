@@ -21,11 +21,12 @@ predictions from AlphaFold2 and AlphaFold3.
     ```
 
 ## Usage
-- Refer to the documentation.
+- Refer to the documentation.  
 - Example scripts are available in the [examples](./examples/) directory.
 
 ## Documentation
-- Currently, only network visualizations are available in [docs](./docs/) directory.
+ 
+ - Currently, only network visualizations are available in [docs](./docs/) directory. 
 
 > [!NOTE]
 > *Assuming your working directory is `/path/to/af_pipeline`*
@@ -61,13 +62,13 @@ predictions from AlphaFold2 and AlphaFold3.
 
 ## Information
 
-__Author(s):__
+__Author(s):__ Omkar Golatkar
 
-__Date:__
+__Date:__ 21st March, 2026
 
-__License:__
+__License:__ GPLv3
 
-__Testable:__
+__Testable:__ Yes
 
 __Parallelizeable:__
 
