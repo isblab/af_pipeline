@@ -10,7 +10,13 @@ import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
-from af_pipeline.constants.af_constants import RES_RANGE_SEP
+from af_pipeline.constants.af_constants import (
+    RES_RANGE_SEP,
+    EntityType,
+    FileFormat,
+    AFInputJobFields,
+    AFInputEntityFields,
+)
 
 class AlphaFold2:
     """Class to create FASTA files for AlphaFold2 jobs."""
@@ -117,7 +123,7 @@ class AlphaFold2:
         """
 
         os.makedirs(output_dir, exist_ok=True)
-        save_path = os.path.join(output_dir, f"{file_name}.fasta")
+        save_path = os.path.join(output_dir, f"{file_name}.{FileFormat.FASTA}")
 
         with open(save_path, "w") as f:
             for identifier, sequence in fasta_dict.items():
@@ -177,30 +183,30 @@ class AlphaFold2:
         """
 
         # get the job name if provided
-        job_name = job_info.get("job_set_name", None)
+        job_name = job_info.get(AFInputJobFields.JOB_SET_NAME, None)
 
         # get the information for each proteinChain
-        identifiers = self.get_entity_info(job_info, "name", None)
-        ranges = self.get_entity_info(job_info, "range", None)
-        counts = self.get_entity_info(job_info, "count", 1)
+        identifiers = self.get_entity_info(job_info, AFInputJobFields.NAME, None)
+        ranges = self.get_entity_info(job_info, AFInputEntityFields.RANGE, None)
+        counts = self.get_entity_info(job_info, AFInputEntityFields.COUNT, 1)
 
         sequences = self.get_entity_sequences(ranges=ranges, identifiers=identifiers)
 
         job_dict = {
-            "job_name": job_name,
-            "entities": [],
+            AFInputJobFields.JOB_NAME: job_name,
+            AFInputJobFields.ENTITIES: [],
         }
 
         for entity_count, (identifier, sequence, range_, count_) in enumerate(
             zip(identifiers, sequences, ranges, counts)
         ):
             for count_ in range(1, count_ + 1):
-                job_dict["entities"].append(
+                job_dict[AFInputJobFields.ENTITIES].append(
                     {
-                        "identifier": identifier,
-                        "sequence": sequence,
-                        "range": range_ if range_ else [1, len(sequence)],
-                        "count": count_,
+                        AFInputEntityFields.IDENTIFIER: identifier,
+                        AFInputEntityFields.SEQUENCE: sequence,
+                        AFInputEntityFields.RANGE: range_ if range_ else [1, len(sequence)],
+                        AFInputEntityFields.COUNT: count_,
                     }
                 )
 
@@ -211,11 +217,11 @@ class AlphaFold2:
         # create fasta dictionary for each job {header: sequence}
         sequences_to_add = {}
 
-        for entity in job_dict["entities"]:
-            for entity_count in range(1, entity["count"] + 1):
-                identifier = entity["identifier"]
-                sequence = entity["sequence"]
-                start, end = entity["range"]
+        for entity in job_dict[AFInputJobFields.ENTITIES]:
+            for entity_count in range(1, entity[AFInputEntityFields.COUNT] + 1):
+                identifier = entity[AFInputEntityFields.IDENTIFIER]
+                sequence = entity[AFInputEntityFields.SEQUENCE]
+                start, end = entity[AFInputEntityFields.RANGE]
 
                 sequences_to_add[
                     f"{identifier}_{entity_count}_{start}{RES_RANGE_SEP}{end}"
@@ -252,8 +258,8 @@ class AlphaFold2:
 
         return [
             entity.get(info_type, default_val)
-            for entity in job_info["entities"]
-            if entity["type"] == "proteinChain"
+            for entity in job_info[AFInputJobFields.ENTITIES]
+            if entity[AFInputEntityFields.TYPE] == EntityType.PROTEIN_CHAIN
         ]
 
     def get_entity_sequences(
@@ -322,10 +328,10 @@ class AlphaFold2:
 
         fragments = defaultdict(list)
 
-        for entity in job_dict["entities"]:
-            identifier = entity["identifier"]
-            start, end = entity["range"]
-            count = entity["count"]
+        for entity in job_dict[AFInputJobFields.ENTITIES]:
+            identifier = entity[AFInputEntityFields.IDENTIFIER]
+            start, end = entity[AFInputEntityFields.RANGE]
+            count = entity[AFInputEntityFields.COUNT]
 
             fragments[f"{identifier}_{start}{RES_RANGE_SEP}{end}"].append(count)
 
@@ -357,9 +363,10 @@ class AlphaFold2:
         """
 
         if any([
-                entity_type != "proteinChain"
+                entity_type != EntityType.PROTEIN_CHAIN
                 for entity_type in [
-                    entity["type"] for entity in job_info["entities"]
+                    entity[AFInputEntityFields.TYPE]
+                    for entity in job_info[AFInputJobFields.ENTITIES]
                 ]
         ]):
             warnings.warn(

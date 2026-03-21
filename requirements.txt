@@ -8,5 +8,6 @@ ruamel.yaml
 PyYAML
 plotly
 pytest
+pytest-cov
 pdoc
 pyvis

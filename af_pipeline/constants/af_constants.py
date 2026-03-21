@@ -88,6 +88,9 @@ class FileFormat(StrEnum):
     JSON = auto()
     PKL = auto()
     XLSX = auto()
+    PNG = auto()
+    HTML = auto()
+    FASTA = auto()
 
 @dataclass
 class RigidBodiesConstants:
@@ -124,6 +127,11 @@ class KeywordArg(StrEnum):
     SAVE_TABLE = auto()
     RANDOM_SEED = auto()
 
+class PlotType(StrEnum):
+    STATIC = auto()
+    INTERACTIVE = auto()
+    BOTH = auto()
+
 @dataclass
 class InteractionConstants:
     contact_threshold = 8.0 # Distance threshold in (Angstorm) to define a contact between residue pairs.
@@ -132,8 +140,12 @@ class InteractionConstants:
     plddt_cutoff_idr = 50.0 # pLDDT cutoff for IDR chains.
     save_plot = False
     save_table = False
-    plot_type = "static"
-    valid_plot_types = ["static", "interactive", "both"]
+    plot_type = PlotType.STATIC
+    valid_plot_types = [
+        PlotType.STATIC,
+        PlotType.INTERACTIVE,
+        PlotType.BOTH
+    ]
 
 class ResidueMapKeys(StrEnum):
     CHAIN_ID = auto()
@@ -199,13 +211,82 @@ AVAILABLE_PARSERS = {
     "fast_cif": FastMMCIFParser,
 }
 
-@dataclass(frozen=True)
-class ConfigYaml:
-    input: str = "af_input_jobs"
-    master: str = "af_master_dirs"
-    cycle: str = "af_cycle_dirs"
-    job_set: str = "af_job_set_dirs"
-    best_pred: str = "best_af3_predictions"
+AF_JOB_FILE = Template("${fname}_set_${set_idx}")
+
+class AFServerSequenceFields(StrEnum):
+    SEQUENCE = "sequence"
+    GLYCANS = auto()
+    MODIFICATIONS = auto()
+    COUNT = auto()
+
+class AFInputJobFields(StrEnum):
+    NAME = auto()
+    JOB_NAME = auto()
+    JOB_SET_NAME = auto()
+    MODEL_SEEDS = "modelSeeds"
+    ENTITIES = auto()
+    AF_OFFSET = auto()
+
+class AFInputEntityFields(StrEnum):
+    NAME = auto()
+    IDENTIFIER = auto()
+    SEQUENCE = auto()
+    TYPE = auto()
+    COUNT = auto()
+    RANGE = auto()
+    USE_STRUCTURE_TEMPLATE = "useStructureTemplate"
+    MAX_TEMPLATE_DATE = "maxTemplateDate"
+    GLYCANS = auto()
+    MODIFICATIONS = auto()
+
+class GlycanModificationFields(StrEnum):
+    RESIDUES = auto()
+    POSITION = auto()
+
+class ProteinModificationFields(StrEnum):
+    PTM_TYPE = "ptmType"
+    PTM_POSITION = "ptmPosition"
+
+class NucleicAcidModificationFields(StrEnum):
+    MODIFICATION_TYPE = "modificationType"
+    BASE_POSITION = "basePosition"
+
+# @dataclass(frozen=True)
+# class ConfigYaml:
+#     input: str = "af_input_jobs"
+#     master: str = "af_master_dirs"
+#     cycle: str = "af_cycle_dirs"
+#     job_set: str = "af_job_set_dirs"
+#     best_pred: str = "best_af3_predictions"
+
+class ConfigYaml(StrEnum):
+    AF_INPUT_JOBS = auto()
+    AF_MASTER_DIRS = auto()
+    AF_CYCLE_DIRS = auto()
+    AF_JOB_SET_DIRS = auto()
+    BEST_AF3_PREDICTIONS = auto()
+    PROTEIN_UNIPROT_MAP = auto()
+
+class BestPredictionFields(StrEnum):
+    STRUCTURE_PATH = auto()
+    DATA_PATH = auto()
+    AF_OFFSET = auto()
+
+class AF3Metrics(StrEnum):
+    RANKING_SCORE = auto()
+    IPTM = auto()
+    PTM = auto()
+    FRACTION_DISORDERED = auto()
+    MODEL_PATH = auto()
+    MODEL_IDX = auto()
+
+class AF3SummaryConfidenceFields(StrEnum):
+    FRACTION_DISORDERED = auto()
+    HAS_CLASH = auto()
+    IPTM = auto()
+    NUM_RECYCLES = auto()
+    PTM = auto()
+    RANKING_SCORE = auto()
 
 ALLOWED_STRUCTURE_FORMATS = list(AVAILABLE_PARSERS.keys())
 

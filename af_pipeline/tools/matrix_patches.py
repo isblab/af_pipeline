@@ -5,6 +5,7 @@ from af_pipeline.utils.misc_utils import (
     get_key_from_res_range,
     get_res_range_from_key,
 )
+from af_pipeline.constants.af_constants import MiscStrEnum
 
 class MatrixPatches:
     """Class to get interacting patches from a binary matrix"""
@@ -70,8 +71,9 @@ class MatrixPatches:
             4        {4}        {3}
         """
 
-        assert np.unique(self.matrix).tolist() == [0, 1]
-        "Matrix must be binary and non-empty"
+        assert np.isin(self.matrix, [0, 1]).all() and np.any(self.matrix), (
+            f"Matrix must be binary and non-empty, got {np.unique(self.matrix)}"
+        )
 
         row_sets = self.get_one_sets_from_matrix(self.matrix, axis=0)
         col_sets = self.get_one_sets_from_matrix(self.matrix, axis=1)
@@ -135,8 +137,9 @@ class MatrixPatches:
             {0: {np.int64(0), np.int64(2)}, 1: {np.int64(1), np.int64(2)}, 2: {np.int64(0)}}
         """
 
-        assert np.unique(matrix).tolist() == [0, 1]
-        "Matrix must be binary"
+        assert np.isin(matrix, [0, 1]).all() and np.any(matrix), (
+            f"Matrix must be binary and non-empty, got {np.unique(matrix)}"
+        )
 
         one_sets = {}
 
@@ -465,7 +468,7 @@ class MatrixPatches:
                         df_rows.append([res_range1, res_range2])
 
         new_df = pd.DataFrame(df_rows, columns=[colname_1, colname_2])
-        new_df.drop_duplicates(inplace=True, keep="first")
+        new_df.drop_duplicates(inplace=True, keep=MiscStrEnum.FIRST)
         new_df.reset_index(drop=True, inplace=True)
 
         return new_df

@@ -3,7 +3,12 @@ import yaml
 from argparse import ArgumentParser
 from af_pipeline.initialize import Initialize
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
-from af_pipeline.constants.af_constants import ConfigYaml
+from af_pipeline.constants.af_constants import (
+    BestPredictionFields,
+    MetricLevel,
+    ConfigYaml,
+    FileFormat
+)
 from af_pipeline.utils.file_utils import read_json
 
 if __name__ == "__main__":
@@ -15,7 +20,7 @@ if __name__ == "__main__":
         "--input",
         type=str,
         required=False,
-        default="./input/config.json",
+        default="./output/best_af_predictions.json",
         help="Path to input json file",
     )
 
@@ -139,8 +144,12 @@ if __name__ == "__main__":
         f"Invalid value for min_proteins {args.min_proteins}"
 
     # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
-    config_yaml = read_json(args.input)
-    input_dict = config_yaml.get(ConfigYaml.best_pred, None)
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(
+            "Could not find best_af_predictions.json"
+            "Please run `rank_af_predictions.py` to obtain it."
+        )
+    input_dict = read_json(args.input)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
     protein_chain_map = {
         protein: chain for pair in args.protein_chain_map for protein, chain in [pair.split(":")]
@@ -148,9 +157,15 @@ if __name__ == "__main__":
 
     for pred_head, pred_to_analyse in input_dict.items():
 
-        af_offset = pred_to_analyse.get("af_offset", None)
-        structure_path = pred_to_analyse.get("structure_path", None)
-        data_path = pred_to_analyse.get("data_path", None)
+        af_offset = pred_to_analyse.get(BestPredictionFields.AF_OFFSET, None)
+        structure_path = pred_to_analyse.get(BestPredictionFields.STRUCTURE_PATH, None)
+        data_path = pred_to_analyse.get(BestPredictionFields.DATA_PATH, None)
+        dir_name = os.path.basename(
+            os.path.dirname(os.path.dirname(structure_path))
+        )
+
+        file_name = f"{dir_name}_rigid_bodies"
+        save_dir = os.path.join(args.output, file_name)
 
         initialize = Initialize(
             data_file_path=data_path,
@@ -159,7 +174,7 @@ if __name__ == "__main__":
             rep_atom_dict={},
             average_token_pae=False,
             average_token_plddt=False,
-            metric_level="per_token",
+            metric_level=MetricLevel.PER_TOKEN,
             use_fast_cif_parser=False,
         )
 
@@ -186,17 +201,17 @@ if __name__ == "__main__":
 
         rigid_bodies_extractor.save_rigid_bodies(
             domains=domains,
-            output_dir=args.output,
-            rb_out_fmt="txt",
+            output_dir=save_dir,
+            rb_out_fmt=FileFormat.TXT,
             save_structure=True,
-            rb_struct_fmt="pdb",
+            rb_struct_fmt=FileFormat.PDB,
             filter_struct_by_plddt=True,
             protein_chain_map=protein_chain_map
         )
 
         rigid_bodies_extractor.assess_rigid_bodies(
             domains=domains,
-            output_dir=args.output,
+            output_dir=save_dir,
             protein_chain_map=protein_chain_map,
             symmetric_pae=True,
             as_average=True,
@@ -204,7 +219,7 @@ if __name__ == "__main__":
 
         rigid_bodies_extractor.show_rigid_bodies_on_pae_matrix(
             domains=domains,
-            output_dir=args.output,
+            output_dir=save_dir,
         )
 
         print(f"Rigid bodies for {os.path.basename(structure_path)} saved in {args.output}")

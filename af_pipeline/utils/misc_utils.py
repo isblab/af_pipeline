@@ -55,7 +55,7 @@ def add_attribute(
 
     from af_pipeline.constants.af_constants import ConfigYaml
 
-    af_input_jobs = config_yaml.get(ConfigYaml.input, {})
+    af_input_jobs = config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {})
 
     for job_cycle, job_sets in af_input_jobs.items():
         for idx, job_set in enumerate(job_sets):
@@ -76,7 +76,7 @@ def add_attribute(
 
     updated_config = update_config(
         config_yaml=config_yaml,
-        updates={ConfigYaml.input: af_input_jobs},
+        updates={ConfigYaml.AF_INPUT_JOBS: af_input_jobs},
         mode=mode
     )
 

@@ -35,7 +35,14 @@ import warnings
 from collections import defaultdict
 from af_pipeline.utils.file_utils import read_json
 from af_pipeline.utils.misc_utils import chain_id_gen
-from af_pipeline.constants.af_constants import RES_RANGE_SEP
+from af_pipeline.constants import af_constants
+from af_pipeline.constants.af_constants import (
+    AF3Metrics,
+    AF3SummaryConfidenceFields,
+    AFInputJobFields,
+    BestPredictionFields,
+    FileFormat,
+)
 
 def get_directory_level(pred_dir:str) -> int | None:
     """ Get the level of the prediction directory
@@ -65,7 +72,10 @@ def get_directory_level(pred_dir:str) -> int | None:
     sub_files = [item for item in sub_items if os.path.isfile(os.path.join(pred_dir, item))]
 
     for level in range(4):
-        if any(".cif" in file or ".pdb" in file for file in sub_files) or len(sub_dirs) == 0:
+        if (
+            any(f".{FileFormat.CIF}" in file or f".{FileFormat.PDB}" in file
+            for file in sub_files) or len(sub_dirs) == 0
+        ):
             return level
 
         pred_dir = os.path.join(pred_dir, sub_dirs[0])
@@ -338,9 +348,9 @@ class RankAF3JobSet:
         key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
 
         best_pred_info[key] = {
-            "structure_path": structure_path,
-            "data_path": data_path,
-            "af_offset": af_offset
+            BestPredictionFields.STRUCTURE_PATH: structure_path,
+            BestPredictionFields.DATA_PATH: data_path,
+            BestPredictionFields.AF_OFFSET: af_offset
         }
 
         return best_pred_info
@@ -365,12 +375,12 @@ class RankAF3JobSet:
                 ranking.append(
                     (
                         seed,
-                        metrics["ranking_score"],
-                        metrics["iptm"],
-                        metrics["ptm"],
-                        metrics["fraction_disordered"],
-                        metrics["model_path"],
-                        metrics["model_idx"],
+                        metrics[AF3Metrics.RANKING_SCORE],
+                        metrics[AF3Metrics.IPTM],
+                        metrics[AF3Metrics.PTM],
+                        metrics[AF3Metrics.FRACTION_DISORDERED],
+                        metrics[AF3Metrics.MODEL_PATH],
+                        metrics[AF3Metrics.MODEL_IDX],
                     )
                 )
 
@@ -530,16 +540,16 @@ class RankAF3JobSet:
 
                 af3_metrics_per_seed[model_seed].append(
                     {
-                        "ranking_score": model_metric["ranking_score"],
-                        "iptm": model_metric["iptm"],
-                        "ptm": model_metric["ptm"],
-                        "fraction_disordered": model_metric["fraction_disordered"],
-                        "model_path": [
+                        AF3Metrics.RANKING_SCORE: model_metric[AF3Metrics.RANKING_SCORE],
+                        AF3Metrics.IPTM: model_metric[AF3Metrics.IPTM],
+                        AF3Metrics.PTM: model_metric[AF3Metrics.PTM],
+                        AF3Metrics.FRACTION_DISORDERED: model_metric[AF3Metrics.FRACTION_DISORDERED],
+                        AF3Metrics.MODEL_PATH: [
                             os.path.join(af3_seed_prediction_dir, af3_file)
                             for af3_file in os.listdir(af3_seed_prediction_dir)
-                            if f"model_{i}" in af3_file and af3_file.endswith("cif")
+                            if f"model_{i}" in af3_file and af3_file.endswith(FileFormat.CIF)
                         ][0],
-                        "model_idx": i,
+                        AF3Metrics.MODEL_IDX: i,
                     }
                 )
 
@@ -573,12 +583,12 @@ class RankAF3JobSet:
         metric_data = read_json(af3_summary_confidence_file)
 
         required_data = {
-            "fraction_disordered": metric_data.get("fraction_disordered"),
-            "has_clash": metric_data.get("has_clash"),
-            "iptm": metric_data.get("iptm"),
-            "num_recycles": metric_data.get("num_recycles"),
-            "ptm": metric_data.get("ptm"),
-            "ranking_score": metric_data.get("ranking_score"),
+            AF3SummaryConfidenceFields.FRACTION_DISORDERED: metric_data.get(AF3SummaryConfidenceFields.FRACTION_DISORDERED),
+            AF3SummaryConfidenceFields.HAS_CLASH: metric_data.get(AF3SummaryConfidenceFields.HAS_CLASH),
+            AF3SummaryConfidenceFields.IPTM: metric_data.get(AF3SummaryConfidenceFields.IPTM),
+            AF3SummaryConfidenceFields.NUM_RECYCLES: metric_data.get(AF3SummaryConfidenceFields.NUM_RECYCLES),
+            AF3SummaryConfidenceFields.PTM: metric_data.get(AF3SummaryConfidenceFields.PTM),
+            AF3SummaryConfidenceFields.RANKING_SCORE: metric_data.get(AF3SummaryConfidenceFields.RANKING_SCORE),
         }
 
         return required_data
@@ -600,7 +610,7 @@ class RankAF3JobSet:
 
         job_request_data = read_json(af3_job_request_file)
 
-        return job_request_data[0].get("modelSeeds")[0]
+        return job_request_data[0].get(AFInputJobFields.MODEL_SEEDS)[0]
 
     @staticmethod
     def get_data_path_from_structure_path(structure_path: str) -> str:
@@ -626,7 +636,9 @@ class RankAF3JobSet:
             Path to the data file
         """
 
-        return structure_path.replace(".cif", ".json").replace("model_", "full_data_")
+        return structure_path.replace(
+            f".{FileFormat.CIF}", f".{FileFormat.JSON}"
+        ).replace("model_", "full_data_")
 
     def extract_af_offset_from_af_input_jobs(self, af_input_jobs: dict| None = None) -> dict:
         """ Extract the offsets for AF3 predictions from the AF jobs
@@ -676,9 +688,9 @@ class RankAF3JobSet:
             self.try_af_offset_from_path = True
             return af_offset
 
-        if "af_offset" in job_sets[self.job_set_id-1]:
+        if AFInputJobFields.AF_OFFSET in job_sets[self.job_set_id-1]:
             # If af_offset is already present in the job set, use it
-            af_offset = job_sets[self.job_set_id-1]["af_offset"]
+            af_offset = job_sets[self.job_set_id-1][AFInputJobFields.AF_OFFSET]
             if len(af_offset) == 0:
                 warnings.warn(
                     f"No AF offset found for job {self.job_set_id} in AF jobs. "
@@ -688,32 +700,6 @@ class RankAF3JobSet:
             else:
                 self.try_af_offset_from_path = False
             return af_offset
-
-        # af_entities = job_sets[self.job_set_id-1].get("entities", None)
-
-        # if af_entities is None:
-        #     raise ValueError(
-        #         f"No entities found for job {self.job_set_id} in AF jobs. "
-        #         "Please check the input yaml file."
-        #     )
-
-        # for entity in af_entities:
-
-        #     for _entity_count in range(entity.get("count", 1)):
-
-        #         res_range = entity.get("range", None)
-
-        #         if res_range:
-        #             af_offset[atoz[chain_count]] = [
-        #                 entity["range"][0],
-        #                 entity["range"][1],
-        #             ]
-
-        #         else:
-        #             warnings.warn(f"Entity {entity['name']} does not have a range.")
-        #             self.try_af_offset_from_path = True
-
-        #         chain_count += 1
 
         else:
             self.try_af_offset_from_path = True
@@ -796,7 +782,7 @@ class RankAF3JobSet:
 
                 chain_id = next(chainGen)
                 try:
-                    start, end = res_range.split(RES_RANGE_SEP)
+                    start, end = res_range.split(af_constants.RES_RANGE_SEP)
                 except ValueError:
                     try:
                         start, end = res_range.split("-")
@@ -840,14 +826,14 @@ class RankAF3JobSet:
         job_set_id = -1 # in case job set name is not found
 
         for idx, job in enumerate(job_sets):
-            if job.get("job_set_name", "") == self.job_set_name:
+            if job.get(AFInputJobFields.JOB_SET_NAME, "") == self.job_set_name:
                 job_set_id = idx + 1  # Job IDs are 1-indexed
 
         if job_set_id == -1 and soft_match:
             for idx, job in enumerate(job_sets):
                 if (
-                    self.job_set_name in job.get("job_set_name", "")
-                    or job.get("job_set_name", "") in self.job_set_name
+                    self.job_set_name in job.get(AFInputJobFields.JOB_SET_NAME, "")
+                    or job.get(AFInputJobFields.JOB_SET_NAME, "") in self.job_set_name
                 ):
                     job_set_id = idx + 1
 

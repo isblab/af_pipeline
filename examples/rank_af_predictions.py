@@ -12,8 +12,11 @@ from af_pipeline.rank_predictions.rank_af import (
 from af_pipeline.utils.file_utils import read_json, write_json
 from af_pipeline.rank_predictions.rank_af import RankAF3JobSet
 from af_pipeline.constants.af_constants import ConfigYaml
+from af_pipeline.constants import af_constants
 
 if __name__ == "__main__":
+
+    af_constants.RES_RANGE_SEP = "to"
 
     args = ArgumentParser()
 
@@ -22,7 +25,7 @@ if __name__ == "__main__":
         "--input",
         type=str,
         required=False,
-        default="./input/config.json",
+        default="./output/af_input_jobs.json",
         help="Path to input yaml file containing the target proteins and their uniprot ids",
     )
 
@@ -38,6 +41,12 @@ if __name__ == "__main__":
     args = args.parse_args()
 
     # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(
+            "Could not find af_input_jobs.json"
+            "Please run `create_af_jobs.py` to obtain it."
+        )
+
     config_yaml = read_json(args.input)
 
     job_set_dirs = []
@@ -49,7 +58,7 @@ if __name__ == "__main__":
     # If you need to find best predictions for a specific job set directory, use 1.
 
     # 1. Scan through af_job_set_dirs to get all job set directories
-    af_job_set_dirs = config_yaml.get(ConfigYaml.job_set, None)
+    af_job_set_dirs = config_yaml.get(ConfigYaml.AF_JOB_SET_DIRS, None)
 
     if af_job_set_dirs is None:
         warnings.warn(
@@ -63,7 +72,7 @@ if __name__ == "__main__":
             job_set_dirs.extend(get_job_set_dirs(af_job_set_dir))
 
     # 2. Scan through af_cycle_dirs to get all job set directories
-    af_master_dirs = config_yaml.get(ConfigYaml.master, None)
+    af_master_dirs = config_yaml.get(ConfigYaml.AF_MASTER_DIRS, None)
 
     if af_master_dirs is None:
         warnings.warn(
@@ -77,7 +86,7 @@ if __name__ == "__main__":
             job_set_dirs.extend(get_job_set_dirs(af_master_dir))
 
     # 3. Scan through af_cycle_dirs to get all job set directories
-    af_cycle_dirs = config_yaml.get(ConfigYaml.cycle, None)
+    af_cycle_dirs = config_yaml.get(ConfigYaml.AF_CYCLE_DIRS, None)
 
     if af_cycle_dirs is None:
         warnings.warn(
@@ -98,13 +107,14 @@ if __name__ == "__main__":
     for job_set_dir in list(set(job_set_dirs)):
         ranker = RankAF3JobSet(
             job_set_dir=job_set_dir,
+            try_af_offset_from_path=False,
         )
         ranker.add_job_set_id(
-            af_input_jobs=config_yaml.get(ConfigYaml.input, {}),
+            af_input_jobs=config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {}),
             soft_match=True,
         )
         best_pred_info = ranker.extract_af3_best_pred_data(
-            af_input_jobs=config_yaml.get(ConfigYaml.input, {})
+            af_input_jobs=config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {})
         )
         if len(best_pred_info) > 0:
             # print("Updating config yaml with ranked predictions")

@@ -24,6 +24,7 @@ from af_pipeline.constants.af_constants import InteractionConstants as IntCons
 from af_pipeline.constants.af_constants import (
     ColorMapScheme,
     KeywordArg,
+    FileFormat,
 )
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -549,7 +550,7 @@ class Interaction:
                 p2_name=p_names[chain2],
                 p1_region=p1_region,
                 p2_region=p2_region,
-                out_file=os.path.join(output_dir, f"patches_{file_name}.html"),
+                out_file=os.path.join(output_dir, f"patches_{file_name}.{FileFormat.HTML}"),
                 save_plot=save_plot,
                 plot_type=plot_type,
                 concat_residues=concat_residues,
@@ -654,7 +655,7 @@ def save_map(
     out_dir = os.path.dirname(out_file)
     file_name = os.path.basename(out_file).split(".")[0]
 
-    csv_outfile = os.path.join(out_dir, f"{file_name}.csv")
+    csv_outfile = os.path.join(out_dir, f"{file_name}.{FileFormat.CSV}")
 
     print(f"Writing interacting patches to {csv_outfile}")
 
@@ -684,7 +685,7 @@ def save_map(
                 p2_region=p2_region,
                 plot_type=IntCons.valid_plot_types[1],
             )
-            out_file = os.path.join(out_dir, f"{file_name}.html")
+            out_file = os.path.join(out_dir, f"{file_name}.{FileFormat.HTML}")
             fig.write_html(
                 out_file,
                 full_html=False,
@@ -704,7 +705,7 @@ def save_map(
                 plot_type=IntCons.valid_plot_types[0],
             )
 
-            out_file = os.path.join(out_dir, f"{file_name}.png")
+            out_file = os.path.join(out_dir, f"{file_name}.{FileFormat.PNG}")
             fig.figure.savefig(out_file)
 
 
