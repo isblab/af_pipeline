@@ -26,7 +26,7 @@ def write_json(
         json.dump(data, f)
 
 
-def read_json(file_path: str) -> dict | list:
+def read_json(file_path: str):
     """Load a json file.
 
     Arguments:
