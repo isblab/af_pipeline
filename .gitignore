@@ -1,4 +1,6 @@
-/af_pipeline/tests/data/af_predictions/af3
+tests/test_data/af_predictions/af2/result_model_1_multimer_v3_pred_3.pkl
+/examples/output
+*.a3m
 # custom module ignore
 .vscode/
 
@@ -6,12 +8,6 @@
 */archive
 __pycache__/
 */_archive/*
-*.html
-*.pdb
-*.txt
-*.cif
-*.fasta
-*.json
 *.py[cod]
 *$py.class
 
