@@ -1,3 +1,4 @@
+from __future__ import annotations
 import warnings
 import numpy as np
 import pandas as pd
@@ -13,6 +14,34 @@ from af_pipeline.utils.misc_utils import (
     time_it,
     create_mask,
 )
+from af_pipeline.tools.structure_tools import get_interaction_map
+from af_pipeline.initialize import Initialize
+from af_pipeline.constants.af_constants import InteractionConstants as IntCons
+
+_error_not_set_up="""
+The RigidBodyAssessment instance is not set up yet. Please set up the instance
+by calling the `set_fromInitializer` method with an instance of the
+Initialize class.
+
+Alternatively, if you know what attributes to set, you can set the attributes of
+the RigidBodyAssessment instance directly without using the `set_fromInitializer` method.
+and set the `is_set_up` attribute to True.
+
+The following attributes need to be set for the RigidBodyAssessment instance to work properly:
+- structure_file_path: str
+- structure: Structure
+- af_offset: dict | None
+- token_coords: list
+- token_plddts: list
+- pae: np.ndarray
+- avg_pae: np.ndarray
+- lengths_dict: dict
+- renumber: af_pipeline.tools.structure_tools.RenumberResidues
+- idx_to_num: dict (can be obtained from renumber object)
+- num_to_idx: dict (can be obtained from renumber object)
+
+See specific methods for more details on the required attributes for each method.
+"""
 
 # @time_it
 class _Mask:
@@ -117,17 +146,16 @@ class _Mask:
             unmasked_value=1,
         )
 
-        self.contact_map_mask_2d = np.ma.make_mask(
-            contact_map * _interchain_mask
-        )
-        self.contact_map_mask_1d = self.contact_map_mask_2d.any(axis=0)
-
-
         self.unique_chains = self.get_unique_chains()
         self.chain_pairs = self.get_chain_pairs()
 
         self.rb_mask_1d = self.get_rb_mask(lengths_dict, 1) # use for pLDDT
         self.rb_mask_2d = self.get_rb_mask(lengths_dict, 2) # use for PAE
+
+        self.contact_map_mask_2d = np.ma.make_mask(
+            contact_map * _interchain_mask * self.rb_mask_2d
+        )
+        self.contact_map_mask_1d = self.contact_map_mask_2d.any(axis=0)
 
         self.chain_mask_stack_1d = self.get_chain_mask_stack(1)
         self.chain_mask_stack_2d = self.get_chain_mask_stack(2)
@@ -138,7 +166,7 @@ class _Mask:
     def get_unique_chains(self) -> List[str]:
         """Get unique chains in the rigid body.
 
-        Returns:
+        ## Returns:
 
         - **unique_chains (list)**:<br />
             List of unique chain IDs in the rigid body.
@@ -155,7 +183,7 @@ class _Mask:
     def get_chain_pairs(self) -> List[Tuple[str, str]]:
         """Get all unique chain pairs in the rigid body.
 
-        Returns:
+        ## Returns:
 
         - **chain_pairs (list)**:<br />
             List of tuples containing unique chain pairs.
@@ -173,12 +201,12 @@ class _Mask:
     ) -> Dict[str, List[int]]:
         """Transform rigid body dictionary from residue numbers to indices.
 
-        Arguments:
+        ## Arguments:
 
         - **rb_dict (dict)**:<br />
             Dictionary of rigid bodies with residue numbers.
 
-        Returns:
+        ## Returns:
 
         - **rb_dict_idxs (dict)**:<br />
             Dictionary of rigid bodies with residue indices.
@@ -202,7 +230,7 @@ class _Mask:
     ) -> np.ndarray:
         """Get a binary map of residues in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **lengths_dict (dict)**:<br />
             Dictionary containing lengths of chains in the structure.
@@ -210,7 +238,7 @@ class _Mask:
         - **dimensions (int)**:<br />
             Dimensions of the mask to be generated.
 
-        Returns:
+        ## Returns:
 
         - **rb_mask (np.ndarray)**:<br />
             A binary map of residues in the rigid body.
@@ -249,7 +277,7 @@ class _Mask:
     ) -> np.ndarray:
         """Get a binary map of residues in a chain.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_id (str)**:<br />
             Chain ID for which the mask is to be generated.
@@ -257,7 +285,7 @@ class _Mask:
         - **lengths_dict (dict)**:<br />
             Dictionary containing lengths of chains in the structure.
 
-        Returns:
+        ## Returns:
 
         - **chain_mask (np.ndarray)**:<br />
             A binary map of residues in the chain.
@@ -293,7 +321,7 @@ class _Mask:
     ) -> np.ndarray:
         """Get a binary map of residues in a chain pair.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_id_1 (str)**:<br />
             First chain ID of the chain pair.
@@ -304,7 +332,7 @@ class _Mask:
         - **lengths_dict (dict)**:<br />
             Dictionary containing lengths of chains in the structure.
 
-        Returns:
+        ## Returns:
 
         - **chain_pair_mask (np.ndarray)**:<br />
             A binary map of residues in the chain pair.
@@ -337,12 +365,12 @@ class _Mask:
     def get_chain_mask_stack(self, dimensions: int = 2) -> np.ndarray:
         """Get a stack of binary maps for all chains in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **dimensions (int)**:<br />
             Dimensions of the mask to be generated.
 
-        Returns:
+        ## Returns:
 
         - **chain_mask_stack (np.ndarray)**:<br />
             A stack of masks for all chains in the rigid body.<br />
@@ -366,12 +394,12 @@ class _Mask:
     def get_chain_pair_mask_stack(self, dimensions: int = 2) -> np.ndarray:
         """Get a stack of binary maps for all chain pairs in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **dimensions (int)**:<br />
             Dimensions of the mask to be generated.
 
-        Returns:
+        ## Returns:
 
         - **chain_pair_mask_stack (np.ndarray)**:<br />
             A stack of masks for all chain pairs in the rigid body.<br />
@@ -395,7 +423,7 @@ class _Mask:
     def sanity_check_mask_dimensions(dimensions: int):
         """Sanity check for mask dimensions.
 
-        Arguments:
+        ## Arguments:
 
         - **dimensions (int)**:<br />
             Dimensions of the mask to be generated.
@@ -491,7 +519,7 @@ class RigidBodyChainAssessment:
     ) -> Dict[str, float | List[float]]:
         """Get average pLDDT score per chain in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **only_avg (bool)**:<br />
             If True, returns average pLDDT score per chain.
@@ -499,7 +527,7 @@ class RigidBodyChainAssessment:
         - **only_interface (bool)**:<br />
             If True, considers only interface residues for pLDDT calculation.
 
-        Returns:
+        ## Returns:
 
         - **per_chain_plddt (dict)**:<br />
             Dictionary with chain IDs as keys and average pLDDT scores
@@ -535,12 +563,12 @@ class RigidBodyChainAssessment:
     ) -> Dict[str, int | List[int]]:
         """Get interface residues per chain in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **only_count (bool)**:<br />
             If True, returns count of interface residues per chain.
 
-        Returns:
+        ## Returns:
 
         - **per_chain_interface_res (dict)**:<br />
             Dictionary with chain IDs as keys and list of residue numbers
@@ -566,6 +594,39 @@ class RigidBodyChainAssessment:
 
         return per_chain_interface_res
 
+    def get_per_chain_residues(
+        self,
+        only_count: bool = True
+    ) -> Dict[str, int | List[int]]:
+        """Get residues per chain in the rigid body.
+
+        ## Arguments:
+
+        - **only_count (bool)**:<br />
+            If True, returns count of residues per chain.
+
+        ## Returns:
+        - **per_chain_residues (dict)**:<br />
+            Dictionary with chain IDs as keys and list of residue numbers
+            in the rigid body as values.
+        """
+        per_chain_residues = {}
+
+        residue_attrs_ = {
+            True: lambda x: np.sum(x),
+            False: lambda x: np.where(x)[0],
+        }
+
+        for i, ch_id in enumerate(self.unique_chains):
+
+            chain_mask_1d = self.chain_mask_stack_1d[i, :]
+            residue_mask_1d = chain_mask_1d * self.rb_mask_1d
+            per_chain_residues[ch_id] = residue_attrs_[only_count](
+                residue_mask_1d
+            )
+
+        return per_chain_residues
+
     def get_chain_attr(
         self,
         chain_id: str,
@@ -576,7 +637,7 @@ class RigidBodyChainAssessment:
         > [!NOTE]
         > This function should be used when `as_average` is `True`.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_id (str)**:<br />
             Chain ID.
@@ -585,7 +646,7 @@ class RigidBodyChainAssessment:
             Name of the attribute to retrieve.
             Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
 
-        Returns:
+        ## Returns:
 
         - **(float | str | int)**:<br />
             The requested attribute value.
@@ -619,7 +680,7 @@ class RigidBodyChainAssessment:
         > [!NOTE]
         > This function should be used when `as_average` is `False`.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_id (str)**:<br />
             Chain ID.
@@ -631,7 +692,7 @@ class RigidBodyChainAssessment:
             Name of the attribute to retrieve.
             Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
 
-        Returns:
+        ## Returns:
 
         - **(float | str | int)**:<br />
             The requested attribute value.
@@ -661,7 +722,7 @@ class RigidBodyChainAssessment:
     def get_chain_assessment(self) -> pd.DataFrame:
         """Get chain-wise assessment for the rigid body.
 
-        Returns:
+        ## Returns:
 
         - **(pd.DataFrame)**:<br />
             DataFrame containing chain-wise assessment.
@@ -873,7 +934,7 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get the attribute value for a given chain pair.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_pair (tuple)**:<br />
             Tuple of two chain IDs.
@@ -882,7 +943,7 @@ class RigidBodyChainPairAssessment:
             Name of the attribute to retrieve.
             Valid attributes are defined in `CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
 
-        Returns:
+        ## Returns:
 
         - **(float | str | int)**:<br />
             The requested attribute value.
@@ -954,7 +1015,7 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get the attribute value for a given residue pair in a chain pair.
 
-        Arguments:
+        ## Arguments:
 
         - **chain_pair (tuple)**:<br />
             Tuple of two chain IDs.
@@ -966,7 +1027,7 @@ class RigidBodyChainPairAssessment:
             Name of the attribute to retrieve.
             Valid attributes are defined in `CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
 
-        Returns:
+        ## Returns:
 
         - **(float | str | int)**:<br />
             The requested attribute value.
@@ -1010,7 +1071,7 @@ class RigidBodyChainPairAssessment:
     ) -> Dict[Tuple[str, str], List[int] | int | Tuple[int, int]]:
         """Get interface residues for the chain pair in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **per_chain (bool)**:<br />
             If True, returns count of interface residues per chain pair.
@@ -1018,7 +1079,7 @@ class RigidBodyChainPairAssessment:
         - **only_count (bool)**:<br />
             If True, returns number of contacts per chain pair.
 
-        Returns:
+        ## Returns:
 
         - **chain_pair_interface_residues (dict)**:<br />
             Dictionary with chain IDs as keys and list of residue numbers
@@ -1055,7 +1116,7 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get pLDDT scores for the chain pair in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **only_avg (bool, optional)**:<br />
             If True, returns average pLDDT scores per chain.
@@ -1063,7 +1124,7 @@ class RigidBodyChainPairAssessment:
         - **only_interface (bool, optional)**:<br />
             If True, considers only interface residues for pLDDT calculation.
 
-        Returns:
+        ## Returns:
 
         - **chain_pair_plddt (dict)**:<br />
             Dictionary with chain pair tuples as keys and pLDDT scores
@@ -1112,7 +1173,7 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get PAE values for the chain pair in the rigid body.
 
-        Arguments:
+        ## Arguments:
 
         - **only_avg (bool, optional)**:<br />
             If True, returns average PAE values per chain pair.
@@ -1123,7 +1184,7 @@ class RigidBodyChainPairAssessment:
         - **symmetric (Tuple[bool, str], optional)**:<br />
             If True, treats PAE symmetrically between chain pairs.
 
-        Returns:
+        ## Returns:
 
         - **chain_pair_pae (dict)**:<br />
             Dictionary with chain pair tuples as keys and PAE values
@@ -1177,7 +1238,8 @@ class RigidBodyChainPairAssessment:
     def get_chain_pair_assessment(self):
         """Get chain-pair-wise assessment for the rigid body.
 
-        Returns:
+        ## Returns:
+
         - **(pd.DataFrame)**:<br />
             DataFrame containing chain-pair-wise assessment.
         """
@@ -1263,46 +1325,99 @@ class RigidBodyAssessment:
     def __init__(
         self,
         rb_dict: dict,
-        num_to_idx: dict,
-        idx_to_num: dict,
-        contact_map: np.ndarray,
-        plddt_list: np.ndarray,
-        pae: np.ndarray,
-        avg_pae: np.ndarray,
-        lengths_dict: dict,
-        save_path: str,
+        as_average: bool = True,
+        symmetric_pae: bool = True,
         **kwargs,
     ):
 
-        self.save_path = save_path
-        self.as_average = kwargs.get("as_average", False)
-        self.symmetric_pae = kwargs.get("symmetric_pae", True) 
+        self.as_average = as_average
+        self.symmetric_pae = symmetric_pae
+        self.idr_chains = kwargs.get("idr_chains", [])
+        self.protein_chain_map = kwargs.get("protein_chain_map", {})
+        self.is_set_up = False
+        self.rb_dict = rb_dict
+
+    def check_is_set_up(self):
+        """ Check if the RigidBodyAssessment instance is set up. """
+
+        if not self.is_set_up:
+            raise ValueError(_error_not_set_up)
+
+    def perform_assessment(self):
+        """ Perform the assessment of the rigid body."""
+
+        self.check_is_set_up()
 
         _mask = _Mask(
-            rb_dict=rb_dict,
-            num_to_idx=num_to_idx,
-            idx_to_num=idx_to_num,
-            contact_map=contact_map,
-            plddt_list=plddt_list,
-            pae=pae,
-            avg_pae=avg_pae,
-            lengths_dict=lengths_dict,
-            symmetric_pae=kwargs.get("symmetric_pae", True),
-            idr_chains=kwargs.get("idr_chains", []),
-            protein_chain_map=kwargs.get("protein_chain_map", {}),
+            rb_dict=self.rb_dict,
+            num_to_idx=self.num_to_idx,
+            idx_to_num=self.idx_to_num,
+            contact_map=self.contact_map,
+            plddt_list=self.token_plddts,
+            pae=self.pae,
+            avg_pae=self.avg_pae,
+            lengths_dict=self.lengths_dict,
+            symmetric_pae=self.symmetric_pae,
+            idr_chains=self.idr_chains,
+            protein_chain_map=self.protein_chain_map,
         )
 
         self.rb_c_assess = RigidBodyChainAssessment(
             _mask=_mask,
-            as_average=kwargs.get("as_average", False),
+            as_average=self.as_average,
         )
         self.rb_cp_assess = RigidBodyChainPairAssessment(
             _mask=_mask,
-            as_average=kwargs.get("as_average", False),
+            as_average=self.as_average,
         )
-        self.overall_assessment = self.get_overall_assessment()
+        self.overall_assessment = self.get_overall_assessment(
+            rb_c_assess=self.rb_c_assess,
+            rb_cp_assess=self.rb_cp_assess,
+        )
 
-    def save_rb_assessment(self):
+    def set_attributes_from(
+        self,
+        instance: Initialize | RigidBodies
+    ):
+        """ Set the attributes of the RigidBodyAssessment instance from or based
+        on an instance of Initialize or RigidBodies class.
+
+        > [!CAUTION]
+        > If instance is of type RigidBodies it should have already been set up.
+
+        ## Arguments:
+
+        - **instance (Initialize | RigidBodies )**:<br />
+            An instance of Initialize or RigidBodies class
+        """
+
+        self.num_to_idx = instance.num_to_idx
+        self.idx_to_num = instance.idx_to_num
+
+        self.token_coords = instance.token_coords
+        self.token_plddts = instance.token_plddts
+
+        self.pae = instance.pae
+        self.avg_pae = instance.avg_pae
+
+        self.lengths_dict = instance.lengths_dict
+
+        self.contact_map = get_interaction_map(
+            coords1=np.array(self.token_coords),
+            coords2=np.array(self.token_coords),
+            contact_threshold=IntCons.contact_threshold,
+            map_type="contact",
+        )
+
+        self.is_set_up = True
+
+    def save_rb_assessment(
+        self,
+        rb_c_assess: RigidBodyChainAssessment,
+        rb_cp_assess: RigidBodyChainPairAssessment,
+        overall_assessment: dict,
+        save_path: str,
+    ):
         """ Save the assessment of the rigid bodies to an Excel file.
 
         The assessment includes:
@@ -1326,15 +1441,15 @@ class RigidBodyAssessment:
         overall_assessment_rows = []
 
         for col, key in OVERALL_ASSESSMENT_COLUMNS[self.symmetric_pae].items():
-            if self.overall_assessment.get(key, np.nan) is not np.nan:
+            if overall_assessment.get(key, np.nan) is not np.nan:
                 overall_assessment_rows.append({
                     "Key": col,
-                    "Value": self.overall_assessment.get(key)
+                    "Value": overall_assessment.get(key)
                 })
         overall_assessment_df = pd.DataFrame(overall_assessment_rows)
 
-        c_assessment_df = self.rb_c_assess.get_chain_assessment()
-        cp_assessment_df = self.rb_cp_assess.get_chain_pair_assessment()
+        c_assessment_df = rb_c_assess.get_chain_assessment()
+        cp_assessment_df = rb_cp_assess.get_chain_pair_assessment()
 
         df_dict = {
             "chain_pairwise_assessment": cp_assessment_df,
@@ -1348,9 +1463,7 @@ class RigidBodyAssessment:
                 lambda x: round(x, 2) if isinstance(x, (int, float)) else x
             )
 
-        with pd.ExcelWriter(
-            self.save_path, engine='openpyxl', mode='w'
-        ) as writer:
+        with pd.ExcelWriter(save_path, engine='openpyxl', mode='w') as writer:
 
             for sheet_name, df in df_dict.items():
 
@@ -1367,10 +1480,14 @@ class RigidBodyAssessment:
                 )
 
     # @time_it
-    def get_overall_assessment(self):
+    def get_overall_assessment(
+        self,
+        rb_c_assess: RigidBodyChainAssessment,
+        rb_cp_assess: RigidBodyChainPairAssessment
+    ):
         """ Get overall assessment of the rigid body.
 
-        Returns:
+        ## Returns:
 
         - **overall_assessment (dict)**:<br />
             A dictionary containing overall statistics about the rigid body.
@@ -1381,33 +1498,54 @@ class RigidBodyAssessment:
 
         overall_assessment = {}
 
+        # Average pLDDT across all chains in the rigid body
+        overall_assessment["avg_plddt"] = np.mean([
+            np.mean(plddt_scores)
+            for plddt_scores in rb_c_assess.get_per_chain_plddt(
+                only_avg=False,
+                only_interface=False,
+            ).values()
+        ]) if rb_c_assess.per_chain_plddt else np.nan
+
         # Number of chains in the rigid body
-        overall_assessment["num_chains"] = len(self.rb_c_assess.unique_chains)
+        overall_assessment["num_chains"] = len(rb_c_assess.unique_chains)
 
         # Number of interacting chain pairs in the rigid body
         overall_assessment["num_interacting_chain_pairs"] = len([
             pair
-            for pair in self.rb_cp_assess.chain_pairs
-            if len(self.rb_cp_assess.chain_pair_interface_res[pair]) > 0
+            for pair in rb_cp_assess.chain_pairs
+            if len(rb_cp_assess.chain_pair_interface_res[pair]) > 0
         ])
 
         # Number of interface residues in the rigid body
-        per_c_interface = self.rb_c_assess.get_per_chain_interface_residues(
+        per_c_interface = rb_c_assess.get_per_chain_interface_residues(
             only_count=True
         )
         overall_assessment["num_interface_residues"] = sum(
             per_c_interface.values()
         )
 
+        # Total number of residues in the rigid body
+        per_c_total_res = rb_c_assess.get_per_chain_residues(
+            only_count=True
+        )
+        overall_assessment["num_total_residues"] = sum(
+            per_c_total_res.values()
+        )
+        overall_assessment["rb_coverage"] = (
+            overall_assessment["num_total_residues"] /
+            self.lengths_dict["total"]
+        )
+
         # Number of contacts formed in the rigid body
         overall_assessment["num_contacts"] = sum(
-            self.rb_cp_assess.chain_pair_contacts.values()
+            rb_cp_assess.chain_pair_contacts.values()
         )
 
         # Average ipLDDT scores across all chains in the rigid body
         global_iplddt_scores = np.array([
             np.array([iplddt, chain_id])
-            for chain_id, iplddt_scores in self.rb_c_assess.get_per_chain_plddt(
+            for chain_id, iplddt_scores in rb_c_assess.get_per_chain_plddt(
                 only_avg=False,
                 only_interface=True,
             ).items()
@@ -1419,12 +1557,15 @@ class RigidBodyAssessment:
         )
 
         # Average ipLDDT scores for IDR chains in the rigid body
-        if len(self.rb_c_assess.idr_chains) == 0:
+        if (
+            len(rb_c_assess.idr_chains) == 0 or
+            global_iplddt_scores.size == 0
+        ):
             overall_assessment["avg_idr_iplddt"] = np.nan
         else:
             _idr_chain_mask = np.isin(
                 global_iplddt_scores[:, 1],
-                self.rb_c_assess.idr_chains
+                rb_c_assess.idr_chains
             )
             global_idr_iplddt_scores = global_iplddt_scores[
                 _idr_chain_mask, 0
@@ -1436,12 +1577,12 @@ class RigidBodyAssessment:
 
         # Average iPAE scores across all chain pairs in the rigid body
         attrs_pae = {
-            (True, False, "ij"): self.rb_cp_assess.get_chain_pair_pae,
-            (False, False, "ij"): self.rb_cp_assess.chain_pair_ipae_ij,
-            (True, False, "ji"): self.rb_cp_assess.get_chain_pair_pae,
-            (False, False, "ji"): self.rb_cp_assess.chain_pair_ipae_ji,
-            (True, True, ""): self.rb_cp_assess.get_chain_pair_pae,
-            (False, True, ""): self.rb_cp_assess.chain_pair_ipae,
+            (True, False, "ij"): rb_cp_assess.get_chain_pair_pae,
+            (False, False, "ij"): rb_cp_assess.chain_pair_ipae_ij,
+            (True, False, "ji"): rb_cp_assess.get_chain_pair_pae,
+            (False, False, "ji"): rb_cp_assess.chain_pair_ipae_ji,
+            (True, True, ""): rb_cp_assess.get_chain_pair_pae,
+            (False, True, ""): rb_cp_assess.chain_pair_ipae,
         }
 
         col_template = "avg_ipae"

@@ -61,7 +61,15 @@ from af_pipeline.constants.af_constants import (
     ALLOWED_STRUCTURE_FORMATS,
     AVAILABLE_PARSERS,
     AVAILABLE_ATOM_QUANTITIES,
-    AVAILABLE_RESIDUE_QUANTITIES, REP_ATOMS
+    AVAILABLE_RESIDUE_QUANTITIES,
+    REP_ATOMS,
+    EntityType,
+    AtomQuantity,
+    FileFormat,
+    ResidueDecoration,
+    ResidueQuantity,
+    QuantityLevel,
+    StructureParserConstants as SPCons,
 )
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
@@ -88,8 +96,8 @@ class StructureParser:
     def __init__(
         self,
         structure_file_path: str,
-        preserve_header_footer: bool = False,
-        use_fast_cif_parser: bool = False,
+        preserve_header_footer: bool = SPCons.preserve_header_footer,
+        use_fast_cif_parser: bool = SPCons.use_fast_cif_parser,
     ):
 
         self.structure_file_path = structure_file_path
@@ -111,7 +119,7 @@ class StructureParser:
 
         ext = os.path.splitext(self.structure_file_path)[1].replace(".", "")
 
-        if ext == "cif" and self.use_fast_cif_parser:
+        if ext == FileFormat.CIF and self.use_fast_cif_parser:
             ext = "fast_cif"
 
         if ext not in ALLOWED_STRUCTURE_FORMATS:
@@ -243,7 +251,7 @@ class StructureParser:
 
     @staticmethod
     def sanity_check_quantities(
-        quantities: list,
+        quantities: list[ResidueQuantity | AtomQuantity],
         requested_on: Atom | Residue
     ):
 
@@ -300,7 +308,7 @@ class StructureParser:
     @staticmethod
     def extract_peratom_quantities(
         atom: Atom,
-        quantities: list = ["coord"]
+        quantities: list[AtomQuantity] = [AtomQuantity.COORD]
     ) -> dict[str, Any]:
         """ Extract per-atom quantities from a `Bio.PDB.Atom.Atom` object.
 
@@ -336,16 +344,17 @@ class StructureParser:
 
         peratom_quantities = {}
 
-
         quantity_funcs = {
-            "coord": lambda a: a.coord,
-            "plddt": lambda a: a.bfactor,
-            "atom_name": lambda a: a.name,
-            "res_pos": lambda a: a.parent.id[1],
-            "res_name": lambda a: a.parent.resname,
-            "chain_id": lambda a: a.parent.parent.id[0],
-            "entity_type": lambda a: a.parent.xtra.get("entityType", None),
-            "atom_local_idx": lambda a: next(
+            AtomQuantity.COORD: lambda a: a.coord,
+            AtomQuantity.PLDDT: lambda a: a.bfactor,
+            AtomQuantity.ATOM_NAME: lambda a: a.name,
+            AtomQuantity.RES_POS: lambda a: a.parent.id[1],
+            AtomQuantity.RES_NAME: lambda a: a.parent.resname,
+            AtomQuantity.CHAIN_ID: lambda a: a.parent.parent.id[0],
+            AtomQuantity.ENTITY_TYPE: lambda a: a.parent.xtra.get(
+                ResidueDecoration.ENTITY_TYPE, None
+            ),
+            AtomQuantity.ATOM_LOCAL_IDX: lambda a: next(
                 idx for idx, at in enumerate(a.parent) if at.name == a.name
             ),
         }
@@ -358,7 +367,7 @@ class StructureParser:
     @staticmethod
     def extract_perresidue_quantities(
         residue: Residue,
-        quantities: list = ["coord"],
+        quantities: list[ResidueQuantity] = [ResidueQuantity.COORD],
         rep_atom: str | Bio.PDB.Atom.Atom | None = None,
     ) -> dict[str, Any]:
         """ Extract per-residue quantities from a residue object.
@@ -443,16 +452,18 @@ class StructureParser:
         perresidue_quantities = {}
 
         quantity_funcs = {
-            "res_pos": lambda ra: ra.parent.id[1],
-            "res_name": lambda ra: ra.parent.resname,
-            "chain_id": lambda ra: ra.parent.parent.id[0],
-            "entity_type": lambda ra: ra.parent.xtra.get("entityType", None),
-            "atoms": lambda ra: [atom.name for atom in ra.parent],
-            "atom_local_idxs": lambda ra: list(range(len(ra.parent))),
-            "coord": lambda ra: ra.coord,
-            "plddt": lambda ra: ra.bfactor,
-            "rep_atom": lambda ra: ra.name,
-            "rep_atom_local_idx": lambda ra: next(
+            ResidueQuantity.RES_POS: lambda ra: ra.parent.id[1],
+            ResidueQuantity.RES_NAME: lambda ra: ra.parent.resname,
+            ResidueQuantity.CHAIN_ID: lambda ra: ra.parent.parent.id[0],
+            ResidueQuantity.ENTITY_TYPE: lambda ra: ra.parent.xtra.get(
+                ResidueDecoration.ENTITY_TYPE, None
+            ),
+            ResidueQuantity.ATOMS: lambda ra: [atom.name for atom in ra.parent],
+            ResidueQuantity.ATOM_LOCAL_IDXS: lambda ra: list(range(len(ra.parent))),
+            ResidueQuantity.COORD: lambda ra: ra.coord,
+            ResidueQuantity.PLDDT: lambda ra: ra.bfactor,
+            ResidueQuantity.REP_ATOM: lambda ra: ra.name,
+            ResidueQuantity.REP_ATOM_LOCAL_IDX: lambda ra: next(
                 idx for idx, atom in enumerate(ra.parent) if atom.name == ra.name
             ),
         }
@@ -499,29 +510,23 @@ class StructureParser:
         rep_atom = ""
 
         residue_attrs = (
-            residue.xtra.get("entityType"),
-            residue.xtra.get("is_ca_only", False),
-            residue.xtra.get("is_purine", False),
-            residue.xtra.get("is_pyrimidine", False),
+            residue.xtra.get(ResidueDecoration.ENTITY_TYPE),
+            residue.xtra.get(ResidueDecoration.IS_CA_ONLY, False),
+            residue.xtra.get(ResidueDecoration.IS_PURINE, False),
+            residue.xtra.get(ResidueDecoration.IS_PYRIMIDINE, False),
         )
 
         representative_atom_dict = {
-            ("proteinChain", True, False, False): residue.child_dict.get(
-                REP_ATOMS["is_ca_only"]),
-            ("proteinChain", False, False, False): residue.child_dict.get(
-                REP_ATOMS["proteinChain"]),
-            ("dnaSequence", False, True, False): residue.child_dict.get(
-                REP_ATOMS["is_purine"]),
-            ("dnaSequence", False, False, True): residue.child_dict.get(
-                REP_ATOMS["is_pyrimidine"]),
-            ("rnaSequence", False, True, False): residue.child_dict.get(
-                REP_ATOMS["is_purine"]),
-            ("rnaSequence", False, False, True): residue.child_dict.get(
-                REP_ATOMS["is_pyrimidine"]),
-            ("ion", False, False, False): residue.child_dict.get(symbol),
-            ("dnaSequence", False, False, False): residue.child_list[0],
-            ("rnaSequence", False, False, False): residue.child_list[0],
-            ("ligand", False, False, False): residue.child_list[0],
+            (EntityType.PROTEIN_CHAIN, True, False, False): residue.child_dict.get(REP_ATOMS[ResidueDecoration.IS_CA_ONLY]),
+            (EntityType.PROTEIN_CHAIN, False, False, False): residue.child_dict.get(REP_ATOMS[EntityType.PROTEIN_CHAIN]),
+            (EntityType.DNA_SEQUENCE, False, True, False): residue.child_dict.get(REP_ATOMS[ResidueDecoration.IS_PURINE]),
+            (EntityType.DNA_SEQUENCE, False, False, True): residue.child_dict.get(REP_ATOMS[ResidueDecoration.IS_PYRIMIDINE]),
+            (EntityType.RNA_SEQUENCE, False, True, False): residue.child_dict.get(REP_ATOMS[ResidueDecoration.IS_PURINE]),
+            (EntityType.RNA_SEQUENCE, False, False, True): residue.child_dict.get(REP_ATOMS[ResidueDecoration.IS_PYRIMIDINE]),
+            (EntityType.ION, False, False, False): residue.child_dict.get(symbol),
+            (EntityType.DNA_SEQUENCE, False, False, False): residue.child_list[0],
+            (EntityType.RNA_SEQUENCE, False, False, False): residue.child_list[0],
+            (EntityType.LIGAND, False, False, False): residue.child_list[0],
             (None, False, False, False): residue.child_list[0],
         }
 
@@ -533,7 +538,7 @@ class StructureParser:
 
                 Representative atom could not be determined for
                 residue {residue.resname} with attributes {residue_attrs}
-                (entitType, is_ca_only, is_purin, is_pyrimidine).
+                (entityType, is_ca_only, is_purine, is_pyrimidine).
                 """
             )
 
@@ -581,12 +586,12 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            "rep_atom": [
+            QuantityLevel.REPRENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
             ],
-            "per_atom": [
+            QuantityLevel.PER_ATOM: [
                 (False, True),
             ],
         }
@@ -595,25 +600,25 @@ class StructureParser:
 
             handle = (only_representative, has_per_atom_token(residue))
 
-            if handle in handle_dict["per_atom"]:
+            if handle in handle_dict[QuantityLevel.PER_ATOM]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["atom_name"]
+                        quantities=[AtomQuantity.ATOM_NAME]
                     )
-                    token_atom_ids.append(quants["atom_name"])
+                    token_atom_ids.append(quants[AtomQuantity.ATOM_NAME])
 
-            elif handle in handle_dict["rep_atom"]:
+            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
                 )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
-                    quantities=["rep_atom"],
+                    quantities=[ResidueQuantity.REP_ATOM],
                     rep_atom=rep_atom
                 )
-                token_atom_ids.append(quants["rep_atom"])
+                token_atom_ids.append(quants[ResidueQuantity.REP_ATOM])
 
         return token_atom_ids
 
@@ -654,12 +659,12 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            "rep_atom": [
+            QuantityLevel.REPRENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
             ],
-            "per_atom": [
+            QuantityLevel.PER_ATOM: [
                 (False, True),
             ],
         }
@@ -668,25 +673,25 @@ class StructureParser:
 
             handle = (only_representative, has_per_atom_token(residue))
 
-            if handle in handle_dict["per_atom"]:
+            if handle in handle_dict[QuantityLevel.PER_ATOM]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["chain_id"]
+                        quantities=[AtomQuantity.CHAIN_ID]
                     )
-                    token_chain_ids.append(quants["chain_id"])
+                    token_chain_ids.append(quants[AtomQuantity.CHAIN_ID])
 
-            elif handle in handle_dict["rep_atom"]:
+            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
                 )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
-                    quantities=["chain_id"],
+                    quantities=[ResidueQuantity.CHAIN_ID],
                     rep_atom=rep_atom
                 )
-                token_chain_ids.append(quants["chain_id"])
+                token_chain_ids.append(quants[ResidueQuantity.CHAIN_ID])
 
         return token_chain_ids
 
@@ -727,12 +732,12 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            "rep_atom": [
+            QuantityLevel.REPRENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
             ],
-            "per_atom": [
+            QuantityLevel.PER_ATOM: [
                 (False, True),
             ],
         }
@@ -741,25 +746,25 @@ class StructureParser:
 
             handle = (only_representative, has_per_atom_token(residue))
 
-            if handle in handle_dict["per_atom"]:
+            if handle in handle_dict[QuantityLevel.PER_ATOM]:
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["res_pos"]
+                        quantities=[AtomQuantity.RES_POS]
                     )
-                    token_res_ids.append(quants["res_pos"])
+                    token_res_ids.append(quants[AtomQuantity.RES_POS])
 
-            elif handle in handle_dict["rep_atom"]:
+            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
                 )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
-                    quantities=["res_pos"],
+                    quantities=[ResidueQuantity.RES_POS],
                     rep_atom=rep_atom
                 )
-                token_res_ids.append(quants["res_pos"])
+                token_res_ids.append(quants[ResidueQuantity.RES_POS])
 
         return token_res_ids
 
@@ -819,25 +824,25 @@ class StructureParser:
             for atom, _res, _ch_id in StructureParser.get_atoms(structure):
                 quants = StructureParser.extract_peratom_quantities(
                     atom=atom,
-                    quantities=["plddt"]
+                    quantities=[AtomQuantity.PLDDT]
                 )
-                plddt_values.append(quants["plddt"])
+                plddt_values.append(quants[AtomQuantity.PLDDT])
 
             return plddt_values
 
         # (only_representative, average_token_plddt, has_per_atom_token)
         handle_dict = {
-            "rep_atom_plddt": [
+            QuantityLevel.REPRENTATIVE_ATOM: [
                 (True, False, True),
                 (True, False, False),
                 (False, True, False),
                 (False, False, False),
             ],
-            "avg_atom_plddt": [
+            QuantityLevel.AVERAGE_ATOM: [
                 (True, True, True),
                 (True, True, False),
             ],
-            "all_atom_plddt": [
+            QuantityLevel.PER_ATOM: [
                 (False, True, True),
                 (False, False, True),
             ]
@@ -851,7 +856,7 @@ class StructureParser:
                 has_per_atom_token(residue)
             )
 
-            if handle in handle_dict["rep_atom_plddt"]:
+            if handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
 
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
@@ -859,37 +864,37 @@ class StructureParser:
                 )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
-                    quantities=["plddt"],
+                    quantities=[ResidueQuantity.PLDDT],
                     rep_atom=rep_atom,
                 )
-                plddt_values.append(quants["plddt"])
+                plddt_values.append(quants[ResidueQuantity.PLDDT])
 
-            elif handle in handle_dict["avg_atom_plddt"]:
+            elif handle in handle_dict[QuantityLevel.AVERAGE_ATOM]:
                 # Average pLDDT for all atoms in the residue
                 atom_plddt_values = [
                     StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["plddt"]
-                    )["plddt"] for atom in residue
+                        quantities=[AtomQuantity.PLDDT]
+                    )[AtomQuantity.PLDDT] for atom in residue
                 ]
                 plddt_values.append(np.mean(atom_plddt_values))
 
-            elif handle in handle_dict["all_atom_plddt"]:
+            elif handle in handle_dict[QuantityLevel.PER_ATOM]:
 
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["plddt"]
+                        quantities=[AtomQuantity.PLDDT]
                     )
-                    plddt_values.append(quants["plddt"])
+                    plddt_values.append(quants[AtomQuantity.PLDDT])
 
             else:
                 raise Exception(
                     f"""
 
                     Unexpected combination of flags:
-                    only_representative={only_representative},
-                    average_token_plddt={average_token_plddt},
+                    {only_representative=},
+                    {average_token_plddt=},
                     has_per_atom_token={has_per_atom_token(residue)}.
 
                     Expected booleans for all three flags.
@@ -944,20 +949,20 @@ class StructureParser:
             for atom, _res, _ch_id in StructureParser.get_atoms(structure):
                 quants = StructureParser.extract_peratom_quantities(
                     atom=atom,
-                    quantities=["coord"]
+                    quantities=[AtomQuantity.COORD]
                 )
-                coords.append(quants["coord"])
+                coords.append(quants[AtomQuantity.COORD])
 
             return coords
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            "rep_atom_coord": [
+            QuantityLevel.REPRENTATIVE_ATOM: [
                 (True, True),
                 (True, False),
                 (False, False),
             ],
-            "all_atom_coord": [
+            QuantityLevel.PER_ATOM: [
                 (False, True),
             ]
         }
@@ -966,16 +971,16 @@ class StructureParser:
 
             handle = (only_representative, has_per_atom_token(residue))
 
-            if handle in handle_dict["all_atom_coord"]:
+            if handle in handle_dict[QuantityLevel.PER_ATOM]:
 
                 for atom in residue:
                     quants = StructureParser.extract_peratom_quantities(
                         atom=atom,
-                        quantities=["coord"]
+                        quantities=[AtomQuantity.COORD]
                     )
-                    coords.append(quants["coord"])
+                    coords.append(quants[AtomQuantity.COORD])
 
-            elif handle in handle_dict["rep_atom_coord"]:
+            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
 
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
@@ -983,9 +988,9 @@ class StructureParser:
                 )
                 quants = StructureParser.extract_perresidue_quantities(
                     residue=residue,
-                    quantities=["coord"],
+                    quantities=[ResidueQuantity.COORD],
                     rep_atom=rep_atom,
                 )
-                coords.append(quants["coord"])
+                coords.append(quants[ResidueQuantity.COORD])
 
         return coords

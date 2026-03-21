@@ -12,7 +12,19 @@ import yaml
 import numpy as np
 from typing import Any, Dict
 from collections import Counter
-from af_pipeline.constants.af_constants import SEED_MULTIPLIER
+from af_pipeline.constants.af_constants import (
+    RES_SEPARATOR,
+    RES_SPLITTER,
+    SEED_MULTIPLIER,
+    RANDOM_SEED,
+    MaskedInteractionType,
+    MaskedInteractionValue,
+    MiscStrEnum,
+    ReturnType,
+    UpdateConfigMode,
+    ColorMapScheme,
+    BinaryColorMap,
+)
 from typing import List
 import random
 from functools import wraps
@@ -21,7 +33,7 @@ def add_attribute(
     config_yaml: dict,
     attribute_name: str,
     attribute_value: Any,
-    mode: str = "replace",
+    mode: UpdateConfigMode = UpdateConfigMode.REPLACE,
     add_first: bool = False,
 ):
     """Update a generic attribute in the config file.
@@ -73,7 +85,7 @@ def add_attribute(
 def update_config(
     config_yaml: dict,
     updates: dict = None,
-    mode: str = "replace",
+    mode: UpdateConfigMode = UpdateConfigMode.REPLACE,
 ):
     """Update config file with a new field or update an existing field.
 
@@ -104,14 +116,17 @@ def update_config(
         add_field = False
 
         if field in existing_fields:
-            if mode == "replace":
+            if mode == UpdateConfigMode.REPLACE:
                 config_yaml[field] = updates[field]
-            elif mode == "soft_replace":
+            elif mode == UpdateConfigMode.SOFT_REPLACE:
                 #! only update if the field is not already set
                 if config_yaml[field] is None or config_yaml[field] == "":
                     config_yaml[field] = updates[field]
             else:
-                raise ValueError("Invalid mode. Use 'replace' or 'append")
+                raise ValueError(
+                    "Invalid mode. Use one of the following: "\
+                    f": {list(UpdateConfigMode)}"
+                )
 
         else:
             print(f"{field} not found in config")
@@ -146,7 +161,7 @@ def time_it(func):
         return result
     return wrapper
 
-def generate_seeds(num_seeds: int, set_seed: int=47) -> List[int]:
+def generate_seeds(num_seeds: int, set_seed: int=RANDOM_SEED) -> List[int]:
     """Generate `model_seeds`."""
 
     random.seed(set_seed)
@@ -179,11 +194,11 @@ def chain_id_gen():
 
 def create_mask(
     partition_dict: Dict,
-    hide_interactions: str = "intra_part",
-    masked_value: bool | int = 1,
-    unmasked_value: bool | int = 0,
+    hide_interactions: str | MaskedInteractionType = MaskedInteractionType.INTRA_PART,
+    masked_value: bool | int | float | str | MaskedInteractionValue = MaskedInteractionValue.MASKED_V,
+    unmasked_value: bool | int | float | str | MaskedInteractionValue = MaskedInteractionValue.UNMASKED_V,
 ):
-    """Create a binary 2D mask.
+    """ Create a binary 2D mask.
 
     Create a binary 2D mask for selecting only inter_part or intra_part interactions. \n
     The mask is created by setting the values of the intra_part or
@@ -193,43 +208,48 @@ def create_mask(
 
     if `hide_interactions=="inter_part"`, inter_part interactions masked.
 
-    Args:
-        partition_dict (Dict):
-            `{"chain_id":chain_length, ..., "total": total_length}`
-        hide_interactions (str):
-            Hide "intra_part" or "inter_part" interactions.
-        masked_value (int):
-            Value to set for the masked interactions.
-        unmasked_value (int):
-            Value to set for the unmasked interactions.
+    ## Arguments:
 
-    Returns:
-        `new_mask_ (np.ndarray)`:
-            Binary 2D mask for selecting only "inter_part" or "intra_part" interactions.
+    - **partition_dict (Dict)**:<br />
+        `{"chain_id":chain_length, ..., "total": total_length}`
 
-    Examples:
+    - **hide_interactions (str | MaskedInteractionType, optional):**:<br />
+        Hide "intra_part" or "inter_part" interactions. Defaults to "intra_part".
 
-        >>> partition_dict = {"A": 2, "B": 1, "total": 3}
-        >>> mask = create_mask(
-        ... partition_dict, hide_interactions="intra_part"
-        ... )
-        >>> print(mask)
-        [[1 1 0]
-         [1 1 0]
-         [0 0 1]]
-        >>> mask = create_mask(
-        ... partition_dict, hide_interactions="inter_part"
-        ... )
-        >>> print(mask)
-        [[0 0 1]
-         [0 0 1]
-         [1 1 0]]
+    - **masked_value (bool | int | float | str | MaskedInteractionValue, optional):**:<br />
+        Value to set for the masked interactions. Defaults to 1.
+
+    - **unmasked_value (bool | int | float | str | MaskedInteractionValue, optional):**:<br />
+        Value to set for the unmasked interactions. Defaults to 0.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        Binary 2D mask for selecting only "inter_part" or "intra_part" interactions.
+
+    ## Examples:
+
+    >>> partition_dict = {"A": 2, "B": 1, "total": 3}
+    >>> mask = create_mask(
+    ... partition_dict, hide_interactions="intra_part"
+    ... )
+    >>> print(mask)
+    [[1 1 0]
+        [1 1 0]
+        [0 0 1]]
+    >>> mask = create_mask(
+    ... partition_dict, hide_interactions="inter_part"
+    ... )
+    >>> print(mask)
+    [[0 0 1]
+        [0 0 1]
+        [1 1 0]]
     """
 
-    assert (hide_interactions in [
-        "intra_part",
-        "inter_part",
-    ]), "hide_interactions should be either 'intra_part' or 'inter_part'."
+    assert hide_interactions in list(MaskedInteractionType), (
+        f"hide_interactions should be one of the following: "\
+        f"{list(MaskedInteractionType)}"
+    )
 
     assert masked_value != unmasked_value, \
         "masked_value and unmasked_value should be different."
@@ -239,50 +259,54 @@ def create_mask(
         for part_len in partition_dict.values()
     ), "All chain lengths in partition_dict should be positive integers."
 
-    if "total" not in partition_dict:
+    if MiscStrEnum.TOTAL not in partition_dict:
         warnings.warn(
             "The partition_dict does not contain 'total'. "
             "Assuming the total length is the sum of all chain lengths.",
             UserWarning,
         )
 
-    sys_len = partition_dict.get("total", sum(partition_dict.values()))
+    sys_len = partition_dict.get(MiscStrEnum.TOTAL, sum(partition_dict.values()))
 
     mask_ = np.full((sys_len, sys_len), unmasked_value)
 
     prev = 0
     for chain in partition_dict:
-        if chain == "total":
+        if chain == MiscStrEnum.TOTAL:
             continue
         l = partition_dict[chain]
         curr = prev + l
         mask_[prev:curr:, prev:curr] = masked_value
         prev += l
 
-    if hide_interactions == "intra_part":
+    if hide_interactions == MaskedInteractionType.INTRA_PART:
         return mask_
 
-    elif hide_interactions == "inter_part":
+    elif hide_interactions == MaskedInteractionType.INTER_PART:
         new_mask_ = np.full((sys_len, sys_len), unmasked_value)
         new_mask_[mask_ == unmasked_value] = masked_value
 
         return new_mask_
 
 def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
-    """Symmetrize a matrix by averaging it with its transpose
+    """ Symmetrize a matrix by averaging it with its transpose
 
-    Args:
-        matrix (np.ndarray): Input matrix
+    ## Arguments:
 
-    Returns:
-        `sym_matrix (np.ndarray)`: Symmetrized matrix
+    - **matrix (np.ndarray | None)**:<br />
+        Input matrix to be symmetrized.
 
-    Example:
+    ## Returns:
 
-        >>> matrix = np.array([[1, 2], [3, 4]])
-        >>> print(symmetrize_matrix(matrix))
-        [[1.  2.5]
-         [2.5 4. ]]
+    - **np.ndarray**:<br />
+        Symmetrized matrix.
+
+    ## Examples:
+
+    >>> matrix = np.array([[1, 2], [3, 4]])
+    >>> print(symmetrize_matrix(matrix))
+    [[1.  2.5]
+        [2.5 4. ]]
     """
 
     assert isinstance(matrix, np.ndarray), "Input must be a numpy array"
@@ -293,20 +317,24 @@ def symmetrize_matrix(matrix: np.ndarray | None) -> np.ndarray:
     return sym_matrix
 
 def fill_up_the_blanks(li: list) -> list:
-    """Fill up the blanks in a list
+    """ Fill up the blanks in a list.
 
-    Args:
-        li (list): list with missing numbers
+    ## Arguments:
 
-    Returns:
-        `new_li (list)`: list with all the missing numbers filled
-            up between the minimum and maximum values
+    - **li (list)**:<br />
+        List with missing numbers.
 
-    Example:
-        >>> fill_up_the_blanks([1, 2, 4, 5])
-        [1, 2, 3, 4, 5]
+    ## Returns:
+
+    - **list**:<br />
+        List with all the missing numbers filled up between the minimum and
+        maximum values.
+
+    ## Examples:
+
+    >>> fill_up_the_blanks([1, 2, 4, 5])
+    [1, 2, 3, 4, 5]
     """
-
     min_li_val = min(li)
     max_li_val = max(li)
 
@@ -318,19 +346,29 @@ def get_key_from_res_range(
     res_range: list,
     as_list=False
 ) -> str | list:
-    """Returns a residue range string from a list of residue numbers.
+    """ Returns a residue range string from a list of residue numbers.
 
-    Args:
-        res_range (list): List of residue numbers, e.g., [1, 2, 3, 5, 6, 7]
+    ## Arguments:
 
-    Returns:
-        `str`: Residue range string, e.g., "1-3,5-7"
+    - **res_range (list)**:<br />
+        List of residue numbers, e.g., [1, 2, 3, 5, 6, 7]
 
-    Example:
-        >>> get_key_from_res_range([1, 2, 3, 5, 6, 7])
-        '1-3,5-7'
-        >>> get_key_from_res_range([1, 2, 3, 5, 6, 7], as_list=True)
-        ['1-3', '5-7']
+    - **as_list (bool, optional):**:<br />
+        If `True`, returns a list of residue range strings, e.g., ["1-3", "5-7"].
+        If `False`, returns a single string with residue ranges separated by commas,
+        e.g., "1-3,5-7". Defaults to `False`.
+
+    ## Returns:
+
+    - **str | list**:<br />
+        Residue range string or list of residue range strings.
+
+    ## Examples:
+
+    >>> get_key_from_res_range([1, 2, 3, 5, 6, 7])
+    '1-3,5-7'
+    >>> get_key_from_res_range([1, 2, 3, 5, 6, 7], as_list=True)
+    ['1-3', '5-7']
     """
 
     if not res_range:
@@ -347,7 +385,7 @@ def get_key_from_res_range(
 
         else:
             ranges.append(
-                f"{start}-{prev}"
+                f"{start}{RES_SEPARATOR}{prev}"
             ) if start != prev else ranges.append(str(start))
 
             start = prev = num
@@ -356,45 +394,53 @@ def get_key_from_res_range(
         ranges.append(str(start))
 
     else:
-        ranges.append(f"{start}-{prev}")
+        ranges.append(f"{start}{RES_SEPARATOR}{prev}")
 
     if as_list:
         return ranges
 
     else:
-        return ",".join(ranges)
+        return RES_SPLITTER.join(ranges)
 
 def get_res_range_from_key(
     res_range: str,
-    return_type: str = "list"
+    return_type: ReturnType = ReturnType.LIST,
 ) -> list | set:
-    """Convert a residue range string to a list of residue numbers
+    """ Convert a residue range string to a list of residue numbers
 
-    Args:
-        res_range (str): residue range string
+    ## Arguments:
 
-    Returns:
-        `res_range_list (list)`: list of residue numbers
+    - **res_range (str)**:<br />
+        Residue range string, e.g., "1-3,5-7"
 
-    Example:
-        >>> get_res_range_from_key("1-3,5-7")
-        [1, 2, 3, 5, 6, 7]
-        >>> get_res_range_from_key("1-3,5-7", return_type="set")
-        {1, 2, 3, 5, 6, 7}
+    - **return_type (ReturnType, optional):**:<br />
+        Return type, either `list` or `set`. Defaults to `list`.
+
+    ## Returns:
+
+    - **list | set**:<br />
+        List or set of residue numbers, e.g., [1, 2, 3, 5, 6, 7] or {1, 2, 3, 5, 6, 7}.
+
+    ## Examples:
+
+    >>> get_res_range_from_key("1-3,5-7")
+    [1, 2, 3, 5, 6, 7]
+    >>> get_res_range_from_key("1-3,5-7", return_type="set")
+    {1, 2, 3, 5, 6, 7}
     """
 
     res_range_list = []
 
-    for res_range in res_range.split(","):
+    for res_range in res_range.split(RES_SPLITTER):
 
-        if "-" in res_range:
-            start, end = map(int, res_range.split("-"))
+        if f"{RES_SEPARATOR}" in res_range:
+            start, end = map(int, res_range.split(RES_SEPARATOR))
             res_range_list.extend(list(range(start, end+1)))
 
         else:
             res_range_list.append(int(res_range))
 
-    if return_type == "set":
+    if return_type == ReturnType.SET:
         return set(res_range_list)
 
     return res_range_list
@@ -402,30 +448,25 @@ def get_res_range_from_key(
 def convert_false_to_true(
     arr: np.ndarray | list,
     threshold:int=2
-):
-    """
-    Convert False values in a binary array to True
+) -> np.ndarray:
+    """ Convert False values in a binary array to True
     if the patch length is less than or equal to a threshold \n
     A patch is defined as a sequence of consecutive False values
 
-    Args:
-        arr (list):
-            binary array with False values
-        threshold (int, optional):
-            Threshold for patch length to convert False to True.
-            Defaults to 5.
+    ## Arguments:
 
-    Returns:
-        `arr (np.ndarray)`:
-            binary array with False values converted to True
-            if the patch length is less than or equal to threshold
+    - **arr (np.ndarray | list)**:<br />
+        Binary array with False values.
 
-    Example:
-        >>> arr = np.array([True, False, False, True, False, False, False])
-        >>> convert_false_to_true(arr, threshold=2)
-        array([ True,  True,  True,  True, False, False, False])
+    - **threshold (int, optional):**:<br />
+        Threshold for patch length to convert False to True. Defaults to 2.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        Binary array with False values converted to True if the patch length is
+        less than or equal to threshold.
     """
-
     if isinstance(arr, list):
         arr = np.array(arr)
 
@@ -435,7 +476,7 @@ def convert_false_to_true(
 
     for patch in false_patches:
 
-        patch = patch.split("-")
+        patch = patch.split(RES_SEPARATOR)
         if len(patch) == 1:
             patch.append(patch[0])
 
@@ -449,41 +490,46 @@ def convert_false_to_true(
 
 def get_duplicate_indices(
     my_li: list,
-    return_type: str = "list",
-    keep_which: str | None = "first",
-):
+    return_type: str | ReturnType = ReturnType.LIST,
+    keep_which: str | MiscStrEnum = MiscStrEnum.FIRST,
+) -> list | dict:
     """ Get the indices of duplicate elements in a list.
 
-    Args:
-        my_li (list):
-            List of elements to check for duplicates.
-        return_type (str, optional):
-            Output type, either "list" or "dict".
-        keep_which (None | str, optional):
-            - If "first", keeps the first occurrence of the duplicate element.
-            - If "last", keeps the last occurrence of the duplicate element.
-            - If None, keeps all occurrences of the duplicate element.
-            Defaults to "first".
+    ## Arguments:
 
-    Returns:
-        `duplicate_indices (list | dict)`:\n
-            - If return_type is "list", returns a list of indices of duplicate
-            elements.\n
-            - If return_type is "dict", returns a dictionary with residue IDs
-            as keys and duplicate indices as values.\n
-            - first or last occurrence of the duplicate element is excluded
-            from the output list or dict based on the keep_which parameter.
+    - **my_li (list)**:<br />
+        List of elements to check for duplicates.
 
-    Example:
-        >>> my_li = [3, 2, 3, 4, 2, 5, 1]
-        >>> get_duplicate_indices(my_li)
-        [2, 4]
-        >>> get_duplicate_indices(my_li, return_type="dict")
-        {3: [2], 2: [4]}
-        >>> get_duplicate_indices(my_li, keep_which="last")
-        [0, 1]
-        >>> get_duplicate_indices(my_li, keep_which="last", return_type="dict")
-        {3: [0], 2: [1]}
+    - **return_type (str | ReturnType, optional):**:<br />
+        Output type, either "list" or "dict".
+        Defaults to "list".
+
+    - **keep_which (str | MiscStrEnum, optional):**:<br />
+        - If "first", keeps the first occurrence of the duplicate element.
+        - If "last", keeps the last occurrence of the duplicate element.
+        - If None, keeps all occurrences of the duplicate element.
+        Defaults to "first".
+
+    ## Returns:
+
+    - **list | dict**:<br />
+        - If return_type is "list", returns a list of indices of duplicate
+        elements.
+        - If return_type is "dict", returns a dictionary with residue IDs
+        as keys and duplicate indices as values.
+        - first or last occurrence of the duplicate element is excluded
+        from the output list or dict based on the keep_which parameter.
+
+    ## Examples:
+    >>> my_li = [3, 2, 3, 4, 2, 5, 1]
+    >>> get_duplicate_indices(my_li)
+    [2, 4]
+    >>> get_duplicate_indices(my_li, return_type="dict")
+    {3: [2], 2: [4]}
+    >>> get_duplicate_indices(my_li, keep_which="last")
+    [0, 1]
+    >>> get_duplicate_indices(my_li, keep_which="last", return_type="dict")
+    {3: [0], 2: [1]}
     """
 
     token_counts = Counter(my_li)
@@ -499,24 +545,24 @@ def get_duplicate_indices(
 
     for token_id in repeated_tokens:
         indices = [i for i, x in enumerate(my_li) if x == token_id]
-        if keep_which == "first":
+        if keep_which == MiscStrEnum.FIRST:
             indices.pop(0)
-        elif keep_which == "last":
+        elif keep_which == MiscStrEnum.LAST:
             indices.pop(-1)
         duplicate_indices.extend(indices)
 
-    if return_type == "list":
+    if return_type == ReturnType.LIST:
         return duplicate_indices
 
-    elif return_type == "dict":
+    elif return_type == ReturnType.DICT:
 
         duplicate_indices = {}
 
         for token_id in repeated_tokens:
             indices = [i for i, x in enumerate(my_li) if x == token_id]
-            if keep_which == "first":
+            if keep_which == MiscStrEnum.FIRST:
                 indices.pop(0)
-            elif keep_which == "last":
+            elif keep_which == MiscStrEnum.LAST:
                 indices.pop(-1)
             duplicate_indices[token_id] = indices
 
@@ -527,41 +573,51 @@ def update_list(
     idxs_to_update: dict[Any, list[int]],
     replace_with_avg: bool = False,
     idxs_to_keep: dict = {},
-):
+) -> list:
     """ Update a list by replacing specified indices.
 
-    Args:
-        li (list):
-            User-defined list to be updated.
-        idxs_to_update (dict):
-            Dictionary of indices to update.
-        replace_with_avg (bool, optional):
-            If `True`, replaces the specified indices with the average value.\n
-            If `False`, replaces the specified indices with the values at the
-            specified indices in `idxs_to_keep`.\n
-            If `idxs_to_keep` is not provided, the first index in each
-            list of `idxs_to_update` will be used to replace the indices.
-        idxs_to_keep (dict, optional):
-            Dictionary of indices to keep.
-            If provided, the specified indices will be replaced with the
-            values at the specified indices in `idxs_to_keep`.
+    ## Arguments:
 
-    Returns:
-        `li (list)`: Updated list with specified indices replaced.
+    - **li (list)**:<br />
+        User-defined list to be updated.
 
-    Example:
+    - **idxs_to_update (dict[Any, list[int]])**:<br />
+        Dictionary of indices to update.
+        e.g. {token1: [idx1, idx2, ...], token2: [idx3, idx4, ...]}
+            For each key, a list of indices is provided. In the output list, the
+            values corresponding to these indices will be replaced with the
+            average if `replace_with_avg` is True.
 
-        >>> li = [1, 2, 3, 4, 5, 6]
-        >>> idxs_to_update = {1: [1, 2], 2: [3, 4]}
-        >>> idxs_to_keep = {1: 0, 2: 1}
-        >>> update_list(
-        ... li, idxs_to_update, False, idxs_to_keep
-        ... )
-        [1.0, 2.0, 5.0, 6.0]
-        >>> update_list(
-        ... li, idxs_to_update, True, idxs_to_keep
-        ... )
-        [1.0, 2.5, 4.5, 6.0]
+    - **replace_with_avg (bool, optional):**:<br />
+        If `True`, replaces the specified indices with the average value.\n
+        If `False`, replaces the specified indices with the values at the
+        specified indices in `idxs_to_keep`.\n
+        If `idxs_to_keep` is not provided, the first index in each
+        list of `idxs_to_update` will be used to replace the indices.
+
+    - **idxs_to_keep (dict, optional):**:<br />
+        Dictionary of indices to keep.
+        If provided, the specified indices will be replaced with the
+        values at the specified indices in `idxs_to_keep`.
+
+    ## Returns:
+
+    - **list**:<br />
+        Updated list with specified indices replaced.
+
+    ## Examples:
+
+    >>> li = [1, 2, 3, 4, 5, 6]
+    >>> idxs_to_update = {1: [1, 2], 2: [3, 4]}
+    >>> idxs_to_keep = {1: 0, 2: 1}
+    >>> update_list(
+    ... li, idxs_to_update, False, idxs_to_keep
+    ... )
+    [1.0, 2.0, 5.0, 6.0]
+    >>> update_list(
+    ... li, idxs_to_update, True, idxs_to_keep
+    ... )
+    [1.0, 2.5, 4.5, 6.0]
     """
 
     li1 = np.asarray(copy.deepcopy(li), dtype=float)
@@ -596,7 +652,7 @@ def update_matrix_row_col(
     idxs_to_update: dict,
     replace_with_avg: bool = False,
     idxs_to_keep: dict = {},
-):
+) -> np.ndarray:
     """ Update a square matrix by replacing rows and columns.
 
     This function updates a square matrix by replacing the specified rows and
@@ -613,40 +669,46 @@ def update_matrix_row_col(
     If `idxs_to_keep` is not provided, the first index in each list of
     `idxs_to_update` will be used to replace the columns and rows.
 
-    Args:
-        matrix (np.ndarray):
-            Square matrix to be updated.
-        idxs_to_update (dict):
-            Dictionary of indices to update.
-            e.g. {token1: [idx1, idx2, ...], token2: [idx3, idx4, ...]}
-        replace_with_avg (bool, optional):
-            If `True`, replaces the rows and columns with the average value.
-        idxs_to_keep (dict, optional):
-            Dictionary of indices to keep.
-            If provided, the rows and columns will be replaced with the values
-            at the specified indices in `idxs_to_keep`.
+    ## Arguments:
 
-    Returns:
-        `matrix (np.ndarray)`:
-            Updated square matrix with specified rows and columns replaced.
+    - **matrix (np.ndarray | None)**:<br />
+        Square matrix to be updated.
 
-    Example:
+    - **idxs_to_update (dict)**:<br />
+        Dictionary of indices to update.
 
-        >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-        >>> idxs_to_update = {1: [0, 1]}
-        >>> idxs_to_keep = {1: 0}
-        >>> update_matrix_row_col(
-        ... matrix, idxs_to_update, False, idxs_to_keep
-        ... )
-        array([[1., 3.],
-               [7., 9.]])
-        >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-        >>> idxs_to_update = {1: [0, 1]}
-        >>> update_matrix_row_col(
-        ... matrix, idxs_to_update, True, {}
-        ... )
-        array([[3. , 4.5],
-               [7.5, 9. ]])
+    - **replace_with_avg (bool, optional):**:<br />
+        If `True`, replaces the rows and columns with the average value.\n
+        If `False`, replaces the rows and columns with the values at the
+        specified indices in `idxs_to_keep`.\n
+        If `idxs_to_keep` is not provided, the first index in each list of
+        `idxs_to_update` will be used to replace the columns and rows.
+
+    - **idxs_to_keep (dict, optional):**:<br />
+        Dictionary of indices to keep.
+
+    ## Returns:
+
+    - **np.ndarray**:<br />
+        Updated square matrix with specified rows and columns replaced.
+
+    ## Examples:
+
+    >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    >>> idxs_to_update = {1: [0, 1]}
+    >>> idxs_to_keep = {1: 0}
+    >>> update_matrix_row_col(
+    ... matrix, idxs_to_update, False, idxs_to_keep
+    ... )
+    array([[1., 3.],
+            [7., 9.]])
+    >>> matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    >>> idxs_to_update = {1: [0, 1]}
+    >>> update_matrix_row_col(
+    ... matrix, idxs_to_update, True, {}
+    ... )
+    array([[3. , 4.5],
+            [7.5, 9. ]])
     """
 
     if matrix is None:
@@ -737,7 +799,7 @@ def update_matrix_row_col(
     return matrix
 
 def extract_protein_chain_mapping(
-    protein_chain_mapping: dict | None = None
+    protein_chain_mapping: dict,
 ) -> dict[str, str]:
     """ Extract the protein chain mapping from the provided dictionary.
 
@@ -757,40 +819,128 @@ def extract_protein_chain_mapping(
     }
     ```
 
-    Arguments:
+    ## Arguments:
 
     - **protein_chain_mapping (dict)**:<br />
         Protein-to-chain map.
 
-    Returns:
+    ## Returns:
 
-    - **protein_chain_map (dict)**:
+    - **protein_chain_map (dict)**:<br />
         Dictionary with chain IDs as keys and protein names as values.
 
-    Example:
+    ## Examples:
 
-        >>> protein_chain_mapping = {
-        ... "ProteinA:A,B",
-        ... "ProteinB:C"
-        ... }
-        >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
-        [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
+    >>> protein_chain_mapping = {
+    ... "ProteinA" : "A,B",
+    ... "ProteinB": "C"
+    ... }
+    >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
+    [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
     """
 
-    protein_chain_map = {}
+    chain_protein_map = {}
 
-    if protein_chain_mapping is None:
-        return protein_chain_map
+    if len(protein_chain_mapping) == 0:
+        return chain_protein_map
 
-    for p_c_maps in protein_chain_mapping:
-        protein_name, chain_ids = p_c_maps.split(":")
-        chain_ids = chain_ids.split(",")
+    for protein_name, chain_ids in protein_chain_mapping.items():
         for chain_id in chain_ids:
-            if chain_id not in protein_chain_map:
-                protein_chain_map[chain_id] = protein_name
+            if chain_id not in chain_protein_map:
+                chain_protein_map[chain_id] = protein_name
 
-    return protein_chain_map
+    return chain_protein_map
 
+def generate_cmap(
+    n: int,
+    scheme: str | ColorMapScheme = ColorMapScheme.SOFT_WARM
+) -> list[str]:
+    """ Generate a list of n colors based on the specified color scheme.
+    (modfied from chatgpt)
+
+    ## Arguments:
+
+    - **n (int)**:<br />
+        Number of colors to generate.
+
+    - **scheme (str | ColorMapScheme, optional):**:<br />
+        Color scheme to use for generating colors. Choose from the following:
+        - `standard`: Standard RGB colors.
+        - `non_bright`: Muted colors with reduced brightness.
+        - `earth_tone`: Colors inspired by natural earth tones.
+        - `cool_tone`: Colors with a cool, calming palette.
+        - `soft_warm`: Colors with a soft, warm palette.
+        - `contrasting_non_bright`: Alternating between darker and lighter muted tones.
+        Defaults to `soft_warm`.
+
+    ## Returns:
+
+    - **list**:<br />
+        List of n colors in hexadecimal format.
+    """
+
+    import random
+    import time
+
+    colors = set()
+    start = time.time()
+
+    assert n > 0; "Number of colors must be greater than 0"
+    if n != 2:
+        assert scheme != ColorMapScheme.BINARY; "Binary scheme is only valid for 2 colors"
+
+    if n == 2 and scheme == ColorMapScheme.BINARY:
+        return [BinaryColorMap.ZERO_C, BinaryColorMap.ONE_C]
+
+    while len(colors) < n:
+        if scheme == ColorMapScheme.STANDARD:
+            r = random.randint(0, 255)
+            g = random.randint(0, 255)
+            b = random.randint(0, 255)
+
+        elif scheme == ColorMapScheme.NON_BRIGHT:
+            r = random.randint(50, 180)
+            g = random.randint(50, 180)
+            b = random.randint(50, 180)
+
+        elif scheme == ColorMapScheme.EARTH_TONE:
+            r = random.randint(100, 180)
+            g = random.randint(60, 140)
+            b = random.randint(40, 120)
+
+        elif scheme == ColorMapScheme.COOL_TONE:
+            r = random.randint(50, 120)
+            g = random.randint(100, 180)
+            b = random.randint(120, 255)
+
+        elif scheme == ColorMapScheme.SOFT_WARM:
+            r = random.randint(180, 255)
+            g = random.randint(130, 200)
+            b = random.randint(90, 160)
+
+        elif scheme == ColorMapScheme.CONTRASTING_NON_BRIGHT:
+            if len(colors) % 2 == 0:  # Alternate between darker and lighter muted tones
+                r = random.randint(40, 120)
+                g = random.randint(40, 120)
+                b = random.randint(40, 120)
+            else:
+                r = random.randint(140, 200)
+                g = random.randint(140, 200)
+                b = random.randint(140, 200)
+
+        else:
+            raise ValueError(
+                "Invalid scheme. Choose from "\
+                f"{list(ColorMapScheme)}"
+            )
+
+        color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        colors.add(color)
+
+        if time.time() - start > 10:
+            break
+
+    return list(colors)
 
 if __name__ == "__main__":
 
