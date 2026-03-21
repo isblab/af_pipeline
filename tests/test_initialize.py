@@ -1,4 +1,4 @@
-from af_pipeline._initialize import _Initialize
+from af_pipeline.initialize import Initialize
 import pytest
 import Bio.PDB.Structure
 from af_pipeline.parser.structure_parser import StructureParser
@@ -9,7 +9,7 @@ data_path_1 = "tests/test_data/af_predictions/af3/fold_dummy_job_2/fold_dummy_jo
 
 @pytest.fixture
 def initialize1():
-    return _Initialize(
+    return Initialize(
         data_file_path=data_path_1,
         structure_file_path=struct_path1,
         af_offset={},
@@ -21,7 +21,7 @@ def initialize1():
 
 @pytest.fixture
 def initialize2():
-    return _Initialize(
+    return Initialize(
         data_file_path=data_path_1,
         structure_file_path=struct_path1,
         af_offset={},
@@ -32,10 +32,10 @@ def initialize2():
     )
 
 def test_initialize_properties(
-    initialize1: _Initialize,
-    initialize2: _Initialize,
+    initialize1: Initialize,
+    initialize2: Initialize,
 ):
-    """Test the _Initialize properties."""
+    """Test the Initialize properties."""
 
     for initializer in [initialize1, initialize2]:
 
@@ -49,7 +49,7 @@ def test_initialize_properties(
             "structure_parser should be a StructureParser instance."
 
     with pytest.raises(Exception):
-        _ = _Initialize(
+        _ = Initialize(
             data_file_path=data_path_1,
             structure_file_path=struct_path1,
             af_offset={},

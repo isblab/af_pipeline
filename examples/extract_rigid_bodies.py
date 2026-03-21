@@ -112,7 +112,7 @@ if __name__ == "__main__":
         nargs="+",
         required=False,
         default=[],
-        help="List of protein:chain pairs to be considered for rigid body extraction. Format: protein1:chain1,protein2:chain2,...",
+        help="List of protein:chain pairs to be considered for rigid body extraction. Format: protein1:chain1 protein2:chain2",
     )
 
     args = args.parse_args()
@@ -142,6 +142,9 @@ if __name__ == "__main__":
     config_yaml = read_json(args.input)
     input_dict = config_yaml.get(ConfigYaml.best_pred, None)
     idr_chains = args.idr_chains.split(",") if args.idr_chains else []
+    protein_chain_map = {
+        protein: chain for pair in args.protein_chain_map for protein, chain in [pair.split(":")]
+    }
 
     for pred_head, pred_to_analyse in input_dict.items():
 
@@ -170,6 +173,10 @@ if __name__ == "__main__":
             idr_chains=idr_chains,
         )
 
+        rigid_bodies_extractor.set_attributes_from(
+            instance=initialize,
+        )
+
         domains = rigid_bodies_extractor.extract_rigid_bodies(
             pae_matrix=rigid_bodies_extractor.pae,
             min_res=args.min_res,
@@ -184,13 +191,13 @@ if __name__ == "__main__":
             save_structure=True,
             rb_struct_fmt="pdb",
             filter_struct_by_plddt=True,
-            protein_chain_map=None
+            protein_chain_map=protein_chain_map
         )
 
         rigid_bodies_extractor.assess_rigid_bodies(
             domains=domains,
             output_dir=args.output,
-            protein_chain_map=args.protein_chain_map,
+            protein_chain_map=protein_chain_map,
             symmetric_pae=True,
             as_average=True,
         )

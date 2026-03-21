@@ -13,7 +13,7 @@ pred_dir = "tests/test_data/af_predictions/af3/dummy_cycle"
 af_input_jobs = {
     "cycle_1": [
         {
-            "name": "job_set_1",
+            "job_set_name": "job_set_1",
             "modelSeeds": [1, 2],
             "entities": [
                 {
@@ -38,7 +38,7 @@ af_input_jobs = {
 af_input_jobs2 = {
     "cycle_1": [
         {
-            "name": "job_set_1",
+            "job_set_name": "job_set_1",
             "modelSeeds": [1, 47],
             "entities": [
                 {
@@ -83,14 +83,14 @@ def test_add_job_set_id(rank_af3_job_set: RankAF3JobSet):
     )
     assert job_set_id == 1
 
-    af_input_jobs["cycle_1"][0]["name"] = "job_set_1_subset"
+    af_input_jobs["cycle_1"][0]["job_set_name"] = "job_set_1_subset"
     job_set_id = rank_af3_job_set.add_job_set_id(
         af_input_jobs=af_input_jobs,
         soft_match=True
     )
     assert job_set_id == 1
 
-    af_input_jobs["cycle_1"][0]["name"] = "job_set_2"
+    af_input_jobs["cycle_1"][0]["job_set_name"] = "job_set_2"
     job_set_id = rank_af3_job_set.add_job_set_id(
         af_input_jobs=af_input_jobs,
         soft_match=True
@@ -99,7 +99,7 @@ def test_add_job_set_id(rank_af3_job_set: RankAF3JobSet):
 
 def test_extract_af_offset_from_af_input_jobs(rank_af3_job_set: RankAF3JobSet):
 
-    af_input_jobs["cycle_1"][0]["name"] = "job_set_1"
+    af_input_jobs["cycle_1"][0]["job_set_name"] = "job_set_1"
     rank_af3_job_set.add_job_set_id(
         af_input_jobs=af_input_jobs,
         soft_match=False
@@ -147,7 +147,7 @@ def test_extract_af3_best_pred_data(rank_af3_job_set_real: RankAF3JobSet):
 
     best_pred_info = rank_af3_job_set_real.extract_af3_best_pred_data()
 
-    assert os.path.basename(best_pred_info[0]["structure_path"]) == (
+    assert os.path.basename(best_pred_info["prota_1_1t5_protb_1_11t15"]["structure_path"]) == (
         "fold_prota_1_1t5_protb_1_11t15_1_model_0.cif"
     )
 
@@ -155,7 +155,7 @@ def test_extract_af3_best_pred_data(rank_af3_job_set_real: RankAF3JobSet):
         af_input_jobs=af_input_jobs2
     )
 
-    assert best_pred_info[0]["af_offset"] == {
+    assert best_pred_info["prota_1_1t5_protb_1_11t15"]["af_offset"] == {
         "A": [1, 5],
         "B": [11, 15],
     }
