@@ -1083,7 +1083,8 @@ if __name__ == "__main__":
         "-d",
         "--module_dir",
         type=str,
-        default="/home/omkar/Projects/af_pipeline/af_pipeline",
+        # default="/home/omg/Projects/af_pipeline/af_pipeline",
+        required=True,
         help="Path to the module directory.",
     )
 
@@ -1105,7 +1106,7 @@ if __name__ == "__main__":
 
     args = args.parse_args()
 
-    module_dir = args.module_dir
+    module_dir = os.path.abspath(args.module_dir)
     module_name = args.module_name
 
     networks_to_generate = [

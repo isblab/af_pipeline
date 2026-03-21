@@ -409,6 +409,26 @@
 
               {%  endif %}
 
+              // Function to select and focus on a node
+              function selectNode(nodeId) {
+                  if (nodeId && nodeId.length > 0) {
+                      // Focus on the selected node
+                      network.focus(nodeId, {
+                          scale: 1.5,
+                          animation: {
+                              duration: 1000,
+                              easingFunction: "easeInOutQuad"
+                          }
+                      });
+                      // Select the node
+                      network.selectNodes([nodeId]);
+                      // Trigger neighborhood highlight if enabled
+                      {% if neighborhood_highlight or select_menu %}
+                      neighbourhoodHighlight({nodes: [nodeId]});
+                      {% endif %}
+                  }
+              }
+
               // This method is responsible for drawing the graph, returns the drawn network
               function drawGraph() {
                   var container = document.getElementById('mynetwork');
