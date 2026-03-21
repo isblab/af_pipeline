@@ -90,6 +90,7 @@ class FileFormat(StrEnum):
     XLSX = auto()
     PNG = auto()
     HTML = auto()
+    FASTA = auto()
 
 @dataclass
 class RigidBodiesConstants:
@@ -220,6 +221,7 @@ class AFServerSequenceFields(StrEnum):
 
 class AFInputJobFields(StrEnum):
     NAME = auto()
+    JOB_NAME = auto()
     JOB_SET_NAME = auto()
     MODEL_SEEDS = "modelSeeds"
     ENTITIES = auto()
@@ -227,6 +229,8 @@ class AFInputJobFields(StrEnum):
 
 class AFInputEntityFields(StrEnum):
     NAME = auto()
+    IDENTIFIER = auto()
+    SEQUENCE = auto()
     TYPE = auto()
     COUNT = auto()
     RANGE = auto()

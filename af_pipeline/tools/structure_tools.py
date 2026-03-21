@@ -570,17 +570,16 @@ class RenumberResidues:
         """
 
         for model in structure:
-            for chain in model:
-                chain_id = chain.id
-                for residue in chain:
-                    h, num, ins = residue.id
+            for residue in model.get_residues():
+                chain_id = residue.parent.id
+                h, num, ins = residue.id
 
-                    num = self.renumber_chain_res_num(
-                        chain_res_num=num,
-                        chain_id=chain_id,
-                    )
+                num = self.renumber_chain_res_num(
+                    chain_res_num=num,
+                    chain_id=chain_id,
+                )
 
-                    residue.id = (h, num, ins)
+                residue.id = (h, num, ins)
 
         return structure
 

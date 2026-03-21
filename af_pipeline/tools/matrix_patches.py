@@ -5,6 +5,7 @@ from af_pipeline.utils.misc_utils import (
     get_key_from_res_range,
     get_res_range_from_key,
 )
+from af_pipeline.constants.af_constants import MiscStrEnum
 
 class MatrixPatches:
     """Class to get interacting patches from a binary matrix"""
@@ -467,7 +468,7 @@ class MatrixPatches:
                         df_rows.append([res_range1, res_range2])
 
         new_df = pd.DataFrame(df_rows, columns=[colname_1, colname_2])
-        new_df.drop_duplicates(inplace=True, keep="first")
+        new_df.drop_duplicates(inplace=True, keep=MiscStrEnum.FIRST)
         new_df.reset_index(drop=True, inplace=True)
 
         return new_df
