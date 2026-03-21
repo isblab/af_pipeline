@@ -7,3 +7,6 @@ python-igraph
 ruamel.yaml
 PyYAML
 plotly
+pytest
+pdoc
+pyvis
