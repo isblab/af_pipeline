@@ -70,8 +70,9 @@ class MatrixPatches:
             4        {4}        {3}
         """
 
-        assert np.unique(self.matrix).tolist() == [0, 1]
-        "Matrix must be binary and non-empty"
+        assert np.isin(self.matrix, [0, 1]).all() and np.any(self.matrix), (
+            f"Matrix must be binary and non-empty, got {np.unique(self.matrix)}"
+        )
 
         row_sets = self.get_one_sets_from_matrix(self.matrix, axis=0)
         col_sets = self.get_one_sets_from_matrix(self.matrix, axis=1)
@@ -135,8 +136,9 @@ class MatrixPatches:
             {0: {np.int64(0), np.int64(2)}, 1: {np.int64(1), np.int64(2)}, 2: {np.int64(0)}}
         """
 
-        assert np.unique(matrix).tolist() == [0, 1]
-        "Matrix must be binary"
+        assert np.isin(matrix, [0, 1]).all() and np.any(matrix), (
+            f"Matrix must be binary and non-empty, got {np.unique(matrix)}"
+        )
 
         one_sets = {}
 
