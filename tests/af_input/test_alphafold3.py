@@ -1109,7 +1109,7 @@ def alphafoldserver():
 
 def test_write_job_files(alphafoldserver: AlphaFoldServer):
 
-    job_cycles, _, _ = alphafoldserver.create_af3_job_cycles()
+    job_cycles, _, _, _ = alphafoldserver.create_af3_job_cycles()
     alphafoldserver.write_job_files(
         job_cycles=job_cycles,
         output_dir=os.path.join(test_out_dir, "af3_input_jobs"),
@@ -1125,7 +1125,7 @@ def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
 
     assert_msg = "AF3 job cycles do not match expected outcome."
 
-    job_cycles, job_set_names, af_offsets = alphafoldserver.create_af3_job_cycles()
+    job_cycles, job_set_names, af_offsets, cycle_seeds = alphafoldserver.create_af3_job_cycles()
     expected_af3_job_cycles = {
         "cycle1": [
             {

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import Bio.PDB.Structure
 from typing import Dict
@@ -90,8 +91,8 @@ class Initialize:
         use_fast_cif_parser: bool = InitCons.use_fast_cif_parser,
     ):
 
-        self.structure_file_path = structure_file_path
-        self.data_file_path = data_file_path
+        self.structure_file_path = os.path.abspath(structure_file_path)
+        self.data_file_path = os.path.abspath(data_file_path)
         self.af_offset = af_offset
         self.rep_atom_dict = rep_atom_dict
         self.average_token_pae = average_token_pae
