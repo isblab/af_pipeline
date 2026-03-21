@@ -3,7 +3,7 @@
 ![Coverage Status](./tests/badges/coverage-badge.svg?raw=true)
 
 A module to assist in creating input files and processing and analyzing output
-predictions from AlphaFold predictions.
+predictions from AlphaFold2 and AlphaFold3.
 
 ## Installation
 - Clone the repository
