@@ -233,30 +233,6 @@ class Initialize:
                 token_res_ids=self.data_parser.get_token_res_ids(data),
             )
 
-        """Get the chain lengths.
-
-        lengths_dict is a dictionary containing the chain lengths. \n
-        {chain_id: length} \n
-        "total" is the total length of the system. \n
-        For example, if the system has 2 chains A and B, \n
-        lengths_dict = {"A": 100, "B": 50, "total": 150} \n
-
-        ## Arguments:
-
-        - **token_chain_ids (list)**:
-            Token chain IDs.
-
-        Returns:
-        - **lengths_dict (Dict)**:
-            Dictionary containing the chain lengths and total length.
-
-        Example:
-
-            >>> token_chain_ids = ['A', 'A', 'B', 'B', 'B']
-            >>> lengths_dict = _Initialize.get_chain_lengths(token_chain_ids)
-            >>> print(lengths_dict)
-            {'total': 5, 'A': 2, 'B': 3}
-        """
     @staticmethod
     def get_chain_lengths(token_chain_ids: list) -> Dict[str, int]:
         """Get the chain lengths.
@@ -280,9 +256,9 @@ class Initialize:
         ## Example:
 
             >>> token_chain_ids = ['A', 'A', 'B', 'B', 'B']
-            >>> lengths_dict = _Initialize.get_chain_lengths(token_chain_ids)
+            >>> lengths_dict = Initialize.get_chain_lengths(token_chain_ids)
             >>> print(lengths_dict)
-            {'total': 5, 'A': 2, 'B': 3}
+            {<MiscStrEnum.TOTAL: 'total'>: 5, 'A': 2, 'B': 3}
         """
 
         lengths_dict = {}
@@ -504,13 +480,13 @@ class Initialize:
             ... [2, 3, 0]
             ... ])
             >>> lengths_dict = {"A": 2, "B": 1, "total": 3}
-            >>> _Initialize.get_min_pae(
+            >>> Initialize.get_min_pae(
             ...     pae_matrix,
             ...     lengths_dict
             ... )
             array([1.5, 3. , 1.5])
 
-            >>> _Initialize.get_min_pae(
+            >>> Initialize.get_min_pae(
             ... pae_matrix,
             ... lengths_dict,
             ... along_axis=0,
@@ -518,7 +494,7 @@ class Initialize:
             ... )
             [2, 3, 1]
 
-            >>> _Initialize.get_min_pae(
+            >>> Initialize.get_min_pae(
             ... pae_matrix,
             ... lengths_dict,
             ... along_axis=1,
