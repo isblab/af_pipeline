@@ -80,14 +80,3 @@ af_input_jobs:
       count: 3
       maxTemplateDate: "2023-01-01"
       useStructureTemplate: true
-
-af_master_dirs:
-- ./input/AF_predictions/AF3
-
-af_cycle_dirs:
-- ./input/AF_predictions/AF3/Collagen_triple_helix_targets
-
-af_job_set_dirs:
-- ./input/AF_predictions/AF3/Actin_profilin_targets/Act1_1_1-375_Cdc3_1_1-127
-- ./input/AF_predictions/AF3/Actin_profilin_targets/actin_profilin_complex
-
