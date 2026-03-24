@@ -77,7 +77,7 @@ if __name__ == "__main__":
     )
 
     af_input.create_af2_job_cycles()
-    af_input.write_job_files(output_dir=args.output)
+    af_input.write_job_files(output_dir=output_dir)
 
     # For ColabFold
     af_input = ColabFold(
@@ -86,4 +86,4 @@ if __name__ == "__main__":
     )
 
     af_input.create_colabfold_job_cycles()
-    af_input.write_job_files(output_dir=args.output)
+    af_input.write_job_files(output_dir=output_dir)

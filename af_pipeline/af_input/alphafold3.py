@@ -479,12 +479,9 @@ class AFJobSet:
             - `sequences`:`af_sequences` <br />
         """
 
-        self.update_job_set_name()
         self.update_model_seeds()
         self.update_af_sequences()
-
-        if self.job_set_name is None:
-            self.generate_job_set_name()
+        self.update_job_set_name()
 
         job_set_dict = {
             AFInputJobFields.NAME: self.job_set_name,
@@ -500,7 +497,9 @@ class AFJobSet:
         Tries to get the job name from the `job_set_info`.
         """
 
-        self.job_set_name = self.job_set_info.get(AFInputJobFields.JOB_SET_NAME)
+        self.job_set_name = self.job_set_info.get(
+            AFInputJobFields.JOB_SET_NAME, self.generate_job_set_name()
+        )
 
     def update_model_seeds(self):
         """Update the `model_seeds`.
