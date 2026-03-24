@@ -17,11 +17,36 @@ AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 - Keep in mind the following structure while using or adding new classes or methods to
   any of the submodules.
 
-<p align="center">
-    <img src="../../docs/assets/AFInput_structure.png" width="120%">
-</p>
+```mermaid
+graph LR
 
-- In all three cases, the input data is provided as a dictionary, which is
+    config.yaml -->|contains| af_input_jobs
+    af_input_jobs -->|contains| job_cycle
+    job_cycle -->|contains| job_set
+    job_set -->|contains| job
+    job -->|contains| entity
+
+```
+
+- Each `job_cycle` in `af_input_jobs` contains a list of `job_set` instances (in `config.yaml`).
+- Each `job_set` is converted to a list of `job` instances based on `modelSeeds`.
+- Each `job` or `job_set` contains a list of entities.
+
+> [!NOTE]
+> The difference between `job` and `job_set` is that:
+>
+> `job_set` is a collection of `job` instances which differ **ONLY** in their `modelSeeds` attribute.
+
+- An entity can be of one of the following types:
+    - `proteinChain`
+    - `dnaSequence`
+    - `rnaSequence`
+    - `ligand`
+    - `ion`
+- Each entity in the `job` is an instance of :py:class:`af_pipeline.af_input.alphafold3.AFSequence`.
+
+
+- In all three cases (AlphaFoldServer, AlphaFold2, ColabFold), the input data is provided as a dictionary, which is
   stored in a `YAML` file. See the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples)
   for sample input file.
 
@@ -78,25 +103,15 @@ sequenceDiagram
 
     rect rgb(240, 255, 255)
     note over User, AlphaFold3: Create AlphaFold3 instance.
-    User->>AlphaFold3: input_dict
+    User->>AlphaFold3: config_dict
     User->>AlphaFold3: protein_sequences (dict)
     note over User, AlphaFold3: The following parameters are optional.
-    User->>AlphaFold3: nucleic_acid_sequences
-    User->>AlphaFold3: entities_map
+    User->>AlphaFold3: nucleic_acid_sequences (dict)
     end
 
     rect rgb(245, 255, 200)
     note over User, AlphaFold3: Create AlphaFold3 job cycles.
-    create participant job_cycles
-    User->>job_cycles: create_af3_job_cycles()
-    end
-
-    rect rgb(250, 230, 230)
-    destroy job_cycles
-    job_cycles->>output(.json): write_job_files()
-    note over User, output(.json): Specify the number of jobs per file and output directory.
-    User->>output(.json): output_dir
-    User->>output(.json): num_jobs_per_file
+    User->>output(.json): create_af3_job_cycles() & write_job_files()
     end
 ```
 
@@ -116,23 +131,13 @@ sequenceDiagram
 
     rect rgb(240, 255, 255)
     note over User, AlphaFold2/ColabFold: Create AlphaFold2/ColabFold instance.
-    User->>AlphaFold2/ColabFold: input_dict
+    User->>AlphaFold2/ColabFold: config_dict
     User->>AlphaFold2/ColabFold: protein_sequences (dict)
-    note over User, AlphaFold2/ColabFold: The following parameters are optional.
-    User->>AlphaFold2/ColabFold: entities_map
     end
 
     rect rgb(245, 255, 200)
     note over User, AlphaFold2/ColabFold: Create AlphaFold2/ColabFold job cycles.
-    create participant job_cycles
-    User->>job_cycles: create_af2_job_cycles() / create_colabfold_job_cycles()
-    end
-
-    rect rgb(250, 230, 230)
-    destroy job_cycles
-    job_cycles->>output(.fasta): write_job_cycles()
-    note over User, output(.fasta): Specify the number of jobs per file and output directory.
-    User->>output(.fasta): output_dir
+    User->>output(.fasta): create_af2_job_cycles() / create_colabfold_job_cycles() & write_job_cycles()
     end
 ```
 
@@ -147,6 +152,9 @@ sequenceDiagram
 <summary>Yes, the same config file can be used for all three methods.</summary>
 However, if the config file has non-protein entities, then they will be ignored
 for AlphaFold2 and ColabFold.
+Similarly, if the config file has `modelSeeds` attribute, then it will be ignored
+for AlphaFold2 and ColabFold.
+
 </details>
 
 
@@ -194,16 +202,9 @@ the [example script](https://github.com/isblab/af_pipeline/tree/main/examples/cr
 **Q. Is the `YAML` format of the config file necessary?**
 <details>
 <summary>No, it is not necessary.</summary>
-For :py:mod:`af_pipeline.af_input` only, as long as the input data is provided as a dictionary
+As long as the input data is provided as a dictionary
 in the required format, it can be read from any file format (e.g., `JSON`, `TOML`,
 etc.) or directly created in the wrapper script.
-
-However, all the example scripts assume `YAML` format for the config file. So,
-if you use any other format, you will need to modify the example scripts accordingly
-and use your own utility functions wherever applicable.
-For e.g., :py:func:`af_pipeline.utils.file_utils.update_config` assumes `YAML` format.
-So, you'll need to modify it / write a new function to suit the config file
-in your desired format.
 </details>
 
 
@@ -215,7 +216,7 @@ Each job set within a job cycle has a "modelSeeds" attribute to specify the mode
 You can provide a single integer value (to directly denote the number of jobs) or
 a list of integer values (to specifically denote the seed values).
 In the former case, the seeds are generated using
-:py:meth:`af_pipeline.af_input.alphafold3.AlphaFoldServer.AFJobSet.generate_seeds`.
+:py:meth:`af_pipeline.utils.misc_utils.generate_seeds`.
 
 > [!NOTE]
 > model seeds are only applicable for AlphaFold3 predictions.

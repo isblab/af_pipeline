@@ -3,30 +3,23 @@ AlphaFold server input file creator
 ===================================
 - Create input `JSON` files for AlphaFold server (https://alphafoldserver.com)
 
-<details>
-    <summary>
-        <b>Note to the maintainer:</b>
-    </summary>
 - Keep in mind the following hierarchy:
+
+```mermaid
+graph LR
+    job_cycle -->|contains| job_set
+    job_set -->|contains| job
+    job -->|contains| entity
 ```
-    job_cycle
-    └── job_sets_list or job_list
-        └── job (based on model_seeds)
-            └── entities (list of AFSequence)
-```
-- A `job_cycle` contains
-    - a list of job sets (in the config file) OR
-    - a list of jobs (in the output `job_cycles` dictionary).
-- `job_set` --> `job` conversion is based on the `model_seeds`.
-- Each `job` or `job_set` contains a list of entities.
+
 - An entity can be of one of the following types:
     - `proteinChain`
     - `dnaSequence`
     - `rnaSequence`
     - `ligand`
     - `ion`
-- Each entity in the `job` is an instance of :py:class:`AFSequence`.
-</details>
+- Each entity in the `job` is an instance of :py:class:`af_pipeline.af_input.alphafold3.AFSequence`.
+
 """
 
 import os
@@ -35,7 +28,11 @@ import warnings
 from typing import List, Dict, Any, Tuple
 
 from af_pipeline.utils.file_utils import write_json
-from af_pipeline.utils.misc_utils import add_attribute, chain_id_gen, generate_seeds
+from af_pipeline.utils.misc_utils import (
+    add_attribute,
+    chain_id_gen,
+    generate_seeds
+)
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
     MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE, ConfigYaml
