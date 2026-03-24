@@ -34,10 +34,11 @@ import json
 import warnings
 from typing import List, Dict, Any, Tuple
 
-from af_pipeline.utils.misc_utils import chain_id_gen, generate_seeds
+from af_pipeline.utils.file_utils import write_json
+from af_pipeline.utils.misc_utils import add_attribute, chain_id_gen, generate_seeds
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
-    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE
+    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE, ConfigYaml
 )
 from af_pipeline.constants.af_constants import (
     NucleicAcidModificationFields,
@@ -98,17 +99,17 @@ class AlphaFoldServer:
 
     def __init__(
         self,
-        input_dict: Dict[str, List[Dict[str, Any]]],
+        config_dict: Dict[str, Any],
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
-        entities_map: Dict[str, str] = {},
         set_seed: int = 47,
     ):
 
-        self.entities_map = entities_map
+        self.config_dict = config_dict
+        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {})
+        self.input_dict = config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.input_dict = input_dict
         self.set_seed = set_seed
 
     def create_af3_job_cycles(self) -> Dict[str, List[Dict[str, Any]]]:
@@ -119,44 +120,12 @@ class AlphaFoldServer:
 
         <a href="https://github.com/google-deepmind/alphafold/blob/main/server/example.json">
         Check example JSON file.</a>
-
-        Returns:
-
-        - **job_cycles (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_list` <br />
-                Each `job_list` contains the jobs in their final form.
-
-        - **job_set_names (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_set_names` <br />
-                Template names for each job set in the cycle.
-                (not including the "modelSeeds" information.)
-
-        - **af_offsets (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_set_af_offsets` <br />
-                Chain-wise offset for each job set in the cycle.<br />
-                It is defined as `[start, end]` positions of the chain.<br />
-                Only useful when the entities are fragments of the full sequences.
         """
 
-        job_cycles = {}
-        job_set_names = {}
-        af_offsets = {}
-        cycle_seeds = {}
+        self.job_cycles = {}
+        self.job_set_names = {}
+        self.af_offsets = {}
+        self.cycle_seeds = {}
 
         for job_cycle_id, job_sets_list in self.input_dict.items():
 
@@ -170,12 +139,10 @@ class AlphaFoldServer:
                 set_seed=self.set_seed,
             )
             af_cycle.update_cycle()
-            job_cycles[job_cycle_id] = af_cycle.job_list
-            job_set_names[job_cycle_id] = af_cycle.job_set_names
-            af_offsets[job_cycle_id] = af_cycle.job_set_af_offsets
-            cycle_seeds[job_cycle_id] = af_cycle.cycle_seeds
-
-        return job_cycles, job_set_names, af_offsets, cycle_seeds
+            self.job_cycles[job_cycle_id] = af_cycle.job_list
+            self.job_set_names[job_cycle_id] = af_cycle.job_set_names
+            self.af_offsets[job_cycle_id] = af_cycle.job_set_af_offsets
+            self.cycle_seeds[job_cycle_id] = af_cycle.cycle_seeds
 
     @staticmethod
     def write_to_json(
@@ -212,9 +179,8 @@ class AlphaFoldServer:
 
             print(f"{len(job)} jobs written for {f_name}")
 
-    @staticmethod
     def write_job_files(
-        job_cycles: Dict[str, List[Dict[str, Any]]],
+        self,
         output_dir: str,
         num_jobs_per_file: int = 20,
     ):
@@ -233,15 +199,6 @@ class AlphaFoldServer:
 
         Arguments:
 
-        - **job_cycles (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_list` <br />
-                Each `job_list` contains the jobs in their final form.<br />
-
         - **output_dir (str)**:<br />
             Directory to save the `JSON` files.
 
@@ -253,7 +210,7 @@ class AlphaFoldServer:
             "Number of jobs per file must be within 1 and 100"
         )
 
-        for job_cycle_id, job_list in job_cycles.items():
+        for job_cycle_id, job_list in self.job_cycles.items():
 
             sets_of_n_jobs = [
                 job_list[i : i + num_jobs_per_file]
@@ -266,6 +223,26 @@ class AlphaFoldServer:
                 file_name=job_cycle_id,
                 output_dir=os.path.join(output_dir, job_cycle_id),
             )
+
+        to_update = {
+            AFInputJobFields.JOB_SET_NAME: self.job_set_names,
+            AFInputJobFields.AF_OFFSET: self.af_offsets,
+            AFInputJobFields.MODEL_SEEDS: self.cycle_seeds,
+        }
+
+        for field_name, field_value in to_update.items():
+            self.config_dict = add_attribute(
+                config_yaml=self.config_dict,
+                attribute_name=field_name,
+                attribute_value=field_value,
+                mode="replace",
+                add_first=True,
+            )
+
+        write_json(
+            file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
+            data=self.config_dict,
+        )
 
 
 class AFCycle:
@@ -339,7 +316,7 @@ class AFCycle:
         self.set_seed = set_seed
         self.job_list = []
         self.job_set_names = []
-        self.job_set_af_offsets = []  # offset for each job set in the cycle
+        self.job_set_af_offsets = []
         self.cycle_seeds = []
 
     def update_cycle(self):

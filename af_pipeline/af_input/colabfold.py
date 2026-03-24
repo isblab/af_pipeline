@@ -13,50 +13,15 @@ from typing import Any, Dict, List, Tuple
 class ColabFold(AlphaFold2):
     """Class to create FASTA files for ColabFold jobs."""
 
-    input_dict: Dict[str, List[Dict[str, Any]]]
-    """Dictionary with:<br />
-
-    - `key` -> `job_cycle_id` <br />
-      Unique string identifier for the job cycle.<br />
-
-    - `val` -> `job_sets_list` <br />
-      List of `AFJobSet.job_set_info`s, each of which specifies
-      the entities, model seeds, job name, etc."""
-
-    protein_sequences: Dict[str, str] | None
-    """Dictionary with:<br />
-
-    - `key` -> `identifier` <br />
-       Usually `uniprot_id` in case of `proteinChain` entities.<br />
-       `identifier != entity_name` necessitates `entities_map`.<br />
-
-    - `val` -> `sequence` <br />
-      Amino acid sequence of the protein chain.
-    """
-
-    entities_map: Dict[str, str]
-    """Dictionary with:<br />
-
-    - `key` -> `entity_name` <br />
-
-    - `val` -> `identifier` <br />
-      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
-
     def __init__(
         self,
-        input_dict: Dict[str, List[Dict[str, Any]]],
+        config_dict: Dict[str, Any],
         protein_sequences: Dict[str, str],
-        entities_map: Dict[str, str] = {},
     ):
 
-        self.entities_map = entities_map
-        self.protein_sequences = protein_sequences
-        self.input_dict = input_dict
-
         super().__init__(
-            input_dict=input_dict,
+            config_dict=config_dict,
             protein_sequences=protein_sequences,
-            entities_map=entities_map,
         )
 
     def create_colabfold_job_cycles(
@@ -72,19 +37,9 @@ class ColabFold(AlphaFold2):
 
         `all_sequence_str` is concatenation of all sequences in the job
         joined by ":".
-
-        Returns:
-
-        - **job_cycles (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_list` <br />
         """
 
-        job_cycles = {}
+        self.job_cycles = {}
 
         for job_cycle, jobs_info in self.input_dict.items():
 
@@ -99,6 +54,4 @@ class ColabFold(AlphaFold2):
 
                 job_list.append((fasta_dict, job_name))
 
-            job_cycles[job_cycle] = job_list
-
-        return job_cycles
+            self.job_cycles[job_cycle] = job_list

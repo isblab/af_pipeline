@@ -9,9 +9,9 @@ import os
 import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
-
 from af_pipeline.constants.af_constants import (
     RES_RANGE_SEP,
+    ConfigYaml,
     EntityType,
     FileFormat,
     AFInputJobFields,
@@ -52,14 +52,13 @@ class AlphaFold2:
 
     def __init__(
         self,
-        input_dict: Dict[str, List[Dict[str, Any]]],
+        config_dict: Dict[str, Any],
         protein_sequences: Dict[str, str],
-        entities_map: Dict[str, str] = {},
     ):
 
-        self.entities_map = entities_map
+        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {})
+        self.input_dict = config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
         self.protein_sequences = protein_sequences
-        self.input_dict = input_dict
 
     def create_af2_job_cycles(
         self
@@ -72,19 +71,9 @@ class AlphaFold2:
         Each job within a cycle is a tuple ->
         (`sequences_to_add`, `job_name`)<br />
         where, `sequences_to_add` = `{identifier: sequence}`
-
-        Returns:
-
-        - **job_cycles (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-                Unique string identifier for the job cycle.<br />
-
-            - `val` -> `job_list` <br />
         """
 
-        job_cycles = {}
+        self.job_cycles = {}
 
         for job_cycle_id, jobs_info in self.input_dict.items():
 
@@ -96,9 +85,7 @@ class AlphaFold2:
                 )
                 job_list.append((sequences_to_add, job_name))
 
-            job_cycles[job_cycle_id] = job_list
-
-        return job_cycles
+            self.job_cycles[job_cycle_id] = job_list
 
     @staticmethod
     def write_to_fasta(
@@ -131,26 +118,18 @@ class AlphaFold2:
 
         print(f"\nFasta file written to {save_path}")
 
-    @staticmethod
     def write_job_files(
-        job_cycles: Dict[str, List[Tuple[Dict[str, str], str]]],
+        self,
         output_dir: str,
     ):
         """Write the generated job files to the output directory.
 
         Arguments:
 
-        - **job_cycles (dict)**:<br />
-            Dictionary with:<br />
-
-            - `key` -> `job_cycle_id` <br />
-
-            - `val` -> `job_list` <br />
-
         - **output_dir (str)**:<br /> Output directory to save the job files.
         """
 
-        for job_cycle, job_list in job_cycles.items():
+        for job_cycle, job_list in self.job_cycles.items():
 
             os.makedirs(os.path.join(output_dir, job_cycle), exist_ok=True)
 
