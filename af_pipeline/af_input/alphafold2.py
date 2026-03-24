@@ -34,9 +34,9 @@ class AlphaFold2:
     protein_sequences: Dict[str, str] | None
     """Dictionary with:<br />
 
-    - `key` -> `identifier` <br />
+    - `key` -> `fasta_header` <br />
        Usually `uniprot_id` in case of `proteinChain` entities.<br />
-       `identifier != entity_name` necessitates `entities_map`.<br />
+       If `fasta_header != entity_name`, `entities_map` should be provided.<br />
 
     - `val` -> `sequence` <br />
       Amino acid sequence of the protein chain.
@@ -47,8 +47,8 @@ class AlphaFold2:
 
     - `key` -> `entity_name` <br />
 
-    - `val` -> `identifier` <br />
-      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
+    - `val` -> `fasta_header` <br />
+      `fasta_header` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     def __init__(
         self,

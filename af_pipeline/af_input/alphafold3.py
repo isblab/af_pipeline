@@ -65,9 +65,9 @@ class AlphaFoldServer:
     protein_sequences: Dict[str, str] | None
     """Dictionary with:<br />
 
-    - `key` -> `identifier` <br />
+    - `key` -> `fasta_header` <br />
        Usually `uniprot_id` in case of `proteinChain` entities.<br />
-       `identifier != entity_name` necessitates `entities_map`.<br />
+       If `fasta_header != entity_name`, `entities_map` should be provided.<br />
 
     - `val` -> `sequence` <br />
       Amino acid sequence of the protein chain.
@@ -76,8 +76,8 @@ class AlphaFoldServer:
     nucleic_acid_sequences: Dict[str, str] | None
     """Dictionary with:<br />
 
-    - `key` -> `identifier` <br />
-      `identifier != entity_name` necessitates `entities_map`.<br />
+    - `key` -> `fasta_header` <br />
+      If `fasta_header != entity_name`, `entities_map` should be provided.<br />
 
     - `val` -> `sequence` <br />
       Nucleotide sequence of the nucleic acid.
@@ -88,8 +88,8 @@ class AlphaFoldServer:
 
     - `key` -> `entity_name` <br />
 
-    - `val` -> `identifier` <br />
-      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
+    - `val` -> `fasta_header` <br />
+      `fasta_header` is usually `uniprot_id` in case of `proteinChain` entities."""
 
     set_seed: int
     """Seed used to generate `model_seeds` if not provided."""
