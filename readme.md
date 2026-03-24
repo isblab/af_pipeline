@@ -46,7 +46,7 @@ predictions from AlphaFold2 and AlphaFold3.
 >
 > To generate the network visualizations, run:
 > ```bash
-> python docs/network_viz.py
+> python docs/network_viz.py -d af_pipeline
 > ```
 
 ## Testing
