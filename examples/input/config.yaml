@@ -40,8 +40,7 @@ af_input_jobs:
     - name: "Cdc3"
       range: [11, 120]
       type: "proteinChain"
-    af_offset:
-      B: [11, 120]
+
   # job 2
   # no user provided job name or model seeds
   - entities:
