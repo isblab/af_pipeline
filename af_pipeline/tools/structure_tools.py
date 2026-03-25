@@ -207,11 +207,9 @@ def has_modifications(structure: Bio.PDB.Structure.Structure) -> bool:
         `True` if the structure has any modified residues, `False` otherwise.
     """
 
-    for model in structure:
-        for chain in model:
-            for residue in chain:
-                if residue.xtra.get(ResidueDecoration.IS_MODIFIED, False):
-                    return True
+    for residue in structure.get_residues():
+        if residue.xtra.get(ResidueDecoration.IS_MODIFIED, False):
+            return True
 
     return False
 
