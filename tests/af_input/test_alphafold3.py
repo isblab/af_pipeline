@@ -3,7 +3,14 @@ import pytest
 from af_pipeline.af_input.alphafold3 import (
     AlphaFoldServer, AFCycle, AFJobSet, AFSequence, Entity
 )
-from af_pipeline.constants.af_constants import MAX_TEMPLATE_DATE, RES_RANGE_SEP
+from af_pipeline.constants.af_constants import (
+    MAX_TEMPLATE_DATE,
+    RES_RANGE_SEP,
+    ConfigYaml,
+    AFInputJobFields,
+    AFInputEntityFields,
+    EntityType,
+)
 
 test_out_dir = "tests/test_output"
 
@@ -30,62 +37,62 @@ nucleic_acid_sequences = {
 ###############################################################################
 entity_info_protein_min = {
     "name": "protB",
-    "type": "proteinChain",
+    "type": EntityType.PROTEIN_CHAIN,
 }
 
 entity_info_protein_max = {
-    "name": "protA",
-    "type": "proteinChain",
-    "count": 2,
-    "range": [2, 25],
-    "useStructureTemplate": True,
-    "maxTemplateDate": "2023-01-01",
-    "glycans": [["BMA", 5]],
-    "modifications": [["CCD_HY3", 11]],
+    AFInputEntityFields.NAME: "protA",
+    AFInputEntityFields.TYPE: EntityType.PROTEIN_CHAIN,
+    AFInputEntityFields.COUNT: 2,
+    AFInputEntityFields.RANGE: [2, 25],
+    AFInputEntityFields.USE_STRUCTURE_TEMPLATE: True,
+    AFInputEntityFields.MAX_TEMPLATE_DATE: "2023-01-01",
+    AFInputEntityFields.GLYCANS: [["BMA", 5]],
+    AFInputEntityFields.MODIFICATIONS: [["CCD_HY3", 11]],
 }
 
 entity_info_dna_min = {
-    "name": "dnaA",
-    "type": "dnaSequence",
+    AFInputEntityFields.NAME: "dnaA",
+    AFInputEntityFields.TYPE: EntityType.DNA_SEQUENCE,
 }
 
 entity_info_dna_max = {
-    "name": "dnaA",
-    "type": "dnaSequence",
-    "count": 1,
-    "range": [3, 20],
-    "modifications": [["CCD_6OG", 3], ["CCD_6MA", 5]],
+    AFInputEntityFields.NAME: "dnaA",
+    AFInputEntityFields.TYPE: EntityType.DNA_SEQUENCE,
+    AFInputEntityFields.COUNT: 1,
+    AFInputEntityFields.RANGE: [3, 20],
+    AFInputEntityFields.MODIFICATIONS: [["CCD_6OG", 3], ["CCD_6MA", 5]],
 }
 
 entity_info_rna_min = {
-    "name": "rnaA",
-    "type": "rnaSequence",
+    AFInputEntityFields.NAME: "rnaA",
+    AFInputEntityFields.TYPE: EntityType.RNA_SEQUENCE,
 }
 
 entity_info_rna_max = {
-    "name": "rnaA",
-    "type": "rnaSequence",
-    "count": 1,
-    "range": [3, 20],
-    "modifications": [["CCD_5MC", 4], ["CCD_5MU", 6]],
+    AFInputEntityFields.NAME: "rnaA",
+    AFInputEntityFields.TYPE: EntityType.RNA_SEQUENCE,
+    AFInputEntityFields.COUNT: 1,
+    AFInputEntityFields.RANGE: [3, 20],
+    AFInputEntityFields.MODIFICATIONS: [["CCD_5MC", 4], ["CCD_5MU", 6]],
 }
 
 entity_info_ligand = {
-    "name": "CCD_ATP",
-    "type": "ligand",
-    "count": 2,
+    AFInputEntityFields.NAME: "CCD_ATP",
+    AFInputEntityFields.TYPE: EntityType.LIGAND,
+    AFInputEntityFields.COUNT: 2,
 }
 
 entity_info_ion = {
-    "name": "MG",
-    "type": "ion",
-    "count": 2,
+    AFInputEntityFields.NAME: "MG",
+    AFInputEntityFields.TYPE: EntityType.ION,
+    AFInputEntityFields.COUNT: 2,
 }
 ###############################################################################
 job_set_info_min = {
-    "job_set_name": "jobset_min",
-    "modelSeeds": [0, 1],
-    "entities": [
+    AFInputJobFields.JOB_SET_NAME: "jobset_min",
+    AFInputJobFields.MODEL_SEEDS: [0, 1],
+    AFInputJobFields.ENTITIES: [
         entity_info_protein_min,
         entity_info_dna_min,
         entity_info_rna_min,
@@ -95,8 +102,8 @@ job_set_info_min = {
 }
 
 job_set_info_min_no_name = {
-    "modelSeeds": [0, 1],
-    "entities": [
+    AFInputJobFields.MODEL_SEEDS: [0, 1],
+    AFInputJobFields.ENTITIES: [
         entity_info_protein_min,
         entity_info_dna_min,
         entity_info_rna_min,
@@ -106,9 +113,9 @@ job_set_info_min_no_name = {
 }
 
 job_set_info_max = {
-    "job_set_name": "jobset_max",
-    "modelSeeds": [0, 1],
-    "entities": [
+    AFInputJobFields.JOB_SET_NAME: "jobset_max",
+    AFInputJobFields.MODEL_SEEDS: [0, 1],
+    AFInputJobFields.ENTITIES: [
         entity_info_protein_max,
         entity_info_dna_max,
         entity_info_rna_max,
@@ -118,8 +125,8 @@ job_set_info_max = {
 }
 
 job_set_info_max_no_name = {
-    "modelSeeds": [0, 1],
-    "entities": [
+    AFInputJobFields.MODEL_SEEDS: [0, 1],
+    AFInputJobFields.ENTITIES: [
         entity_info_protein_max,
         entity_info_dna_max,
         entity_info_rna_max,
@@ -135,6 +142,10 @@ job_sets_list = [
 ###############################################################################
 input_dict = {
     "cycle1": [job_sets_list[0]],
+}
+config_dict = {
+    ConfigYaml.AF_INPUT_JOBS: input_dict,
+    ConfigYaml.PROTEIN_UNIPROT_MAP: entities_map,
 }
 
 ###############################################################################
@@ -1102,16 +1113,15 @@ def test_update_cycle(af_cycle: AFCycle):
 @pytest.fixture
 def alphafoldserver():
     return AlphaFoldServer(
-        input_dict=input_dict,
+        config_dict=config_dict,
         protein_sequences=protein_sequences_by_name,
         nucleic_acid_sequences=nucleic_acid_sequences,
     )
 
 def test_write_job_files(alphafoldserver: AlphaFoldServer):
 
-    job_cycles, _, _, _ = alphafoldserver.create_af3_job_cycles()
+    alphafoldserver.create_af3_job_cycles()
     alphafoldserver.write_job_files(
-        job_cycles=job_cycles,
         output_dir=os.path.join(test_out_dir, "af3_input_jobs"),
         num_jobs_per_file=20,
     )
@@ -1125,7 +1135,7 @@ def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
 
     assert_msg = "AF3 job cycles do not match expected outcome."
 
-    job_cycles, job_set_names, af_offsets, cycle_seeds = alphafoldserver.create_af3_job_cycles()
+    alphafoldserver.create_af3_job_cycles()
     expected_af3_job_cycles = {
         "cycle1": [
             {
@@ -1229,6 +1239,6 @@ def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
         ]
     }
 
-    assert job_cycles == expected_af3_job_cycles, assert_msg
-    assert job_set_names == expected_job_set_names, assert_msg
-    assert af_offsets == expected_af_offsets, assert_msg
+    assert alphafoldserver.job_cycles == expected_af3_job_cycles, assert_msg
+    assert alphafoldserver.job_set_names == expected_job_set_names, assert_msg
+    assert alphafoldserver.af_offsets == expected_af_offsets, assert_msg

@@ -226,6 +226,7 @@ class AFInputJobFields(StrEnum):
     MODEL_SEEDS = "modelSeeds"
     ENTITIES = auto()
     AF_OFFSET = auto()
+    SEQUENCES = auto()
 
 class AFInputEntityFields(StrEnum):
     NAME = auto()

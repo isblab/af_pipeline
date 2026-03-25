@@ -483,7 +483,7 @@ class AFJobSet:
         job_set_dict = {
             AFInputJobFields.NAME: self.job_set_name,
             AFInputJobFields.MODEL_SEEDS: self.model_seeds,
-            AFInputJobFields.ENTITIES: self.af_sequences,
+            AFInputJobFields.SEQUENCES: self.af_sequences,
         }
 
         return job_set_dict
