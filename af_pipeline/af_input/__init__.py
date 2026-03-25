@@ -12,6 +12,38 @@ AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 
 <hr>
 
+The user provides an input config file that contains details about the jobs to be run. The format of the config file is as follows.
+Check the [examples directory](https://github.com/isblab/af_pipeline/blob/main/examples/input/config.yaml) for a sample config file.
+
+```yaml
+
+af_input_jobs:
+
+  job_cycle_1:
+
+    - job_set_name: "job_set_a"
+      modelSeeds: [1, 2] # -> will lead to 2 jobs
+      entities: ...
+
+    - job_set_name: "job_set_b"
+      modelSeeds: 3 # -> will lead to 3 jobs
+      entities: ...
+
+  job_cycle_2:
+
+    - modelSeeds: [4, 5, 6] # -> will lead to 3 jobs
+      entities: ...
+
+```
+
+- `af_input_jobs` contains the input specifications for prediction jobs. It is organized into multiple job cycles.
+- Each `job_cycle` is a group of related predictions on one or more systems. A system corresponds to a single set of input sequences.
+- Each `job_cycle` contains a list of `job_set` instances (in config.yaml).
+- Each `job_set` is a set of predictions (jobs) on a single system, with the constituent jobs varying only in the model seed.
+- User only specifies the `job_set` and the `modelSeeds`. Each `job_set` is converted to a list of `job` instances based on `modelSeeds`.
+
+<hr>
+
 ## Organization
 
 - Keep in mind the following structure while using or adding new classes or methods to
@@ -28,21 +60,16 @@ graph LR
 
 ```
 
-- Each `job_cycle` in `af_input_jobs` contains a list of `job_set` instances (in `config.yaml`).
-- Each `job_set` is converted to a list of `job` instances based on `modelSeeds`.
-- Each `job` or `job_set` contains a list of entities.
+- Each `job` or `job_set` contains a list of entities that can be of one of the following types:
 
-> [!NOTE]
-> The difference between `job` and `job_set` is that:
->
-> `job_set` is a collection of `job` instances which differ **ONLY** in their `modelSeeds` attribute.
+    - [`proteinChain`](https://github.com/google-deepmind/alphafold/blob/main/server/README.md#protein-chains)
+    - [`dnaSequence`](https://github.com/google-deepmind/alphafold/blob/main/server/README.md#dna-chains)
+    - [`rnaSequence`](https://github.com/google-deepmind/alphafold/blob/main/server/README.md#rna-chains)
+    - [`ligand`](https://github.com/google-deepmind/alphafold/blob/main/server/README.md#ligands)
+    - [`ion`](https://github.com/google-deepmind/alphafold/blob/main/server/README.md#ions)
 
-- An entity can be of one of the following types:
-    - `proteinChain`
-    - `dnaSequence`
-    - `rnaSequence`
-    - `ligand`
-    - `ion`
+</newline>
+
 - Each entity in the `job` is an instance of :py:class:`af_pipeline.af_input.alphafold3.AFSequence`.
 
 
@@ -50,17 +77,20 @@ graph LR
   stored in a `YAML` file. See the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples)
   for sample input file.
 
-- The user can create job cycles using the methods for creating job cycles in each
-  class. Check the following methods:<br />
-  `af_pipeline.af_input.alphafold3.AlphaFoldServer.create_af3_job_cycles`<br />
-  `af_pipeline.af_input.alphafold2.AlphaFold2.create_af2_job_cycles`<br />
-  `af_pipeline.af_input.colabfold.ColabFold.create_colabfold_job_cycles`<br />
+- The user can create job cycles using the method for creating job cycles in the corresponding class:
+
+  - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AlphaFoldServer.create_af3_job_cycles`
+  - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AlphaFold2.create_af2_job_cycles`
+  - **ColabFold**: `af_pipeline.af_input.colabfold.ColabFold.create_colabfold_job_cycles`
+
+</newline>
 
 - The method `write_job_files` corresponding to each submodule is used to
-  save the generated files in appropriate format. Check the following methods:<br />
-  `af_pipeline.af_input.alphafold3.AlphaFoldServer.write_job_files`<br />
-  `af_pipeline.af_input.alphafold2.AlphaFold2.write_job_files`<br />
-  `af_pipeline.af_input.colabfold.ColabFold.write_job_files`<br />
+  save the generated files in appropriate format:
+
+  - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AlphaFoldServer.write_job_files`
+  - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AlphaFold2.write_job_files`
+  - **ColabFold**: `af_pipeline.af_input.colabfold.ColabFold.write_job_files`
 
 <hr>
 
