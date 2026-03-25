@@ -48,14 +48,13 @@ if __name__ == "__main__":
 
     args = args.parse_args()
 
-    # config_yaml = yaml.load(open(args.input), Loader=yaml.FullLoader)
     if not os.path.exists(args.input):
         raise FileNotFoundError(
             "Could not find af_input_jobs.json"
             "Please run `create_af_jobs.py` to obtain it."
         )
 
-    config_yaml = read_json(args.input)
+    config_dict = read_json(args.input)
 
     job_set_dirs = set()
 
@@ -78,11 +77,11 @@ if __name__ == "__main__":
             try_af_offset_from_path=False,
         )
         ranker.add_job_set_id(
-            af_input_jobs=config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {}),
+            af_input_jobs=config_dict.get(ConfigYaml.AF_INPUT_JOBS, {}),
             soft_match=True,
         )
         best_pred_info = ranker.extract_af3_best_pred_data(
-            af_input_jobs=config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {})
+            af_input_jobs=config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
         )
         if len(best_pred_info) > 0:
             # print("Updating config yaml with ranked predictions")

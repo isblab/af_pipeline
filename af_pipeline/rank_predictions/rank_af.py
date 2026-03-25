@@ -1,33 +1,7 @@
 """
 Rank AlphaFold Predictions
 ===================================
-- This module provides functionality to rank AF3 predictions based on various metrics
-- Currently supports ranking of AlphaFold 3 (AF3) predictions from AlphaFold server.
-- Note the following directory structure for AF3 predictions:
-```
-master_directory
-    └── cycle/
-        └── job_set/
-            └── model_seed/
-                ├── summary_confidences_0.json
-                ├── summary_confidences_1.json
-                ├── summary_confidences_2.json
-                ├── summary_confidences_3.json
-                ├── summary_confidences_4.json
-                ├── job_request.json
-                ├── full_data_0.json
-                ├── full_data_1.json
-                ├── full_data_2.json
-                ├── full_data_3.json
-                ├── full_data_4.json
-                ├── model_0.cif
-                ├── model_1.cif
-                ├── model_2.cif
-                ├── model_3.cif
-                └── model_4.cif
-```
-- The best way to use this module is to provide the master directory containing all cycles.
-- To rank a subset of predictions, one can also provide a specific cycle directory or job set directory.
+- Rank AlphaFold predictions based on various metrics and select the best model for each job set.
 """
 
 import os
@@ -49,8 +23,8 @@ def get_directory_level(pred_dir:str) -> int | None:
 
     **level 0** is the job directory -> this will have 5 models\n
     **level 1** is the job set directory -> this will have `n` directories given `n` model seeds\n
-    **level 2** is the cycle directory -> this will have `m` directories given `m` job sets\n
-    **level 3** is the prediction directory -> this has all the cycles
+    **level 2** is the job cycle directory -> this will have `m` directories given `m` job sets\n
+    **level 3** is the prediction directory -> this has all the job cycles
 
     ## Arguments:
 
@@ -166,45 +140,45 @@ def is_valid_job_set_dir(job_set_dir:str) -> tuple[bool, str, list, list]:
 
     return return_val, msg, valid_job_dirs, invalid_job_dirs
 
-def is_valid_cycle_dir(cycle_dir:str) -> tuple[bool, str, list, list]:
-    """ Check if the cycle directory is valid
+def is_valid_job_cycle_dir(job_cycle_dir:str) -> tuple[bool, str, list, list]:
+    """ Check if the job cycle directory is valid
 
-    A valid cycle directory is one that is at **level 2** and all its subdirectories
+    A valid job cycle directory is one that is at **level 2** and all its subdirectories
     are valid job set directories (i.e., at **level 1**).
 
     ## Arguments:
 
-    - **cycle_dir (str)**:<br />
-        Path to the cycle directory
+    - **job_cycle_dir (str)**:<br />
+        Path to the job cycle directory
 
     ## Returns:
 
     - **bool**:<br />
-        `True` if the cycle directory is valid, `False` otherwise
+        `True` if the job cycle directory is valid, `False` otherwise
     """
 
-    dir_level = get_directory_level(cycle_dir)
+    dir_level = get_directory_level(job_cycle_dir)
 
     return_val = True
     valid_job_set_dirs = []
     invalid_job_set_dirs = []
 
     if dir_level is None or dir_level != 2:
-        msg = f"{cycle_dir} is not at the expected level 2 for a cycle directory."
+        msg = f"{job_cycle_dir} is not at the expected level 2 for a job cycle directory."
         return False, msg, valid_job_set_dirs, invalid_job_set_dirs
 
     job_set_dirs = [
-        item for item in os.listdir(cycle_dir)
-        if os.path.isdir(os.path.join(cycle_dir, item))
+        item for item in os.listdir(job_cycle_dir)
+        if os.path.isdir(os.path.join(job_cycle_dir, item))
     ]
 
     if len(job_set_dirs) == 0:
-        msg = f"No job set directories found in {cycle_dir}."
+        msg = f"No job set directories found in {job_cycle_dir}."
         return False, msg, valid_job_set_dirs, invalid_job_set_dirs
 
     for job_set_dir in job_set_dirs:
         is_valid_job_set, _msg, _, _ = is_valid_job_set_dir(
-            os.path.join(cycle_dir, job_set_dir)
+            os.path.join(job_cycle_dir, job_set_dir)
         )
         if is_valid_job_set:
             valid_job_set_dirs.append(job_set_dir)
@@ -213,9 +187,9 @@ def is_valid_cycle_dir(cycle_dir:str) -> tuple[bool, str, list, list]:
         return_val = return_val or is_valid_job_set
 
     if return_val:
-        msg = f"{cycle_dir} is a valid cycle directory."
+        msg = f"{job_cycle_dir} is a valid job cycle directory."
     else:
-        msg = f"{cycle_dir} is not a valid cycle directory. "
+        msg = f"{job_cycle_dir} is not a valid job cycle directory. "
 
     return return_val, msg, valid_job_set_dirs, invalid_job_set_dirs
 
@@ -223,7 +197,7 @@ def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
     """ Check if the AF master directory is valid
 
     A valid AF master directory is one that is at **level 3** and all its subdirectories
-    are valid cycle directories (i.e., at **level 2**).
+    are valid job cycle directories (i.e., at **level 2**).
 
     ## Arguments:
 
@@ -239,29 +213,28 @@ def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
     dir_level = get_directory_level(af_master_dir)
 
     return_val = True
-    valid_cycle_dirs = []
-    invalid_cycle_dirs = []
+    valid_job_cycle_dirs = []
+    invalid_job_cycle_dirs = []
 
     if dir_level is None or dir_level != 3:
         msg = f"{af_master_dir} is not at the expected level 3 for an AF master directory."
-        return False, msg, valid_cycle_dirs, invalid_cycle_dirs
+        return False, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
 
-    cycle_dirs = [
+    job_cycle_dirs = [
         item for item in os.listdir(af_master_dir)
         if os.path.isdir(os.path.join(af_master_dir, item))
     ]
 
-    if len(cycle_dirs) == 0:
-        msg = f"No cycle directories found in {af_master_dir}."
-        return False, msg, valid_cycle_dirs, invalid_cycle_dirs
+    if len(job_cycle_dirs) == 0:
+        msg = f"No job cycle directories found in {af_master_dir}."
+        return False, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
 
-    for cycle_dir in cycle_dirs:
-
-        is_valid_cycle, _msg, _, _ = is_valid_cycle_dir(os.path.join(af_master_dir, cycle_dir))
+    for cycle_dir in job_cycle_dirs:
+        is_valid_cycle, _msg, _, _ = is_valid_job_cycle_dir(os.path.join(af_master_dir, cycle_dir))
         if is_valid_cycle:
-            valid_cycle_dirs.append(cycle_dir)
+            valid_job_cycle_dirs.append(cycle_dir)
         else:
-            invalid_cycle_dirs.append(cycle_dir)
+            invalid_job_cycle_dirs.append(cycle_dir)
         return_val = return_val or is_valid_cycle
 
     if return_val:
@@ -269,7 +242,7 @@ def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
     else:
         msg = f"{af_master_dir} is not a valid AF master directory."
 
-    return return_val, msg, valid_cycle_dirs, invalid_cycle_dirs
+    return return_val, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
 
 def get_job_set_dirs(pred_dir:str) -> set:
     """ Get the job set directories from the input prediction directory.
@@ -289,23 +262,23 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     job_set_dirs = set()
 
-    is_valid_af_master, msg1, valid_cycle_dirs, _ = is_valid_af_master_dir(pred_dir)
+    is_valid_af_master, msg1, valid_job_cycle_dirs, _ = is_valid_af_master_dir(pred_dir)
 
     if is_valid_af_master:
 
-        for cycle_dir in valid_cycle_dirs:
-            cycle_path = os.path.join(pred_dir, cycle_dir)
-            is_valid_cycle, _, valid_job_set_dirs, _ = is_valid_cycle_dir(cycle_path)
+        for job_cycle_dir in valid_job_cycle_dirs:
+            job_cycle_path = os.path.join(pred_dir, job_cycle_dir)
+            is_valid_job_cycle, _, valid_job_set_dirs, _ = is_valid_job_cycle_dir(job_cycle_path)
             job_set_dirs.update([
-                os.path.join(cycle_path, job_set_dir)
+                os.path.join(job_cycle_path, job_set_dir)
                 for job_set_dir in valid_job_set_dirs
             ])
 
         return job_set_dirs
 
-    is_valid_cycle, _, valid_job_set_dirs, _ = is_valid_cycle_dir(pred_dir)
+    is_valid_job_cycle, _, valid_job_set_dirs, _ = is_valid_job_cycle_dir(pred_dir)
 
-    if is_valid_cycle:
+    if is_valid_job_cycle:
         job_set_dirs.update([
             os.path.join(pred_dir, job_set_dir)
             for job_set_dir in valid_job_set_dirs
@@ -321,17 +294,7 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     else:
         raise ValueError(f"Prediction directory {pred_dir} is not a valid AF \
-            master directory, cycle directory, or job set directory.")
-
-# consider all directories in a given directory which has
-# - summary confidence files
-# - job request file
-# - model files (.cif or .pdb)
-# - model data files (.json)
-# group directories based on the directory name.
-# rank models in each group
-# problem: not applicable to non-AF3 predictions, which will not have
-
+            master directory, job cycle directory, or job set directory.")
 
 class RankAF3JobSet:
     """ Class to rank AF3 predictions for a given job set directory """
@@ -342,11 +305,11 @@ class RankAF3JobSet:
     job_set_name: str
     """ Name of the job set"""
 
-    cycle_name: str
-    """ Name of the cycle"""
+    job_cycle_name: str
+    """ Name of the job cycle"""
 
     job_set_id: int
-    """ ID of the job set in the cycle (1-indexed)"""
+    """ ID of the job set in the job cycle (1-indexed)"""
 
     try_af_offset_from_path: bool
     """ Whether to try to extract AF offset from the structure path"""
@@ -357,7 +320,7 @@ class RankAF3JobSet:
         try_af_offset_from_path: bool = False,
     ):
         self.job_set_dir = os.path.abspath(job_set_dir)
-        self.cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
+        self.job_cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
         self.job_set_name = os.path.basename(self.job_set_dir)
         self.try_af_offset_from_path = try_af_offset_from_path
 
@@ -383,7 +346,7 @@ class RankAF3JobSet:
 
         if structure_path is None:
             warnings.warn(
-                f"No valid AF3 predictions found for {self.cycle_name} job {self.job_set_name}. "
+                f"No valid AF3 predictions found for {self.job_cycle_name} job {self.job_set_name}. "
                 "Skipping ranking of AF3 predictions."
             )
             return []
@@ -727,11 +690,11 @@ class RankAF3JobSet:
         # atoz = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         # chain_count = 0
 
-        job_sets = af_input_jobs.get(self.cycle_name, None)
+        job_sets = af_input_jobs.get(self.job_cycle_name, None)
 
         if job_sets is None:
             warnings.warn(
-                f"No job sets found for cycle {self.cycle_name} in AF jobs. "
+                f"No job sets found for job cycle {self.job_cycle_name} in AF jobs. "
                 "Please check the input yaml file."
             )
             self.try_af_offset_from_path = True
@@ -872,7 +835,7 @@ class RankAF3JobSet:
             warnings.warn("No AF jobs found. Skipping extraction of job id.")
             return -1
 
-        job_sets = af_input_jobs.get(self.cycle_name, None)
+        job_sets = af_input_jobs.get(self.job_cycle_name, None)
 
         if job_sets is None:
             return -1
