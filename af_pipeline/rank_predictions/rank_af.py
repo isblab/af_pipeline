@@ -410,7 +410,7 @@ class RankAF3JobSet:
                 item[6]*(-1), # model index
                 item[2], # iptm
                 item[3],  # ptm
-                item[4],  # fraction_disordered
+                item[4]*(-1),  # fraction_disordered
                 item[0],  # seed
             ),
             reverse=True,
