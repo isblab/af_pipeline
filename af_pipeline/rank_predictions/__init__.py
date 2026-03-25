@@ -2,9 +2,9 @@
 Methods to rank AlphaFold predictions
 =====================================
 
-- This module provides functionality to rank AF3 predictions based on various metrics
-- Currently supports ranking of AlphaFold 3 (AF3) predictions from AlphaFold server.
-- Note the following directory structure for AF3 predictions:
+- This module provides functionality to rank AlphaFold3[^af3] predictions based on various metrics
+- Currently supports ranking of AlphaFold3 predictions from AlphaFold server.
+- Note the following directory structure for AlphaFold3 predictions:
 ```
 master_directory
     └── job_cycle/
@@ -38,6 +38,8 @@ master_directory
     6. Model Seed (lower is better)
 - The best way to use this module is to provide the master directory containing all job cycles.
 - To rank a subset of predictions, one can also provide a specific job cycle directory or job set directory.
+
+[^af3]: Abramson, J. et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. Nature 630, 493–500 (2024). (https://alphafoldserver.com/)
 
 ## Prerequisites
 
