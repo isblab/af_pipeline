@@ -1,4 +1,4 @@
-# AF Pipeline
+# AF-Pipeline
 
 ![Coverage Status](./tests/badges/coverage-badge.svg?raw=true)
 
@@ -39,7 +39,7 @@ predictions from AlphaFold2 and AlphaFold3.
 >
 > For now, generate documentation using `pdoc` manually as follows:
 > ```bash
-> pdoc --mermaid af_pipeline
+> pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid af_pipeline
 > ```
 >
 > The generated documentation will be available at `http://localhost:8080`
