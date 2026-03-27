@@ -34,7 +34,7 @@ master_directory
     2. Model Index (lower is better)
     3. ipTM
     4. pTM
-    5. Fraction Disordered (lower is better)
+    5. Fraction Disordered
 - The best way to use this module is to provide the master directory containing all job cycles.
 - To rank a subset of predictions, one can also provide a specific job cycle directory or job set directory.
 
