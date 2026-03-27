@@ -56,7 +56,7 @@ master_directory
 - Use the following command to run the example script:
 ```
 python rank_af_predictions.py \\
-    -i ./input/af_input_jobs.json \\
+    -i ./output/af_input_jobs.json \\
     -o ./output \\
     --pred_dirs ./input/AF_predictions/AF3
 ```

@@ -1,6 +1,5 @@
 """
-AF-Pipeline
-===========
+<h1><strong><font>AF-Pipeline</strong></h1>
 
 - Modules for parsing, processing, and analyzing AlphaFold predictions.
 
