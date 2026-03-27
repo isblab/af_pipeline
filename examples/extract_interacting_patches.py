@@ -1,7 +1,7 @@
 import os
 from argparse import ArgumentParser
 from af_pipeline.interaction.interaction import Interaction
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 from IMP_Toolbox.utils.file_helpers import read_json
 from af_pipeline.constants.af_constants import (
     BestPredictionFields,

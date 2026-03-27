@@ -15,7 +15,7 @@ from af_pipeline.utils.misc_utils import (
     create_mask,
 )
 from af_pipeline.tools.structure_tools import get_interaction_map
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
 from af_pipeline.constants.af_constants import (
     MaskedInteractionType,

@@ -18,7 +18,7 @@ from af_pipeline.utils.misc_utils import (
     get_key_from_res_range,
     generate_cmap,
 )
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 from af_pipeline.tools.matrix_patches import MatrixPatches
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
 from af_pipeline.constants.af_constants import (

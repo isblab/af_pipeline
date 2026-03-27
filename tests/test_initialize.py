@@ -1,4 +1,4 @@
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 import pytest
 import Bio.PDB.Structure
 from af_pipeline.parser.structure_parser import StructureParser

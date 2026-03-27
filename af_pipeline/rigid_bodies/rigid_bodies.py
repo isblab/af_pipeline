@@ -12,7 +12,7 @@ from itertools import product
 from typing import Dict, List
 from collections import defaultdict
 from Bio.PDB.Structure import Structure
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 import matplotlib.patches
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable

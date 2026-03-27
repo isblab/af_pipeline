@@ -1,7 +1,7 @@
 import os
 import yaml
 from argparse import ArgumentParser
-from af_pipeline.initialize import Initialize
+from af_pipeline.parser.initialize import Initialize
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
 from af_pipeline.constants.af_constants import (
     BestPredictionFields,
