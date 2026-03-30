@@ -1,5 +1,6 @@
 import pytest
 import Bio.PDB.Structure
+from af_pipeline.constants.af_constants import MetricLevel
 from af_pipeline.parser.structure_parser import StructureParser
 from af_pipeline.parser.data_parser import DataParser
 import numpy as np
@@ -218,7 +219,7 @@ def test_get_token_chain_ids(
     token_chain_ids1 = StructureParser.get_token_chain_ids(
         structure=my_struct1,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_chain_ids1 = ['A'] * 5 + ['B'] * 5
 
@@ -228,7 +229,7 @@ def test_get_token_chain_ids(
     token_chain_ids2 = StructureParser.get_token_chain_ids(
         structure=my_struct2,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_chain_ids2 = ['A'] * 16
 
@@ -238,7 +239,7 @@ def test_get_token_chain_ids(
     token_chain_ids4 = StructureParser.get_token_chain_ids(
         structure=my_struct4,
         rep_atom_dict={},
-        only_representative=False,
+        metric_level=MetricLevel.PER_TOKEN,
     )
     expected_chain_ids1 = ['A'] * 5 + ['B'] * 14
 
@@ -255,7 +256,7 @@ def test_get_token_res_ids(
     token_res_ids1 = StructureParser.get_token_res_ids(
         structure=my_struct1,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_res_ids1 = [
         1, 2, 3, 4, 5,
@@ -268,7 +269,7 @@ def test_get_token_res_ids(
     token_res_ids2 = StructureParser.get_token_res_ids(
         structure=my_struct2,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_res_ids2 = list(range(1, 17))
 
@@ -278,7 +279,7 @@ def test_get_token_res_ids(
     token_res_ids4 = StructureParser.get_token_res_ids(
         structure=my_struct4,
         rep_atom_dict={},
-        only_representative=False,
+        metric_level=MetricLevel.PER_TOKEN,
     )
     expected_res_ids1 = [
         1, 2, 3, 4, 5,
@@ -298,10 +299,9 @@ def test_get_plddt(
 
     plddts1 = StructureParser.get_plddt(
         structure=my_struct1,
-        per_atom=False,
         rep_atom_dict={},
         average_token_plddt=False,
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_plddts = [
         95.01, 96.05, 96.94, 96.92, 97.15, # chain A
@@ -312,10 +312,9 @@ def test_get_plddt(
 
     plddts2 = StructureParser.get_plddt(
         structure=my_struct2,
-        per_atom=False,
         rep_atom_dict={},
         average_token_plddt=False,
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_plddts = [
         56.72, 63.31, 67.69, 68.88, 73.88, 74.94, 76.44, 74.00, 73.62, 76.00,
@@ -326,10 +325,9 @@ def test_get_plddt(
 
     plddts4 = StructureParser.get_plddt(
         structure=my_struct4,
-        per_atom=False,
         rep_atom_dict={},
         average_token_plddt=False,
-        only_representative=False,
+        metric_level=MetricLevel.PER_TOKEN,
     )
     expected_plddts = [
         87.26, 90.17, 94.25, 93.06, 93.43,
@@ -341,10 +339,9 @@ def test_get_plddt(
 
     plddts5 = StructureParser.get_plddt(
         structure=my_struct5,
-        per_atom=True,
         rep_atom_dict={},
         average_token_plddt=False,
-        only_representative=True,
+        metric_level=MetricLevel.PER_ATOM,
     )
     expected_plddts = [
         95.39, 96.60, 96.72, 95.02, 95.09, 91.42, 89.83, 80.08, 93.22, 94.31,
@@ -357,10 +354,9 @@ def test_get_plddt(
 
     plddts5 = StructureParser.get_plddt(
         structure=my_struct5,
-        per_atom=False,
         rep_atom_dict={},
         average_token_plddt=True,
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_plddts = [
         np.mean([95.39, 96.60, 96.72, 95.02, 95.09, 91.42, 89.83, 80.08,]),
@@ -375,10 +371,9 @@ def test_get_plddt(
 
     plddts4 = StructureParser.get_plddt(
         structure=my_struct4,
-        per_atom=False,
         rep_atom_dict={"SEP": "P"},
         average_token_plddt=False,
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_plddts = [
         87.26, 90.17, 94.25, 93.06, 93.43,
@@ -427,9 +422,8 @@ def test_get_coordinates(
 
     coords1 = StructureParser.get_coordinates(
         structure=my_struct1,
-        per_atom=False,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_coords = np.array([
         np.array([6.040, 5.294, 1.426,]),
@@ -447,9 +441,8 @@ def test_get_coordinates(
 
     coords4 = StructureParser.get_coordinates(
         structure=my_struct4,
-        per_atom=False,
         rep_atom_dict={},
-        only_representative=False,
+        metric_level=MetricLevel.PER_TOKEN,
     )
     expected_coords = np.array([
         np.array([-0.016, 7.704, 3.096 ]),
@@ -478,9 +471,8 @@ def test_get_coordinates(
 
     coords5 = StructureParser.get_coordinates(
         structure=my_struct5,
-        per_atom=True,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.PER_ATOM,
     )
     expected_coords = np.array([
         np.array([-2.745, -1.474, 7.791]),
@@ -529,7 +521,7 @@ def test_get_token_atom_names(
     atom_names1 = StructureParser.get_token_atom_names(
         structure=my_struct1,
         rep_atom_dict={},
-        only_representative=True,
+        metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
     )
     expected_atom_names1 = ["CB"]*9 + ["CA"]
     assert atom_names1 == expected_atom_names1, "Token atom names do not match."
@@ -537,7 +529,7 @@ def test_get_token_atom_names(
     atom_names4 = StructureParser.get_token_atom_names(
         structure=my_struct4,
         rep_atom_dict={},
-        only_representative=False,
+        metric_level=MetricLevel.PER_TOKEN,
     )
     expected_atom_names4 = ["CB"]*6 + [
         "N", "CA", "CB", "OG", "C", "O", "P", "O1P", "O2P", "O3P",
