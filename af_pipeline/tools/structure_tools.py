@@ -155,31 +155,6 @@ def get_contact_map(distance_map: np.ndarray, contact_threshold: float):
 
     return contact_map
 
-def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
-    """ Check if the residue has per-atom token.
-
-    Assuming the `residue` object is decorated with the appropriate attributes.
-    - `is_modified`: `True` if the `residue` is modified.
-    - `is_ligand`: `True` if the `residue` is a ligand.
-    - `entityType`: `None` if the `residue` is not a protein, DNA, RNA, or ligand.
-
-    Arguments:
-
-    - **residue (Bio.PDB.Residue.Residue)**:<br />
-        Biopython residue object.
-
-    Returns:
-
-    - **condition (bool)**:<br />
-        `True` if the residue has per-atom token, `False` otherwise.
-    """
-
-    condition = (
-        residue.xtra.get(ResidueDecoration.TOKEN_LEVEL) == TokenLevel.ATOM
-    )
-
-    return condition
-
 def get_token_level(residue: Bio.PDB.Residue.Residue) -> TokenLevel:
     """ Get the token level of the residue.
 

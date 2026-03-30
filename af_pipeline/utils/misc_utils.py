@@ -541,32 +541,27 @@ def get_duplicate_indices(
         if count > 1
     ]
 
-    duplicate_indices = []
+    if return_type == ReturnType.LIST:
+        duplicate_indices = []
+    elif return_type == ReturnType.DICT:
+        duplicate_indices = {}
 
     for token_id in repeated_tokens:
+
         indices = [i for i, x in enumerate(my_li) if x == token_id]
+
         if keep_which == MiscStrEnum.FIRST:
             indices.pop(0)
         elif keep_which == MiscStrEnum.LAST:
             indices.pop(-1)
-        duplicate_indices.extend(indices)
 
-    if return_type == ReturnType.LIST:
-        return duplicate_indices
-
-    elif return_type == ReturnType.DICT:
-
-        duplicate_indices = {}
-
-        for token_id in repeated_tokens:
-            indices = [i for i, x in enumerate(my_li) if x == token_id]
-            if keep_which == MiscStrEnum.FIRST:
-                indices.pop(0)
-            elif keep_which == MiscStrEnum.LAST:
-                indices.pop(-1)
+        if return_type == ReturnType.LIST:
+            duplicate_indices.extend(indices)
+        elif return_type == ReturnType.DICT:
             duplicate_indices[token_id] = indices
 
-        return duplicate_indices
+    return duplicate_indices
+
 
 def update_list(
     li: list,

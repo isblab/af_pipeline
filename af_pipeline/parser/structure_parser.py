@@ -901,12 +901,13 @@ class StructureParser:
             (MetricLevel.REPRESENTATIVE_TOKEN, True, TokenLevel.RESIDUE): _get_avg_plddt_val,
 
             # multiple plddt values per residue (one for each atom in the residue)
+            # only if the residue has per-atom tokens (i.e. token level is atom-level)
 
             # if token is residue-level
             (MetricLevel.PER_TOKEN, True, TokenLevel.ATOM): _get_avg_plddt_val,
             (MetricLevel.PER_TOKEN, False, TokenLevel.RESIDUE): _get_rep_plddt_val,
 
-            # if token is atom-level
+            # if token is atom-level (average_token_plddt flag has no effect in this case)
             (MetricLevel.PER_TOKEN, False, TokenLevel.ATOM): _get_per_atom_plddt_vals,
             (MetricLevel.PER_TOKEN, True, TokenLevel.ATOM): _get_per_atom_plddt_vals,
         }
@@ -998,6 +999,11 @@ class StructureParser:
         handle_dict = {
             (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.ATOM): _get_rep_coords,
             (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.RESIDUE): _get_rep_coords,
+
+            # metric_level = "per_token" results in mixed list of coordinates
+            # for residues with atom-level tokens and residue-level tokens.
+            # For residues with atom-level tokens, the coordinates for all its atoms are included.
+            # For residues with residue-level tokens, only the representative atom coordinates are included.
             (MetricLevel.PER_TOKEN, TokenLevel.ATOM): _get_per_atom_coords,
             (MetricLevel.PER_TOKEN, TokenLevel.RESIDUE): _get_rep_coords,
         }
