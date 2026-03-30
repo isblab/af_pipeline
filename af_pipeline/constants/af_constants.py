@@ -55,6 +55,14 @@ class ReturnType(StrEnum):
 class MetricLevel(StrEnum):
     PER_TOKEN = auto()
     REPRESENTATIVE_TOKEN = auto()
+    PER_ATOM = auto()
+
+VALID_AF3_METRIC_LEVELS = [
+    MetricLevel.PER_TOKEN,
+    MetricLevel.REPRESENTATIVE_TOKEN,
+]
+
+VALID_METRIC_LEVELS = list(MetricLevel)
 
 class DataFileKeys(StrEnum):
     TOKEN_CHAIN_IDS = auto()
@@ -70,10 +78,6 @@ class InitializeConstants:
     average_token_pae = True
     average_token_plddt = True
     metric_level = MetricLevel.PER_TOKEN
-    valid_metric_levels = [
-        MetricLevel.PER_TOKEN,
-        MetricLevel.REPRESENTATIVE_TOKEN,
-    ]
     use_fast_cif_parser = False
 
 class CommunityDetectionLibrary(StrEnum):
@@ -156,12 +160,15 @@ class ResidueMapDepth(StrEnum):
     ATOM = auto()
     RESIDUE = auto()
 
+class TokenLevel(StrEnum):
+    ATOM = auto()
+    RESIDUE = auto()
+
 class ResidueDecoration(StrEnum):
     ENTITY_TYPE = "entityType"
+    TOKEN_LEVEL = auto()
     IS_MODIFIED = auto()
     IS_CA_ONLY = auto()
-    IS_LIGAND = auto()
-    IS_ION = auto()
     IS_PURINE = auto()
     IS_PYRIMIDINE = auto()
 

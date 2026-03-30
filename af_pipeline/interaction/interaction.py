@@ -23,6 +23,7 @@ from af_pipeline.tools.matrix_patches import MatrixPatches
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
 from af_pipeline.constants.af_constants import (
     ColorMapScheme,
+    MetricLevel,
     KeywordArg,
     FileFormat,
 )
@@ -264,12 +265,12 @@ class Interaction:
         token_rep_chain_ids = self.structure_parser.get_token_chain_ids(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=True,
+            metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
         )
         token_rep_res_ids = self.structure_parser.get_token_res_ids(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=True,
+            metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
         )
 
         c1_res_nums = list(range(p1_region[0], p1_region[1] + 1))

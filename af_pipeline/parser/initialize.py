@@ -1,7 +1,9 @@
 import os
+import warnings
 import numpy as np
 import Bio.PDB.Structure
 from typing import Dict
+from textwrap import dedent
 from Bio.PDB.Structure import Structure
 from af_pipeline.parser.structure_parser import StructureParser
 from af_pipeline.parser.data_parser import DataParser
@@ -9,6 +11,7 @@ from af_pipeline.tools.structure_tools import RenumberResidues
 from af_pipeline.constants.af_constants import InitializeConstants as InitCons
 from af_pipeline.constants.af_constants import StructureParserConstants as SPCons
 from af_pipeline.constants.af_constants import (
+    VALID_AF3_METRIC_LEVELS,
     MetricLevel,
     ResidueMapDepth,
     ResidueQuantity,
@@ -61,6 +64,9 @@ class Initialize:
     use_fast_cif_parser: bool
     """ Whether to use the FastMMCIFParser for cif file. """
 
+    preserve_header_footer: bool
+    """ Whether to preserve the header and footer of the structure file while parsing. """
+
     structure: Bio.PDB.Structure.Structure
     """ Bio.PDB.Structure.Structure object for the predicted structure. """
 
@@ -89,6 +95,7 @@ class Initialize:
         average_token_plddt: bool = InitCons.average_token_plddt,
         metric_level: str = InitCons.metric_level,
         use_fast_cif_parser: bool = InitCons.use_fast_cif_parser,
+        preserve_header_footer: bool = SPCons.preserve_header_footer,
     ):
 
         self.structure_file_path = os.path.abspath(structure_file_path)
@@ -98,18 +105,18 @@ class Initialize:
         self.average_token_pae = average_token_pae
         self.average_token_plddt = average_token_plddt
         self.metric_level = metric_level
+        self.preserve_header_footer = preserve_header_footer
         self.use_fast_cif_parser = use_fast_cif_parser
         self.structure = None
+        self.sanity_check_metric_level()
 
         self.structure_parser = StructureParser(
             structure_file_path=self.structure_file_path,
-            preserve_header_footer=SPCons.preserve_header_footer,
+            preserve_header_footer=self.preserve_header_footer,
             use_fast_cif_parser=self.use_fast_cif_parser,
         )
 
-        self.data_parser = DataParser(
-            data_file_path=self.data_file_path,
-        )
+        self.data_parser = DataParser(data_file_path=self.data_file_path)
 
         # Get attributes based on metric_level
         self.get_attributes(metric_level=self.metric_level)
@@ -121,9 +128,7 @@ class Initialize:
             token_chain_ids=self.token_chain_ids
         )
 
-        self.renumber = RenumberResidues(
-            offset=self.af_offset
-        )
+        self.renumber = RenumberResidues(offset=self.af_offset)
 
         self.idx_to_num, self.num_to_idx = self.renumber.residue_map(
             token_chain_ids=self.token_chain_ids,
@@ -138,25 +143,14 @@ class Initialize:
             depth=ResidueMapDepth.RESIDUE,
         )
 
-    def set_attributes(self) -> None:
-        """ Set the attributes of the class based on the `metric_level`."""
+    def sanity_check_metric_level(self):
 
-        if self.metric_level not in InitCons.valid_metric_levels:
-            raise Exception(
-                f"""
-
-                Metric level should be from {InitCons.valid_metric_levels}.
-                Got '{self.metric_level}' instead. \n
-                """
-            )
-
-        if self.metric_level == MetricLevel.PER_TOKEN:
-            self.only_representative = False
-            self.average_token_plddt = False
-
-        elif self.metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
-            self.only_representative = True
-            self.average_token_plddt = self.average_token_plddt
+        assert self.metric_level in VALID_AF3_METRIC_LEVELS, (
+            f"""
+            Metric level should be from {VALID_AF3_METRIC_LEVELS}.
+            Got '{self.metric_level}' instead.
+            """
+        )
 
     def get_attributes(self, metric_level: str) -> None:
         """ Get the attributes of the class based on the `metric_level`.
@@ -167,53 +161,68 @@ class Initialize:
             Metric level for the parser, either "per_token" or "representative_token".
         """
 
-        data = self.data_parser.get_data_dict()
-        self.structure = self.structure_parser.get_structure_obj()
-
-        self.pae = self.data_parser.get_pae(data)
-
-        self.contact_probs = self.data_parser.get_contact_probs_mat(data)
-
-        if not isinstance(self.structure, Structure):
-            raise TypeError(
-                f"""
-
-                Structure should be a `Bio.PDB.Structure.Structure` object.
-                Got {type(self.structure)} instead. \n
-                """
+        if not (
+            isinstance(self.structure_parser, StructureParser) or
+            isinstance(self.data_parser, DataParser)
+        ):
+            raise TypeError(dedent(f"""
+                structure_parser should be an instance of StructureParser and
+                data_parser should be an instance of DataParser.
+                Got {type(self.structure_parser)} and {type(self.data_parser)}
+                instead.""")
             )
 
-        self.set_attributes()
+        self.structure = self.structure_parser.get_structure_obj()
+        data = self.data_parser.get_data_dict()
+        self.pae = self.data_parser.get_pae(data)
+        self.contact_probs = self.data_parser.get_contact_probs_mat(data)
+
+        # If metric level is per_token, force average_token_plddt to be False
+        # (Specific to AlphaFold3)
+        if self.metric_level == MetricLevel.PER_TOKEN:
+            # How the pLDDT values are extracted depends on the token-level:
+            #  - residues with per-atom tokens -> per-atom pLDDT values
+            #  - residues with per-residue tokens -> per-residue pLDDT values
+            # In the second case, it makes more sense to take the pLDDT value
+            # of the representative atom rather than averaging.
+            self.average_token_plddt = False
+            warnings.warn(dedent(f"""
+                For metric level '{MetricLevel.PER_TOKEN}', average_token_plddt is set to False.
+                This is because for residues with per-residue tokens, it makes
+                more sense to take the pLDDT value of the representative atom
+                rather than averaging.
+                """)
+            )
 
         self.token_chain_ids = self.structure_parser.get_token_chain_ids(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=self.only_representative,
+            metric_level=self.metric_level,
         )
 
         self.token_res_ids = self.structure_parser.get_token_res_ids(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=self.only_representative,
+            metric_level=self.metric_level,
         )
 
         self.token_plddts = self.structure_parser.get_plddt(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
             average_token_plddt=self.average_token_plddt,
-            only_representative=self.only_representative,
+            metric_level=self.metric_level,
         )
 
         self.token_coords = self.structure_parser.get_coordinates(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=self.only_representative,
+            metric_level=self.metric_level,
         )
 
         self.token_atom_names = self.structure_parser.get_token_atom_names(
             structure=self.structure,
             rep_atom_dict=self.rep_atom_dict,
-            only_representative=self.only_representative,
+            metric_level=self.metric_level,
         )
 
         if metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
@@ -417,12 +426,9 @@ class Initialize:
         )
 
         if not isinstance(dup_token_indices, dict):
-            raise TypeError(
-                f"""
-
+            raise TypeError(dedent(f"""
                 Duplicate indices should be a dictionary.
-                Got {type(dup_token_indices)} instead. \n
-                """
+                Got {type(dup_token_indices)} instead.""")
             )
 
         contact_probs_mat = update_matrix_row_col(
@@ -541,13 +547,10 @@ class Initialize:
             return min_pae_dict
 
         else:
-            raise Exception(
-                f"""
-
+            raise Exception(dedent(f"""
                 return_type should be one of the following.
                 {ReturnType.ARRAY}, {ReturnType.LIST} or {ReturnType.DICT}.
-                Got '{return_type}' instead.
-                """
+                Got '{return_type}' instead.""")
             )
 
 if __name__ == "__main__":

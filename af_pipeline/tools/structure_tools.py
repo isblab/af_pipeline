@@ -7,6 +7,7 @@ Tools to work with structure files
 - The residue object refers to `Bio.PDB.Residue.Residue`.<br />
   Hence, the "residue" term is used for amino acids, nucleotides, ions, ligands.
 """
+from textwrap import dedent
 import warnings
 import Bio
 import Bio.PDB
@@ -39,6 +40,7 @@ from af_pipeline.constants.af_constants import (
     ResidueMapDepth,
     VALID_INTERACTION_MAP_TYPES,
     ResidueMapKeys,
+    TokenLevel,
 )
 
 def get_interaction_map(
@@ -149,9 +151,7 @@ def get_contact_map(distance_map: np.ndarray, contact_threshold: float):
         is less than or equal to `contact_threshold`, and 0 otherwise.
     """
 
-    contact_map = np.where(
-        distance_map <= contact_threshold, 1, 0
-    )
+    contact_map = np.where(distance_map <= contact_threshold, 1, 0)
 
     return contact_map
 
@@ -175,20 +175,33 @@ def has_per_atom_token(residue: Bio.PDB.Residue.Residue) -> bool:
     """
 
     condition = (
-        residue.xtra.get(ResidueDecoration.IS_MODIFIED)
-        or residue.xtra.get(ResidueDecoration.IS_LIGAND)
-        or residue.xtra.get(ResidueDecoration.ENTITY_TYPE) is None
+        residue.xtra.get(ResidueDecoration.TOKEN_LEVEL) == TokenLevel.ATOM
     )
 
-    if isinstance(condition, bool) is False:
-        raise TypeError(
-            f"""
-
-            Expected a boolean value for condition, got {type(condition)}
-            """
-        )
-
     return condition
+
+def get_token_level(residue: Bio.PDB.Residue.Residue) -> TokenLevel:
+    """ Get the token level of the residue.
+
+    Assuming the `residue` object is decorated with the appropriate attributes.
+    - `tokenLevel`: `TokenLevel.ATOM` if the residue has per-atom token, `TokenLevel.RESIDUE` otherwise.
+
+    Arguments:
+
+    - **residue (Bio.PDB.Residue.Residue)**:<br />
+        Biopython residue object.
+
+    Returns:
+
+    - **token_level (TokenLevel)**:<br />
+        Token level of the residue.
+    """
+
+    token_level = residue.xtra.get(
+        ResidueDecoration.TOKEN_LEVEL, TokenLevel.RESIDUE
+    )
+
+    return token_level
 
 def has_modifications(structure: Bio.PDB.Structure.Structure) -> bool:
     """ Check if the structure has any modified residues.
@@ -426,19 +439,14 @@ def decorate_residue(
 
     elif symbol in ALLOWED_LIGANDS:
         residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.LIGAND
-        residue.xtra[ResidueDecoration.IS_LIGAND] = True
 
     elif symbol in ION:
         residue.xtra[ResidueDecoration.ENTITY_TYPE] = EntityType.ION
-        residue.xtra[ResidueDecoration.IS_ION] = True
 
     else:
-        warnings.warn(
-            f"""
-
+        warnings.warn(dedent(f"""
             The residue "{symbol}" does not belong to any known entity types.
-            Setting 'entityType' to None.
-            """
+            Setting 'entityType' to None.""")
         )
         residue.xtra[ResidueDecoration.ENTITY_TYPE] = None
 
@@ -450,14 +458,18 @@ def decorate_residue(
 
     if xtra_field is not None and xtra_value is not None:
         if xtra_field in residue.xtra:
-            warnings.warn(
-                f"""
-
+            warnings.warn(dedent(f"""
                 The field '{xtra_field}' already exists in the residue's xtra.
-                Overwriting the value.
-                """
+                Overwriting the value.""")
             )
         residue.xtra[xtra_field] = xtra_value
+
+    condition = (
+        residue.xtra.get(ResidueDecoration.IS_MODIFIED)
+        or residue.xtra.get(ResidueDecoration.ENTITY_TYPE) in [EntityType.LIGAND, None]
+    )
+    _get_token_level = {True: TokenLevel.ATOM, False: TokenLevel.RESIDUE}
+    residue.xtra[ResidueDecoration.TOKEN_LEVEL] = _get_token_level[condition]
 
 def decorate_atom(
     atom: Bio.PDB.Atom.Atom,
@@ -485,10 +497,7 @@ def decorate_atom(
 
     if not isinstance(residue, Bio.PDB.Residue.Residue):
         raise TypeError(
-            f"""
-
-            Expected a `Bio.PDB.Residue.Residue` object, got {type(residue)}
-            """
+            f"Expected a `Bio.PDB.Residue.Residue` object, got {type(residue)}"
         )
 
     residue = residue.get_resname()
@@ -517,12 +526,9 @@ def decorate_atom(
         and xtra_value is not None
         and xtra_field in atom.xtra
     ):
-        warnings.warn(
-            f"""
-
+        warnings.warn(dedent(f"""
             The field '{xtra_field}' already exists in the atom's xtra.
-            Overwriting the value.
-            """
+            Overwriting the value.""")
         )
         atom.xtra[xtra_field] = xtra_value
 

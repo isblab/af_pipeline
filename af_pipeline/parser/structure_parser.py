@@ -17,12 +17,11 @@ Structure Parser Module
   information such as.
 ```python
     - "entityType" # entity type
+    - "token_level" # token level (per-atom or per-residue)
     - "is_modified" # boolean indicating if the residue is modified
     - "is_ca_only" # boolean indicating if the residue has only CA atom
     - "is_purine" # boolean indicating if the nucleotide is purine
     - "is_pyrimidine" # boolean indicating if the nucleotide is pyrimidine
-    - "is_ion" # True if the residue is an ion.
-    - "is_ligand" # True if the residue is a ligand.
 ```
 - Following methods have equivalent implementations in `af_pipeline.parser.data_parser.DataParser`:
     - `get_token_chain_ids`
@@ -56,6 +55,7 @@ from Bio.PDB.Structure import Structure
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.MMCIFParser import FastMMCIFParser
 from Bio.PDB.PDBParser import PDBParser
+from textwrap import dedent
 from typing import Any, Generator
 from af_pipeline.constants.af_constants import (
     ALLOWED_STRUCTURE_FORMATS,
@@ -63,18 +63,21 @@ from af_pipeline.constants.af_constants import (
     AVAILABLE_ATOM_QUANTITIES,
     AVAILABLE_RESIDUE_QUANTITIES,
     REP_ATOMS,
+    VALID_AF3_METRIC_LEVELS,
+    VALID_METRIC_LEVELS,
     EntityType,
     AtomQuantity,
     FileFormat,
+    MetricLevel,
     ResidueDecoration,
     ResidueQuantity,
-    QuantityLevel,
+    TokenLevel,
     StructureParserConstants as SPCons,
 )
 from af_pipeline.tools.structure_tools import (
     add_header_footer,
     decorate_residue,
-    has_per_atom_token,
+    get_token_level,
 )
 
 class StructureParser:
@@ -250,6 +253,22 @@ class StructureParser:
                         yield atom, residue, chain_id
 
     @staticmethod
+    def sanity_check_metric_level(metric_level: MetricLevel):
+        assert metric_level in VALID_METRIC_LEVELS, (
+            f"""
+            Metric level should be from {VALID_METRIC_LEVELS}.
+            Got '{metric_level}' instead."""
+        )
+
+    @staticmethod
+    def sanity_check_af3_metric_level(metric_level: MetricLevel):
+        assert metric_level in VALID_AF3_METRIC_LEVELS, (
+            f"""
+            Metric level should be from {VALID_AF3_METRIC_LEVELS}.
+            Got '{metric_level}' instead."""
+        )
+
+    @staticmethod
     def sanity_check_quantities(
         quantities: list[ResidueQuantity | AtomQuantity],
         requested_on: Atom | Residue
@@ -280,6 +299,7 @@ class StructureParser:
                 """
             )
 
+    @staticmethod
     def sanity_check_not_orphan(requested_on: Atom | Residue):
 
         if isinstance(requested_on, Atom):
@@ -533,13 +553,11 @@ class StructureParser:
         rep_atom = representative_atom_dict.get(residue_attrs, None)
 
         if rep_atom is None:
-            raise Exception(
-                f"""
-
+            raise Exception(dedent(f"""
                 Representative atom could not be determined for
                 residue {residue.resname} with attributes {residue_attrs}
                 (entityType, is_ca_only, is_purine, is_pyrimidine).
-                """
+                """)
             )
 
         return rep_atom
@@ -548,7 +566,7 @@ class StructureParser:
     def get_token_atom_names(
         structure: Structure,
         rep_atom_dict: dict = {},
-        only_representative: bool = False,
+        metric_level: MetricLevel = MetricLevel.REPRESENTATIVE_TOKEN,
     ) -> list[str]:
         """Get token atom IDs for the structure.
 
@@ -569,12 +587,11 @@ class StructureParser:
         - **rep_atom_dict (dict, optional)**:<br />
             Dictionary with residue names as keys and representative
             atoms as values.<br />
-            If `only_representative` is `True`, this dictionary is used to get
-            the representative atom for the specified residue.
+            If `metric_level` is `representative_token`, this dictionary is used
+            to get the representative atom for the specified residue.
 
-        - **only_representative (bool, optional)**:<br />
-            If `True`, returns only representative atoms for all residues
-            irrespective of per-atom tokens.
+        - **metric_level (MetricLevel, optional)**:<br />
+            Metric level for the parser, either "per_token" or "representative_token".
 
         Returns:
 
@@ -582,43 +599,50 @@ class StructureParser:
             Token atom IDs.
         """
 
+        StructureParser.sanity_check_af3_metric_level(metric_level)
         token_atom_ids = []
 
-        # (only_representative, has_per_atom_token)
+        def _get_rep_atom_name(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            rep_atom = rep_atom_dict.get(
+                residue.get_resname(),
+                StructureParser.get_rep_atom(residue=residue)
+            )
+            quants = StructureParser.extract_perresidue_quantities(
+                residue=residue,
+                quantities=[ResidueQuantity.REP_ATOM],
+                rep_atom=rep_atom
+            )
+            return [quants[ResidueQuantity.REP_ATOM]]
+
+        def _get_per_atom_names(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            return [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.ATOM_NAME]
+                )[AtomQuantity.ATOM_NAME] for atom in residue
+            ]
+
+        # (metric_level, token_level)
         handle_dict = {
-            QuantityLevel.REPRESENTATIVE_ATOM: [
-                (True, False),
-                (True, True),
-                (False, False),
-            ],
-            QuantityLevel.PER_ATOM: [
-                (False, True),
-            ],
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.ATOM): _get_rep_atom_name,
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.RESIDUE): _get_rep_atom_name,
+            (MetricLevel.PER_TOKEN, TokenLevel.ATOM): _get_per_atom_names,
+            (MetricLevel.PER_TOKEN, TokenLevel.RESIDUE): _get_rep_atom_name,
         }
 
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            handle = (only_representative, has_per_atom_token(residue))
+            token_level = get_token_level(residue)
+            worker_func = handle_dict.get((metric_level, token_level))
 
-            if handle in handle_dict[QuantityLevel.PER_ATOM]:
-                for atom in residue:
-                    quants = StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.ATOM_NAME]
-                    )
-                    token_atom_ids.append(quants[AtomQuantity.ATOM_NAME])
+            if callable(worker_func):
+                token_atom_ids.extend(worker_func(residue))
 
-            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
-                rep_atom = rep_atom_dict.get(
-                    residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
+            else:
+                raise Exception(dedent(f"""
+                    Unexpected combination of flags:
+                    {metric_level=} and {token_level=}.""")
                 )
-                quants = StructureParser.extract_perresidue_quantities(
-                    residue=residue,
-                    quantities=[ResidueQuantity.REP_ATOM],
-                    rep_atom=rep_atom
-                )
-                token_atom_ids.append(quants[ResidueQuantity.REP_ATOM])
 
         return token_atom_ids
 
@@ -626,7 +650,7 @@ class StructureParser:
     def get_token_chain_ids(
         structure: Structure,
         rep_atom_dict: dict = {},
-        only_representative: bool = False,
+        metric_level: MetricLevel = MetricLevel.REPRESENTATIVE_TOKEN,
     ) -> list[str]:
         """ Get token chain IDs for the structure.
 
@@ -642,12 +666,11 @@ class StructureParser:
         - **rep_atom_dict (dict, optional)**:<br />
             Dictionary with residue names as keys and representative
             atoms as values.<br />
-            If `only_representative` is `True`, this dictionary is used to get
-            the representative atom for the specified residue.
+            If `metric_level` is `representative_token`, this dictionary is used
+            to get the representative atom for the specified residue.
 
-        - **only_representative (bool, optional)**:<br />
-            If `True`, returns only representative chain IDs for all residues
-            irrespective of per-atom tokens.
+        - **metric_level (MetricLevel, optional)**:<br />
+            Metric level for the parser, either "per_token" or "representative_token".
 
         Returns:
 
@@ -655,43 +678,50 @@ class StructureParser:
             Token chain IDs for the structure.
         """
 
+        StructureParser.sanity_check_af3_metric_level(metric_level)
         token_chain_ids = []
 
-        # (only_representative, has_per_atom_token)
+        def _get_rep_chain_id(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            rep_atom = rep_atom_dict.get(
+                residue.get_resname(),
+                StructureParser.get_rep_atom(residue=residue)
+            )
+            quants = StructureParser.extract_perresidue_quantities(
+                residue=residue,
+                quantities=[ResidueQuantity.CHAIN_ID],
+                rep_atom=rep_atom
+            )
+            return [quants[ResidueQuantity.CHAIN_ID]]
+
+        def _get_per_atom_chain_ids(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            return [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.CHAIN_ID]
+                )[AtomQuantity.CHAIN_ID] for atom in residue
+            ]
+
+        # (metric_level, token_level)
         handle_dict = {
-            QuantityLevel.REPRESENTATIVE_ATOM: [
-                (True, False),
-                (True, True),
-                (False, False),
-            ],
-            QuantityLevel.PER_ATOM: [
-                (False, True),
-            ],
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.ATOM): _get_rep_chain_id,
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.RESIDUE): _get_rep_chain_id,
+            (MetricLevel.PER_TOKEN, TokenLevel.ATOM): _get_per_atom_chain_ids,
+            (MetricLevel.PER_TOKEN, TokenLevel.RESIDUE): _get_rep_chain_id,
         }
 
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            handle = (only_representative, has_per_atom_token(residue))
+            token_level = get_token_level(residue)
+            worker_func = handle_dict.get((metric_level, token_level))
 
-            if handle in handle_dict[QuantityLevel.PER_ATOM]:
-                for atom in residue:
-                    quants = StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.CHAIN_ID]
-                    )
-                    token_chain_ids.append(quants[AtomQuantity.CHAIN_ID])
+            if callable(worker_func):
+                token_chain_ids.extend(worker_func(residue))
 
-            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
-                rep_atom = rep_atom_dict.get(
-                    residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
+            else:
+                raise Exception(dedent(f"""
+                    Unexpected combination of flags:
+                    {metric_level=} and {token_level=}.""")
                 )
-                quants = StructureParser.extract_perresidue_quantities(
-                    residue=residue,
-                    quantities=[ResidueQuantity.CHAIN_ID],
-                    rep_atom=rep_atom
-                )
-                token_chain_ids.append(quants[ResidueQuantity.CHAIN_ID])
 
         return token_chain_ids
 
@@ -699,7 +729,7 @@ class StructureParser:
     def get_token_res_ids(
         structure: Structure,
         rep_atom_dict: dict = {},
-        only_representative: bool = False,
+        metric_level: MetricLevel = MetricLevel.REPRESENTATIVE_TOKEN,
     ) -> list[str]:
         """ Get token residue IDs for the structure.
 
@@ -715,12 +745,11 @@ class StructureParser:
         - **rep_atom_dict (dict, optional)**:<br />
             Dictionary with residue names as keys and representative
             atoms as values.<br />
-            If `only_representative` is `True`, this dictionary is used to get
-            the representative atom for the specified residue.
+            If `metric_level` is `representative_token`, this dictionary is used
+            to get the representative atom for the specified residue.
 
-        - **only_representative (bool, optional)**:<br />
-            If `True`, returns only representative residue IDs for all
-            residues irrespective of per-atom tokens.
+        - **metric_level (MetricLevel, optional)**:<br />
+            Metric level for the parser, either "per_token" or "representative_token".
 
         Returns:
 
@@ -728,75 +757,75 @@ class StructureParser:
             Token residue IDs for the structure.
         """
 
+        StructureParser.sanity_check_af3_metric_level(metric_level)
         token_res_ids = []
 
-        # (only_representative, has_per_atom_token)
+        def _get_rep_res_id(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            rep_atom = rep_atom_dict.get(
+                residue.get_resname(),
+                StructureParser.get_rep_atom(residue=residue)
+            )
+            quants = StructureParser.extract_perresidue_quantities(
+                residue=residue,
+                quantities=[ResidueQuantity.RES_POS],
+                rep_atom=rep_atom
+            )
+            return [quants[ResidueQuantity.RES_POS]]
+
+        def _get_per_atom_res_ids(residue: Bio.PDB.Residue.Residue) -> list[str]:
+            return [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.RES_POS]
+                )[AtomQuantity.RES_POS] for atom in residue
+            ]
+
+        # (metric_level, token_level)
         handle_dict = {
-            QuantityLevel.REPRESENTATIVE_ATOM: [
-                (True, False),
-                (True, True),
-                (False, False),
-            ],
-            QuantityLevel.PER_ATOM: [
-                (False, True),
-            ],
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.ATOM): _get_rep_res_id,
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.RESIDUE): _get_rep_res_id,
+            (MetricLevel.PER_TOKEN, TokenLevel.ATOM): _get_per_atom_res_ids,
+            (MetricLevel.PER_TOKEN, TokenLevel.RESIDUE): _get_rep_res_id,
         }
 
         for residue, _chain_id in StructureParser.get_residues(structure):
 
-            handle = (only_representative, has_per_atom_token(residue))
+            token_level = get_token_level(residue)
+            worker_func = handle_dict.get((metric_level, token_level))
 
-            if handle in handle_dict[QuantityLevel.PER_ATOM]:
-                for atom in residue:
-                    quants = StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.RES_POS]
-                    )
-                    token_res_ids.append(quants[AtomQuantity.RES_POS])
+            if callable(worker_func):
+                token_res_ids.extend(worker_func(residue))
 
-            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
-                rep_atom = rep_atom_dict.get(
-                    residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
+            else:
+                raise Exception(dedent(f"""
+                    Unexpected combination of flags:
+                    {metric_level=} and {token_level=}.""")
                 )
-                quants = StructureParser.extract_perresidue_quantities(
-                    residue=residue,
-                    quantities=[ResidueQuantity.RES_POS],
-                    rep_atom=rep_atom
-                )
-                token_res_ids.append(quants[ResidueQuantity.RES_POS])
 
         return token_res_ids
 
     @staticmethod
     def get_plddt(
         structure: Structure,
-        per_atom: bool = False,
         rep_atom_dict: dict = {},
         average_token_plddt: bool = False,
-        only_representative: bool = False,
+        metric_level: MetricLevel = MetricLevel.REPRESENTATIVE_TOKEN,
     ) -> list[float]:
         """Get pLDDT values from the structure.
 
         > [!NOTE]
-        > To replicate `atom_plddts` from AF3 JSON file, set `per_atom` to `True`.
+        > To replicate `atom_plddts` from AF3 JSON file, set `metric_level` to "per_atom".
 
         Arguments:
 
         - **structure (Bio.PDB.Structure.Structure)**:<br />
             Biopython Structure object.
 
-        - **per_atom (bool)**:<br />
-            If `True`, returns pLDDT values for each atom.<br />
-            If `False`, returns pLDDT values for each residue/token.<br />
-            > [!NOTE]
-            > `per_atom` option **supersedes** all other options.
-
         - **rep_atom_dict (dict)**:<br />
             Dictionary with residue names as keys and representative
             atoms as values.<br />
-            If `only_representative` is `True`, this dictionary is used to get
-            the representative atom for the specified residue.
+            If `metric_level` is `representative_token`, this dictionary is used
+            to get the representative atom for the specified residue.
 
         - **average_token_plddt (bool)**:<br />
             If `True`, averages pLDDT values for all atoms in the residue
@@ -805,100 +834,98 @@ class StructureParser:
             > `average_token_plddt` option has effect only if `only_representative`
             > is `True`.
 
-        - **only_representative (bool)**:<br />
-            If `True`, returns only representative pLDDT values for all
-            residues.
+        - **metric_level (MetricLevel)**:<br />
+            Metric level for the parser.
+            "per_token" or "representative_token" or "per_atom".
 
         Returns:
 
         - **plddt_values (list)**:<br />
-            List of pLDDT values.<br />
-            If `per_atom` is `True`, contains pLDDT values for each atom.<br />
-            If `per_atom` is `False`, contains pLDDT values for each residue or token.
+            List of pLDDT values.
         """
 
+        StructureParser.sanity_check_metric_level(metric_level)
         plddt_values = []
-        rep_atom = None
 
-        if per_atom:
-            for atom, _res, _ch_id in StructureParser.get_atoms(structure):
-                quants = StructureParser.extract_peratom_quantities(
+        if metric_level == MetricLevel.PER_ATOM:
+
+            plddt_values = [
+                StructureParser.extract_peratom_quantities(
                     atom=atom,
                     quantities=[AtomQuantity.PLDDT]
-                )
-                plddt_values.append(quants[AtomQuantity.PLDDT])
+                )[AtomQuantity.PLDDT]
+                for atom, _res, _ch_id in StructureParser.get_atoms(structure)
+            ]
 
             return plddt_values
 
-        # (only_representative, average_token_plddt, has_per_atom_token)
-        handle_dict = {
-            QuantityLevel.REPRESENTATIVE_ATOM: [
-                (True, False, True),
-                (True, False, False),
-                (False, True, False),
-                (False, False, False),
-            ],
-            QuantityLevel.AVERAGE_ATOM: [
-                (True, True, True),
-                (True, True, False),
-            ],
-            QuantityLevel.PER_ATOM: [
-                (False, True, True),
-                (False, False, True),
+        def _get_rep_plddt_val(residue: Bio.PDB.Residue.Residue) -> list[float]:
+            rep_atom = rep_atom_dict.get(
+                residue.get_resname(),
+                StructureParser.get_rep_atom(residue=residue)
+            )
+            quants = StructureParser.extract_perresidue_quantities(
+                residue=residue,
+                quantities=[ResidueQuantity.PLDDT],
+                rep_atom=rep_atom,
+            )
+            return [quants[ResidueQuantity.PLDDT]]
+
+        def _get_avg_plddt_val(residue: Bio.PDB.Residue.Residue) -> list[float]:
+            atom_plddt_values = [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.PLDDT]
+                )[AtomQuantity.PLDDT] for atom in residue
             ]
+            return [np.mean(atom_plddt_values)]
+
+        def _get_per_atom_plddt_vals(residue: Bio.PDB.Residue.Residue) -> list[float]:
+            return [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.PLDDT]
+                )[AtomQuantity.PLDDT] for atom in residue
+            ]
+
+        # (metric_level, average_token_plddt, token_level)
+        handle_dict = {
+            # single plddt value per residue; token_level flag has no effect in this case
+
+            # from a representative atom
+            (MetricLevel.REPRESENTATIVE_TOKEN, False, TokenLevel.ATOM): _get_rep_plddt_val,
+            (MetricLevel.REPRESENTATIVE_TOKEN, False, TokenLevel.RESIDUE): _get_rep_plddt_val,
+
+            # average of all atoms in the residue
+            (MetricLevel.REPRESENTATIVE_TOKEN, True, TokenLevel.ATOM): _get_avg_plddt_val,
+            (MetricLevel.REPRESENTATIVE_TOKEN, True, TokenLevel.RESIDUE): _get_avg_plddt_val,
+
+            # multiple plddt values per residue (one for each atom in the residue)
+
+            # if token is residue-level
+            (MetricLevel.PER_TOKEN, True, TokenLevel.ATOM): _get_avg_plddt_val,
+            (MetricLevel.PER_TOKEN, False, TokenLevel.RESIDUE): _get_rep_plddt_val,
+
+            # if token is atom-level
+            (MetricLevel.PER_TOKEN, False, TokenLevel.ATOM): _get_per_atom_plddt_vals,
+            (MetricLevel.PER_TOKEN, True, TokenLevel.ATOM): _get_per_atom_plddt_vals,
         }
 
         for residue, _ch_id in StructureParser.get_residues(structure):
 
-            handle = (
-                only_representative,
-                average_token_plddt,
-                has_per_atom_token(residue)
-            )
+            token_level = get_token_level(residue)
+            handle = (metric_level, average_token_plddt, token_level)
+            worker_func = handle_dict.get(handle)
 
-            if handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
-
-                rep_atom = rep_atom_dict.get(
-                    residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
-                )
-                quants = StructureParser.extract_perresidue_quantities(
-                    residue=residue,
-                    quantities=[ResidueQuantity.PLDDT],
-                    rep_atom=rep_atom,
-                )
-                plddt_values.append(quants[ResidueQuantity.PLDDT])
-
-            elif handle in handle_dict[QuantityLevel.AVERAGE_ATOM]:
-                # Average pLDDT for all atoms in the residue
-                atom_plddt_values = [
-                    StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.PLDDT]
-                    )[AtomQuantity.PLDDT] for atom in residue
-                ]
-                plddt_values.append(np.mean(atom_plddt_values))
-
-            elif handle in handle_dict[QuantityLevel.PER_ATOM]:
-
-                for atom in residue:
-                    quants = StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.PLDDT]
-                    )
-                    plddt_values.append(quants[AtomQuantity.PLDDT])
+            if callable(worker_func):
+                plddt_values.extend(worker_func(residue))
 
             else:
-                raise Exception(
-                    f"""
-
+                raise Exception(dedent(f"""
                     Unexpected combination of flags:
-                    {only_representative=},
+                    {metric_level=},
                     {average_token_plddt=},
-                    has_per_atom_token={has_per_atom_token(residue)}.
-
-                    Expected booleans for all three flags.
-                    """
+                    {token_level=}.""")
                 )
 
         return plddt_values
@@ -906,9 +933,8 @@ class StructureParser:
     @staticmethod
     def get_coordinates(
         structure: Bio.PDB.Structure.Structure,
-        per_atom: bool = False,
         rep_atom_dict: dict = {},
-        only_representative: bool = False,
+        metric_level: MetricLevel = MetricLevel.REPRESENTATIVE_TOKEN,
     ) -> list[np.ndarray]:
         """Get coordinates from the structure.
 
@@ -917,80 +943,77 @@ class StructureParser:
         - **structure (Bio.PDB.Structure.Structure)**:<br />
             Biopython Structure object.
 
-        - **per_atom (bool)**:<br />
-            If `True`, returns coordinates for each atom.
-            If `False`, returns coordinates for each residue or token.
-            > [!NOTE]
-            > `per_atom` option **supersedes** all other options.
-
         - **rep_atom_dict (dict)**:<br />
             Dictionary with residue names as keys and representative
             atoms as values.<br />
-            If `only_representative` is `True`, this dictionary is used to get
-            the representative atom for the specified residue.
+            If `metric_level` is `representative_token`, this dictionary is used
+            to get the representative atom for the specified residue.
 
-        - **only_representative (bool)**:<br />
-            If `True`, returns only representative coordinates for all
-            residues.
+        - **metric_level (MetricLevel)**:<br />
+            Metric level for the parser.
+            "per_token" or "representative_token" or "per_atom".
 
         Returns:
 
         - **coords (list)**:<br />
-            List of coordinates. <br />
-            If `per_atom` is `True`, contains coordinates for each atom.<br />
-            If `per_atom` is `False`, contains coordinates for each residue or token.
+            List of coordinates.
         """
 
+        StructureParser.sanity_check_metric_level(metric_level)
         coords = []
-        rep_atom = None
 
-        if per_atom:
+        if metric_level == MetricLevel.PER_ATOM:
 
-            for atom, _res, _ch_id in StructureParser.get_atoms(structure):
-                quants = StructureParser.extract_peratom_quantities(
+            coords = [
+                StructureParser.extract_peratom_quantities(
                     atom=atom,
                     quantities=[AtomQuantity.COORD]
-                )
-                coords.append(quants[AtomQuantity.COORD])
+                )[AtomQuantity.COORD]
+                for atom, _res, _ch_id in StructureParser.get_atoms(structure)
+            ]
 
             return coords
 
-        # (only_representative, has_per_atom_token)
-        handle_dict = {
-            QuantityLevel.REPRESENTATIVE_ATOM: [
-                (True, True),
-                (True, False),
-                (False, False),
-            ],
-            QuantityLevel.PER_ATOM: [
-                (False, True),
+        def _get_rep_coords(residue: Bio.PDB.Residue.Residue) -> list[np.ndarray]:
+            rep_atom = rep_atom_dict.get(
+                residue.get_resname(),
+                StructureParser.get_rep_atom(residue=residue)
+            )
+            quants = StructureParser.extract_perresidue_quantities(
+                residue=residue,
+                quantities=[ResidueQuantity.COORD],
+                rep_atom=rep_atom,
+            )
+            return [quants[ResidueQuantity.COORD]]
+
+        def _get_per_atom_coords(residue: Bio.PDB.Residue.Residue) -> list[np.ndarray]:
+            return [
+                StructureParser.extract_peratom_quantities(
+                    atom=atom,
+                    quantities=[AtomQuantity.COORD]
+                )[AtomQuantity.COORD] for atom in residue
             ]
+
+        # (metric_level, token_level)
+        handle_dict = {
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.ATOM): _get_rep_coords,
+            (MetricLevel.REPRESENTATIVE_TOKEN, TokenLevel.RESIDUE): _get_rep_coords,
+            (MetricLevel.PER_TOKEN, TokenLevel.ATOM): _get_per_atom_coords,
+            (MetricLevel.PER_TOKEN, TokenLevel.RESIDUE): _get_rep_coords,
         }
 
         for residue, _ch_id in StructureParser.get_residues(structure):
 
-            handle = (only_representative, has_per_atom_token(residue))
+            token_level = get_token_level(residue)
+            worker_func = handle_dict.get((metric_level, token_level))
 
-            if handle in handle_dict[QuantityLevel.PER_ATOM]:
+            if callable(worker_func):
+                coords.extend(worker_func(residue))
 
-                for atom in residue:
-                    quants = StructureParser.extract_peratom_quantities(
-                        atom=atom,
-                        quantities=[AtomQuantity.COORD]
-                    )
-                    coords.append(quants[AtomQuantity.COORD])
-
-            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
-
-                rep_atom = rep_atom_dict.get(
-                    residue.get_resname(),
-                    StructureParser.get_rep_atom(residue=residue)
+            else:
+                raise Exception(dedent(f"""
+                    Unexpected combination of flags:
+                    {metric_level=}, {token_level=}.""")
                 )
-                quants = StructureParser.extract_perresidue_quantities(
-                    residue=residue,
-                    quantities=[ResidueQuantity.COORD],
-                    rep_atom=rep_atom,
-                )
-                coords.append(quants[ResidueQuantity.COORD])
 
         return coords
