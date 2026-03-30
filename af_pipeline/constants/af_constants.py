@@ -332,7 +332,7 @@ class ResidueQuantity(StrEnum):
     REP_ATOM_LOCAL_IDX = auto()
 
 class QuantityLevel(StrEnum):
-    REPRENTATIVE_ATOM = auto()
+    REPRESENTATIVE_ATOM = auto()
     PER_ATOM = auto()
     AVERAGE_ATOM = auto()
 

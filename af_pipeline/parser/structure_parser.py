@@ -586,7 +586,7 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            QuantityLevel.REPRENTATIVE_ATOM: [
+            QuantityLevel.REPRESENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
@@ -608,7 +608,7 @@ class StructureParser:
                     )
                     token_atom_ids.append(quants[AtomQuantity.ATOM_NAME])
 
-            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
+            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
@@ -659,7 +659,7 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            QuantityLevel.REPRENTATIVE_ATOM: [
+            QuantityLevel.REPRESENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
@@ -681,7 +681,7 @@ class StructureParser:
                     )
                     token_chain_ids.append(quants[AtomQuantity.CHAIN_ID])
 
-            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
+            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
@@ -732,7 +732,7 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            QuantityLevel.REPRENTATIVE_ATOM: [
+            QuantityLevel.REPRESENTATIVE_ATOM: [
                 (True, False),
                 (True, True),
                 (False, False),
@@ -754,7 +754,7 @@ class StructureParser:
                     )
                     token_res_ids.append(quants[AtomQuantity.RES_POS])
 
-            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
+            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
                     StructureParser.get_rep_atom(residue=residue)
@@ -832,7 +832,7 @@ class StructureParser:
 
         # (only_representative, average_token_plddt, has_per_atom_token)
         handle_dict = {
-            QuantityLevel.REPRENTATIVE_ATOM: [
+            QuantityLevel.REPRESENTATIVE_ATOM: [
                 (True, False, True),
                 (True, False, False),
                 (False, True, False),
@@ -856,7 +856,7 @@ class StructureParser:
                 has_per_atom_token(residue)
             )
 
-            if handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
+            if handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
 
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
@@ -957,7 +957,7 @@ class StructureParser:
 
         # (only_representative, has_per_atom_token)
         handle_dict = {
-            QuantityLevel.REPRENTATIVE_ATOM: [
+            QuantityLevel.REPRESENTATIVE_ATOM: [
                 (True, True),
                 (True, False),
                 (False, False),
@@ -980,7 +980,7 @@ class StructureParser:
                     )
                     coords.append(quants[AtomQuantity.COORD])
 
-            elif handle in handle_dict[QuantityLevel.REPRENTATIVE_ATOM]:
+            elif handle in handle_dict[QuantityLevel.REPRESENTATIVE_ATOM]:
 
                 rep_atom = rep_atom_dict.get(
                     residue.get_resname(),
