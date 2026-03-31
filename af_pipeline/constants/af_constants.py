@@ -29,6 +29,7 @@ class MiscStrEnum(StrEnum):
     FIRST = auto()
     LAST = auto()
     UNKNOWN = auto()
+    REVERSE_COMPLEMENT = "RevComp"
 
 RES_SEPARATOR = "-"
 RES_SPLITTER = ","
@@ -242,10 +243,15 @@ class AFInputEntityFields(StrEnum):
     TYPE = auto()
     COUNT = auto()
     RANGE = auto()
+    STRAND = auto()
     USE_STRUCTURE_TEMPLATE = "useStructureTemplate"
     MAX_TEMPLATE_DATE = "maxTemplateDate"
     GLYCANS = auto()
     MODIFICATIONS = auto()
+
+class NucleicAcidStrand(StrEnum):
+    DOUBLE = auto()
+    SINGLE = auto()
 
 class GlycanModificationFields(StrEnum):
     RESIDUES = auto()
