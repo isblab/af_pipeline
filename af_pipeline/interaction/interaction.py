@@ -102,6 +102,9 @@ class Interaction:
         self.save_table = kwargs.get(KeywordArg.SAVE_TABLE, IntCons.save_table)
 
         self._is_set_up = False
+        setup_instance = kwargs.get(KeywordArg.SETUP_INSTANCE, None)
+        if isinstance(setup_instance, Initialize):
+            self.set_attributes_from(instance=setup_instance)
 
     def check_is_set_up(self):
         """ Check if the Interaction instance is set up. """

@@ -117,6 +117,9 @@ class RigidBodies:
         )
 
         self._is_set_up = False
+        setup_instance = kwargs.get(KeywordArg.SETUP_INSTANCE, None)
+        if isinstance(setup_instance, Initialize):
+            self.set_attributes_from(instance=setup_instance)
 
     def check_is_set_up(self):
         """ Check if the RigidBodies instance is set up. """
@@ -696,9 +699,10 @@ class RigidBodies:
                 as_average=as_average,
                 idr_chains=self.idr_chains,
                 protein_chain_map=protein_chain_map,
+                setup_instance=self,
             )
 
-            rb_assess.set_attributes_from(instance=self)
+            # rb_assess.set_attributes_from(instance=self)
             rb_assess.perform_assessment()
             rb_assess.save_rb_assessment(
                 rb_c_assess=rb_assess.rb_c_assess,

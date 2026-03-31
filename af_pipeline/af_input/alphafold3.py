@@ -35,7 +35,8 @@ from af_pipeline.utils.misc_utils import (
 )
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
-    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE, ConfigYaml
+    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE,
+    ConfigYaml, MiscStrEnum, NucleicAcidStrand
 )
 from af_pipeline.constants.af_constants import (
     NucleicAcidModificationFields,
@@ -477,6 +478,7 @@ class AFJobSet:
         """
 
         self.update_model_seeds()
+        self.update_nucleic_acid_entities()
         self.update_af_sequences()
         self.update_job_set_name()
 
@@ -497,6 +499,45 @@ class AFJobSet:
         self.job_set_name = self.job_set_info.get(AFInputJobFields.JOB_SET_NAME)
         if self.job_set_name is None:
             self.generate_job_set_name()
+
+    def update_nucleic_acid_entities(self):
+        """Update the nucleic acid entities in the job set.
+
+        For each nucleic acid entity, create a new entity for its reverse complement
+        and add it to the job set.
+        """
+
+        entities_to_add = []
+
+        for idx, entity_info in enumerate(self.job_set_info[AFInputJobFields.ENTITIES]):
+
+            if entity_info[AFInputEntityFields.TYPE] in [
+                EntityType.DNA_SEQUENCE,
+                EntityType.RNA_SEQUENCE,
+            ]:
+
+                strand = entity_info.get(
+                    AFInputEntityFields.STRAND, NucleicAcidStrand.SINGLE
+                )
+
+                if strand == NucleicAcidStrand.SINGLE:
+                    continue
+
+                reverse_entity_info = entity_info.copy()
+                reverse_entity_info[AFInputEntityFields.NAME] = (
+                    f"{entity_info[AFInputEntityFields.NAME]}{MiscStrEnum.REVERSE_COMPLEMENT}"
+                )
+                reverse_entity_info[AFInputEntityFields.STRAND] = NucleicAcidStrand.SINGLE
+
+                # switch the entity info strand to single
+                self.job_set_info[AFInputJobFields.ENTITIES][idx][AFInputEntityFields.STRAND] = NucleicAcidStrand.SINGLE
+
+                entities_to_add.append([idx, reverse_entity_info])
+
+        # reverse sort entities to avoid index shift when adding new entities
+        entities_to_add.sort(key=lambda x: x[0], reverse=True)
+        for idx, entity_info in entities_to_add:
+            self.job_set_info[AFInputJobFields.ENTITIES].insert(idx + 1, entity_info)
 
     def update_model_seeds(self):
         """Update the `model_seeds`.
@@ -678,6 +719,7 @@ class Entity:
         self.update_entity()
         self.sanity_check_glycans()
         self.sanity_check_modifications()
+        self.sanity_check_nucleic_acid_strand()
         self.sanity_check_small_molecule(
             entity_type=self.entity_type,
             entity_name=self.entity_name
@@ -787,19 +829,31 @@ class Entity:
             and self.nucleic_acid_sequences is not None
         ):
 
+            entity_name = self.entity_name.replace(MiscStrEnum.REVERSE_COMPLEMENT, "")
+
             try: # try with nucleic acid id as a key
-                nucleic_acid_id = self.entities_map[self.entity_name]
+                nucleic_acid_id = self.entities_map[entity_name]
                 real_sequence = self.nucleic_acid_sequences[nucleic_acid_id]
 
             except KeyError:
 
                 try: # try with entity name as a key
-                    real_sequence = self.nucleic_acid_sequences[self.entity_name]
+                    real_sequence = self.nucleic_acid_sequences[entity_name]
 
                 except KeyError:
                     raise Exception(
                         f"Could not find the entity sequence for {self.entity_name}."
                     )
+
+            if MiscStrEnum.REVERSE_COMPLEMENT in self.entity_name:
+                from Bio.Seq import Seq
+                if self.entity_type == EntityType.DNA_SEQUENCE:
+                    reverse_comp = str(Seq(real_sequence).reverse_complement())
+                elif self.entity_type == EntityType.RNA_SEQUENCE:
+                    reverse_comp = str(Seq(real_sequence).reverse_complement_rna())
+                # NOTE: the reverse_comp is already in the 5' to 3' direction,
+                # so no need to reverse it again
+                real_sequence = reverse_comp
 
         ivalid_case = (
             self.entity_type in [
@@ -966,6 +1020,31 @@ class Entity:
                 Glycosylation is not supported for this entity type.
                 """
             )
+
+    def sanity_check_nucleic_acid_strand(self):
+        """Sanity check the `strand` for nucleic acid entities.
+
+        Allowed strands:
+            `single`, `double`
+
+        - For double-stranded nucleic acids, modifications are currently not
+          supported. Provide the modifications for each strand separately.
+        """
+
+        if self.entity_type in [EntityType.DNA_SEQUENCE, EntityType.RNA_SEQUENCE]:
+
+            strand = self.entity_info.get(
+                AFInputEntityFields.STRAND, NucleicAcidStrand.SINGLE
+            )
+
+            if strand not in [NucleicAcidStrand.SINGLE, NucleicAcidStrand.DOUBLE]:
+                raise Exception(f"Invalid strand {strand} for {self.entity_name}.")
+
+            if len(self.modifications) > 0 and strand == NucleicAcidStrand.DOUBLE:
+                raise Exception(
+                    f"Modifications are not supported for double-stranded nucleic acids. \
+                    Please provide the modifications for each strand separately."
+                )
 
     def sanity_check_modifications(self):
         """Sanity check the `modifications`.

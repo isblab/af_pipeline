@@ -9,6 +9,7 @@ from af_pipeline.constants.af_constants import (
     CHAIN_PAIRWISE_ASSESSMENT_COLUMNS,
     CHAINWISE_ASSESSMENT_COLUMNS,
     OVERALL_ASSESSMENT_COLUMNS,
+    KeywordArg,
 )
 from af_pipeline.utils.misc_utils import (
     time_it,
@@ -1338,9 +1339,16 @@ class RigidBodyAssessment:
 
         self.as_average = as_average
         self.symmetric_pae = symmetric_pae
-        self.idr_chains = kwargs.get("idr_chains", [])
-        self.protein_chain_map = kwargs.get("protein_chain_map", {})
+        self.idr_chains = kwargs.get(KeywordArg.IDR_CHAINS, [])
+        self.protein_chain_map = kwargs.get(KeywordArg.PROTEIN_CHAIN_MAP, {})
         self.is_set_up = False
+        setup_instance = kwargs.get(KeywordArg.SETUP_INSTANCE, None)
+        if isinstance(setup_instance, Initialize):
+            self.set_attributes_from(instance=setup_instance)
+        else:
+            from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
+            if isinstance(setup_instance, RigidBodies):
+                self.set_attributes_from(instance=setup_instance)
         self.rb_dict = rb_dict
 
     def check_is_set_up(self):
