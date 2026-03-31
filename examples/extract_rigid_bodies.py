@@ -186,11 +186,12 @@ if __name__ == "__main__":
             plddt_cutoff=args.plddt_cutoff,
             plddt_cutoff_idr=args.plddt_cutoff_idr,
             idr_chains=idr_chains,
+            setup_instance=initialize,
         )
 
-        rigid_bodies_extractor.set_attributes_from(
-            instance=initialize,
-        )
+        # rigid_bodies_extractor.set_attributes_from(
+        #     instance=initialize,
+        # )
 
         domains = rigid_bodies_extractor.extract_rigid_bodies(
             pae_matrix=rigid_bodies_extractor.pae,

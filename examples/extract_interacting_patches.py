@@ -134,9 +134,10 @@ if __name__ == "__main__":
             idr_chains=idr_chains,
             save_plot=False,
             save_table=True,
+            setup_instance=initialize,
         )
 
-        af_interaction.set_attributes_from(instance=initialize)
+        # af_interaction.set_attributes_from(instance=initialize)
 
         regions_of_interest_ = af_interaction.create_regions_of_interest()
 

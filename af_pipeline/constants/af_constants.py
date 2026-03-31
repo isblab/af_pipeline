@@ -131,6 +131,8 @@ class KeywordArg(StrEnum):
     SAVE_PLOT = auto()
     SAVE_TABLE = auto()
     RANDOM_SEED = auto()
+    SETUP_INSTANCE = auto()
+    PROTEIN_CHAIN_MAP = auto()
 
 class PlotType(StrEnum):
     STATIC = auto()
