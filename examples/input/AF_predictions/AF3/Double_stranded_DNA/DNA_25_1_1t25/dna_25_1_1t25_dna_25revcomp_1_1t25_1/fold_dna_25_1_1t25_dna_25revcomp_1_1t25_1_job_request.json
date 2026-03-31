@@ -1,0 +1,23 @@
+[{
+ "name": "DNA_25_1_1t25_DNA_25RevComp_1_1t25_1",
+ "modelSeeds": [
+  "1"
+ ],
+ "sequences": [
+  {
+   "dnaSequence": {
+    "sequence": "TGGTCGGGGTAGCGGCTAAAGCACT",
+    "count": 1
+   }
+  },
+  {
+   "dnaSequence": {
+    "sequence": "AGTGCTTTAGCCGCTACCCCGACCA",
+    "count": 1
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 2
+}
+]
