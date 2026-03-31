@@ -11,7 +11,7 @@ from af_pipeline.constants import af_constants
 
 if __name__ == "__main__":
 
-    af_constants.RES_RANGE_SEP = "to"
+    af_constants.RES_RANGE_SEP = "to" # set to match the separator used in create_af_jobs.py for AF3 predictions
 
     args = ArgumentParser()
 

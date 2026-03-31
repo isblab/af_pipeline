@@ -16,6 +16,7 @@ from af_pipeline.constants.af_constants import (
     AFInputJobFields,
     BestPredictionFields,
     FileFormat,
+    RES_RANGE_SEP,
 )
 
 def get_directory_level(pred_dir:str) -> int | None:
@@ -764,8 +765,8 @@ class RankAF3JobSet:
         else:
             raise ValueError(
                 "Invalid directory name for AF3 prediction, "
-                "should be in the format p1_copy1_1to100_p2_copy2_101to200_seed "
-                "or p1_copy1_1to100_p2_copy2_101to200"
+                f"should be in the format p1_copy1_1{RES_RANGE_SEP}100_p2_copy2_101{RES_RANGE_SEP}200_seed "
+                f"or p1_copy1_1{RES_RANGE_SEP}100_p2_copy2_101{RES_RANGE_SEP}200"
             )
 
         if seed_is_present:
@@ -794,7 +795,7 @@ class RankAF3JobSet:
                     except ValueError:
                         raise ValueError(
                             f"Invalid residue range format in {structure_path}. "
-                            "Expected format is 'STARTtEND' or 'START-END'."
+                            f"Expected format is 'START{RES_RANGE_SEP}END' or 'START-END'."
                         )
                 af_offset[chain_id] = [int(start), int(end)]
                 chain_count += 1
