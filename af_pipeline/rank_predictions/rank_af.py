@@ -817,30 +817,30 @@ class RankAF3JobSet:
         - **int**:<br />
             Job id for the current job set
         """
+        job_set_id = -1
+
         if af_input_jobs is None:
             warnings.warn("No AF jobs found. Skipping extraction of job id.")
-            return -1
+            return job_set_id
 
-        job_sets = af_input_jobs.get(self.job_cycle_name, None)
+        idx = 0
 
-        if job_sets is None:
-            return -1
+        for job_cycle, job_sets_list in af_input_jobs.items():
+            for job_set in job_sets_list:
 
-        # assert isinstance(self.job_set_name, str), "You haven't added job set name yet."
+                if job_set.get(AFInputJobFields.JOB_SET_NAME, "") == self.job_set_name:
+                    job_set_id = idx + 1
+                    self.job_cycle_name = job_cycle
 
-        job_set_id = -1 # in case job set name is not found
-
-        for idx, job in enumerate(job_sets):
-            if job.get(AFInputJobFields.JOB_SET_NAME, "") == self.job_set_name:
-                job_set_id = idx + 1  # Job IDs are 1-indexed
-
-        if job_set_id == -1 and soft_match:
-            for idx, job in enumerate(job_sets):
-                if (
-                    self.job_set_name in job.get(AFInputJobFields.JOB_SET_NAME, "")
-                    or job.get(AFInputJobFields.JOB_SET_NAME, "") in self.job_set_name
+                elif soft_match and (
+                    self.job_set_name in job_set.get(AFInputJobFields.JOB_SET_NAME, "") or
+                    job_set.get(AFInputJobFields.JOB_SET_NAME, "") in self.job_set_name
                 ):
                     job_set_id = idx + 1
+                    self.job_cycle_name = job_cycle
+                idx += 1
+            idx = 0
 
         self.job_set_id = job_set_id
+
         return job_set_id
