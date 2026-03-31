@@ -157,15 +157,9 @@ def is_valid_job_cycle_dir(job_cycle_dir:str) -> tuple[bool, str, list, list]:
         `True` if the job cycle directory is valid, `False` otherwise
     """
 
-    dir_level = get_directory_level(job_cycle_dir)
-
-    return_val = True
+    return_val = False
     valid_job_set_dirs = []
     invalid_job_set_dirs = []
-
-    if dir_level is None or dir_level != 2:
-        msg = f"{job_cycle_dir} is not at the expected level 2 for a job cycle directory."
-        return False, msg, valid_job_set_dirs, invalid_job_set_dirs
 
     job_set_dirs = [
         item for item in os.listdir(job_cycle_dir)
@@ -174,7 +168,7 @@ def is_valid_job_cycle_dir(job_cycle_dir:str) -> tuple[bool, str, list, list]:
 
     if len(job_set_dirs) == 0:
         msg = f"No job set directories found in {job_cycle_dir}."
-        return False, msg, valid_job_set_dirs, invalid_job_set_dirs
+        return return_val, msg, valid_job_set_dirs, invalid_job_set_dirs
 
     for job_set_dir in job_set_dirs:
         is_valid_job_set, _msg, _, _ = is_valid_job_set_dir(
@@ -210,15 +204,9 @@ def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
         `True` if the AF master directory is valid, `False` otherwise
     """
 
-    dir_level = get_directory_level(af_master_dir)
-
-    return_val = True
+    return_val = False
     valid_job_cycle_dirs = []
     invalid_job_cycle_dirs = []
-
-    if dir_level is None or dir_level != 3:
-        msg = f"{af_master_dir} is not at the expected level 3 for an AF master directory."
-        return False, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
 
     job_cycle_dirs = [
         item for item in os.listdir(af_master_dir)
@@ -227,7 +215,7 @@ def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
 
     if len(job_cycle_dirs) == 0:
         msg = f"No job cycle directories found in {af_master_dir}."
-        return False, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
+        return return_val, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
 
     for cycle_dir in job_cycle_dirs:
         is_valid_cycle, _msg, _, _ = is_valid_job_cycle_dir(os.path.join(af_master_dir, cycle_dir))
@@ -274,8 +262,6 @@ def get_job_set_dirs(pred_dir:str) -> set:
                 for job_set_dir in valid_job_set_dirs
             ])
 
-        return job_set_dirs
-
     is_valid_job_cycle, _, valid_job_set_dirs, _ = is_valid_job_cycle_dir(pred_dir)
 
     if is_valid_job_cycle:
@@ -284,12 +270,12 @@ def get_job_set_dirs(pred_dir:str) -> set:
             for job_set_dir in valid_job_set_dirs
         ])
 
-        return job_set_dirs
-
     is_valid_job_set, _, _, _ = is_valid_job_set_dir(pred_dir)
 
     if is_valid_job_set:
         job_set_dirs.add(pred_dir)
+
+    if any([is_valid_af_master, is_valid_job_cycle, is_valid_job_set]):
         return job_set_dirs
 
     else:
