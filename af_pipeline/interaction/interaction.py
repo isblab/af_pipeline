@@ -12,8 +12,8 @@ from textwrap import dedent
 import warnings
 import numpy as np
 import pandas as pd
-from typing import Dict
 from itertools import product
+from typing import Dict, Optional
 from scipy.spatial import distance_matrix
 from af_pipeline.utils.misc_utils import (
     get_key_from_res_range,
@@ -33,11 +33,11 @@ import matplotlib.pyplot as plt
 
 _error_not_set_up = """
 The RigidBodies instance is not set up yet. Please set up the instance
-by calling the `set_from_initializer` method with an instance of the
+by calling the `set_attributes_from` method with an instance of the
 Initialize class.
 
 Alternatively, if you know what attributes to set, you can set the attributes of
-the RigidBodies instance directly without using the `set_from_initializer` method.
+the RigidBodies instance directly without using the `set_attributes_from` method.
 and set the `is_set_up` attribute to True.
 
 The following attributes need to be set for the RigidBodies instance to work properly:
@@ -61,26 +61,28 @@ See specific methods for more details on the required attributes for each method
 class Interaction:
     """ Class to handle interaction data for the predicted structure. """
 
-    contact_threshold: float
+    contact_threshold: float = IntCons.contact_threshold
     """ Threshold for defining a contact between residues in Angstroms. """
 
-    plddt_cutoff: float
+    plddt_cutoff: float = IntCons.plddt_cutoff
     """ Threshold for defining a confident residue based on pLDDT values. """
 
-    plddt_cutoff_idr: float
-    """ Threshold for defining a confident residue based on pLDDT values for
-    intrinsically disordered regions. """
-
-    pae_cutoff: float
+    pae_cutoff: float = IntCons.pae_cutoff
     """ Threshold for defining a confident residue pair based on PAE values. """
 
-    idr_chains: list
+    plddt_cutoff_idr: Optional[float] = IntCons.plddt_cutoff_idr
+    """ Threshold for defining a confident residue based on pLDDT values for
+    intrinsically disordered regions.
+    Only takes effect if `idr_chains` is a non-empty list.
+    """
+
+    idr_chains: Optional[list] = []
     """ List of chains that are intrinsically disordered. """
 
-    save_plot: bool
+    save_plot: Optional[bool] = IntCons.save_plot
     """ Whether to save the plot of the interaction map. """
 
-    save_table: bool
+    save_table: Optional[bool] = IntCons.save_table
     """ Whether to save the table of interacting residues. """
 
     def __init__(
@@ -115,12 +117,7 @@ class Interaction:
 
     def set_attributes_from(self, instance: Initialize):
         """ Set the attributes of Interaction instance from the Initialize instance.
-
         This method can be used to set the attributes of Interaction instance
-        from the Initialize instance after the Interaction instance is created.
-
-        This is useful when the Initialize instance is created after the
-        Interaction instance is created.
 
         ## Arguments:
 

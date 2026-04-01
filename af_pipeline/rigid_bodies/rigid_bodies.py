@@ -8,15 +8,15 @@ import copy
 import json
 import warnings
 import numpy as np
+import matplotlib
+import matplotlib.patches
 from itertools import product
-from typing import Dict, List
 from collections import defaultdict
 from Bio.PDB.Structure import Structure
+from typing import Dict, List, Optional
 from af_pipeline.parser.initialize import Initialize
-import matplotlib.patches
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib
 from af_pipeline.tools.structure_tools import (
     save_structure_obj,
     ResidueSelect,
@@ -45,11 +45,11 @@ from af_pipeline.constants.af_constants import (
 
 _error_not_set_up = """
 The RigidBodies instance is not set up yet. Please set up the instance
-by calling the `set_from_initializer` method with an instance of the
+by calling the `set_attributes_from` method with an instance of the
 Initialize class.
 
 Alternatively, if you know what attributes to set, you can set the attributes of
-the RigidBodies instance directly without using the `set_from_initializer` method.
+the RigidBodies instance directly without using the `set_attributes_from` method.
 and set the `is_set_up` attribute to True.
 
 The following attributes need to be set for the RigidBodies instance to work properly:
@@ -71,43 +71,44 @@ See specific methods for more details on the required attributes for each method
 class RigidBodies:
     """ Class to extract rigid bodies from AlphaFold prediction."""
 
-    library: str
+    library: str = RBCons.library.value
     """ Library to use for graph-based community detection.
     ('igraph' or 'networkx' or 'label_propagation')"""
 
-    pae_cutoff: float
+    pae_cutoff: float = RBCons.pae_cutoff
     """ PAE cutoff to consider an edge between two tokens."""
 
-    pae_power: int
-    """ Exponent to raise the PAE matrix to."""
-
-    resolution: float
-    """ Resolution parameter for graph-based community detection."""
-
-    plddt_cutoff: float
+    plddt_cutoff: float = RBCons.plddt_cutoff
     """ pLDDT cutoff to filter residues in rigid bodies."""
 
-    plddt_cutoff_idr: float
+    plddt_cutoff_idr: Optional[float] = RBCons.plddt_cutoff_idr
     """ pLDDT cutoff to filter residues in rigid bodies for IDR chains."""
 
-    random_seed: int
+    idr_chains: Optional[List] = []
+    """ List of chains that are intrinsically disordered. """
+
+    pae_power: Optional[int] = RBCons.pae_power
+    """ Exponent to raise the PAE matrix to."""
+
+    resolution: Optional[float] = RBCons.resolution
+    """ Resolution parameter for graph-based community detection."""
+
+    random_seed: Optional[int] = RBCons.random_seed
     """ Random seed for label propagation method."""
 
     def __init__(
         self,
-        library: str = RBCons.library,
-        pae_cutoff: float = RBCons.pae_cutoff,
-        pae_power: int = RBCons.pae_power,
-        resolution: float = RBCons.resolution,
+        library: str = RBCons.library.value,
         plddt_cutoff: float = RBCons.plddt_cutoff,
+        pae_cutoff: float = RBCons.pae_cutoff,
         **kwargs,
     ):
 
         self.library = library
         self.pae_cutoff = pae_cutoff
-        self.pae_power = pae_power
-        self.resolution = resolution
         self.plddt_cutoff = plddt_cutoff
+        self.pae_power = kwargs.get(KeywordArg.PAE_POWER, RBCons.pae_power)
+        self.resolution = kwargs.get(KeywordArg.RESOLUTION, RBCons.resolution)
         self.idr_chains = kwargs.get(KeywordArg.IDR_CHAINS, [])
         self.plddt_cutoff_idr = kwargs.get(
             KeywordArg.PLDDT_CUTOFF_IDR, RBCons.plddt_cutoff_idr
@@ -129,11 +130,8 @@ class RigidBodies:
 
     def set_attributes_from(self, instance: Initialize):
         """ Set the attributes of RigidBodies instance from the initializer instance.
-
         This method can be used to set the attributes of RigidBodies instance
-        from the initializer instance after the RigidBodies instance is created.
-        This is useful when the initializer instance is created after the
-        RigidBodies instance is created.
+        from the initializer instance.
 
         ## Arguments:
 
@@ -490,9 +488,9 @@ class RigidBodies:
         self,
         domains: list,
         output_dir: str,
-        rb_out_fmt: str = RBCons.rb_out_fmt,
+        rb_out_fmt: str = RBCons.rb_out_fmt.value,
         save_structure: bool = RBCons.save_structure,
-        rb_struct_fmt: str = RBCons.rb_struct_fmt,
+        rb_struct_fmt: str = RBCons.rb_struct_fmt.value,
         filter_struct_by_plddt: bool = RBCons.filter_struct_by_plddt,
         protein_chain_map: dict = {},
     ):

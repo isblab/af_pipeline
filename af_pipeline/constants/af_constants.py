@@ -134,6 +134,8 @@ class KeywordArg(StrEnum):
     RANDOM_SEED = auto()
     SETUP_INSTANCE = auto()
     PROTEIN_CHAIN_MAP = auto()
+    PAE_POWER = auto()
+    RESOLUTION = auto()
 
 class PlotType(StrEnum):
     STATIC = auto()
