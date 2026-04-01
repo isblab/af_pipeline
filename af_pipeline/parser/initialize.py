@@ -107,7 +107,6 @@ class Initialize:
         self.metric_level = metric_level
         self.preserve_header_footer = preserve_header_footer
         self.use_fast_cif_parser = use_fast_cif_parser
-        self.structure = None
         self.sanity_check_metric_level()
 
         self.structure_parser = StructureParser(
@@ -115,33 +114,10 @@ class Initialize:
             preserve_header_footer=self.preserve_header_footer,
             use_fast_cif_parser=self.use_fast_cif_parser,
         )
-
         self.data_parser = DataParser(data_file_path=self.data_file_path)
 
-        # Get attributes based on metric_level
-        self.get_attributes(metric_level=self.metric_level)
-
-        # Following attributes are not metric_level-specific, hence outside get_attributes
-        self.avg_pae = symmetrize_matrix(matrix=self.pae)
-
-        self.lengths_dict = self.get_chain_lengths(
-            token_chain_ids=self.token_chain_ids
-        )
-
-        self.renumber = RenumberResidues(offset=self.af_offset)
-
-        self.idx_to_num, self.num_to_idx = self.renumber.residue_map(
-            token_chain_ids=self.token_chain_ids,
-            token_res_ids=self.token_res_ids,
-            token_atom_names=self.token_atom_names,
-        )
-
-        self.rep_idx_to_num, self.rep_num_to_idx = self.renumber.residue_map(
-            token_chain_ids=self.token_chain_ids,
-            token_res_ids=self.token_res_ids,
-            token_atom_names=self.token_atom_names,
-            depth=ResidueMapDepth.RESIDUE,
-        )
+        #NOTE: Some attributes are dependent on metric_level
+        self.set_attributes()
 
     def sanity_check_metric_level(self):
 
@@ -152,30 +128,10 @@ class Initialize:
             """
         )
 
-    def get_attributes(self, metric_level: str) -> None:
-        """ Get the attributes of the class based on the `metric_level`.
-
-        ## Arguments:
-
-        - **metric_level (str)**:<br />
-            Metric level for the parser, either "per_token" or "representative_token".
-        """
-
-        if not (
-            isinstance(self.structure_parser, StructureParser) or
-            isinstance(self.data_parser, DataParser)
-        ):
-            raise TypeError(dedent(f"""
-                structure_parser should be an instance of StructureParser and
-                data_parser should be an instance of DataParser.
-                Got {type(self.structure_parser)} and {type(self.data_parser)}
-                instead.""")
-            )
+    def set_attributes(self) -> None:
+        """ Set the attributes of the class based on the `metric_level`."""
 
         self.structure = self.structure_parser.get_structure_obj()
-        data = self.data_parser.get_data_dict()
-        self.pae = self.data_parser.get_pae(data)
-        self.contact_probs = self.data_parser.get_contact_probs_mat(data)
 
         # If metric level is per_token, force average_token_plddt to be False
         # (Specific to AlphaFold3)
@@ -225,9 +181,14 @@ class Initialize:
             metric_level=self.metric_level,
         )
 
-        if metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
+        data = self.data_parser.get_data_dict()
 
-            self.idxs_to_keep = self.get_idxs_to_keep(
+        self.pae = self.data_parser.get_pae(data)
+        self.contact_probs = self.data_parser.get_contact_probs_mat(data)
+
+        if self.metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
+
+            idxs_to_keep = self.get_idxs_to_keep(
                 structure=self.structure,
                 rep_atom_dict=self.rep_atom_dict,
             )
@@ -235,12 +196,35 @@ class Initialize:
             self.pae = self.update_pae(
                 token_res_ids=self.data_parser.get_token_res_ids(data),
                 token_chain_ids=self.data_parser.get_token_chain_ids(data),
+                idxs_to_keep=idxs_to_keep,
             )
 
             self.contact_probs = self.update_contact_probs(
                 token_chain_ids= self.data_parser.get_token_chain_ids(data),
                 token_res_ids=self.data_parser.get_token_res_ids(data),
+                idxs_to_keep=idxs_to_keep,
             )
+
+        self.avg_pae = symmetrize_matrix(matrix=self.pae)
+
+        self.lengths_dict = self.get_chain_lengths(
+            token_chain_ids=self.token_chain_ids
+        )
+
+        self.renumber = RenumberResidues(offset=self.af_offset)
+
+        self.idx_to_num, self.num_to_idx = self.renumber.residue_map(
+            token_chain_ids=self.token_chain_ids,
+            token_res_ids=self.token_res_ids,
+            token_atom_names=self.token_atom_names,
+        )
+
+        self.rep_idx_to_num, self.rep_num_to_idx = self.renumber.residue_map(
+            token_chain_ids=self.token_chain_ids,
+            token_res_ids=self.token_res_ids,
+            token_atom_names=self.token_atom_names,
+            depth=ResidueMapDepth.RESIDUE,
+        )
 
     @staticmethod
     def get_chain_lengths(token_chain_ids: list) -> Dict[str, int]:
@@ -336,6 +320,7 @@ class Initialize:
         self,
         token_res_ids: list | None,
         token_chain_ids: list | None,
+        idxs_to_keep: dict = {},
     ) -> np.ndarray:
         """ Update the PAE matrix based on the keyword.
 
@@ -383,7 +368,7 @@ class Initialize:
             matrix=self.pae,
             idxs_to_update=dup_token_indices,
             replace_with_avg=self.average_token_pae,
-            idxs_to_keep=self.idxs_to_keep,
+            idxs_to_keep=idxs_to_keep,
         )
         return pae
 
@@ -391,6 +376,7 @@ class Initialize:
         self,
         token_chain_ids: list | None,
         token_res_ids: list | None,
+        idxs_to_keep: dict = {},
     ) -> np.ndarray | None:
         """Update the contact probabilities matrix based on the keyword.
 
@@ -435,7 +421,7 @@ class Initialize:
             matrix=self.contact_probs,
             idxs_to_update=dup_token_indices,
             replace_with_avg=False,
-            idxs_to_keep=self.idxs_to_keep,
+            idxs_to_keep=idxs_to_keep,
         )
         return contact_probs_mat
 
