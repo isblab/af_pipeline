@@ -96,6 +96,7 @@ class FileFormat(StrEnum):
     PNG = auto()
     HTML = auto()
     FASTA = auto()
+    CSV = auto()
 
 @dataclass
 class RigidBodiesConstants:

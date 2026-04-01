@@ -122,7 +122,7 @@ if __name__ == "__main__":
             rep_atom_dict={},
             average_token_pae=False,
             average_token_plddt=False,
-            metric_level=MetricLevel.PER_TOKEN,
+            metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
             use_fast_cif_parser=False,
         )
 
@@ -147,7 +147,7 @@ if __name__ == "__main__":
             af_interaction.save_ppair_interaction(
                 region_of_interest=region_of_interest,
                 output_dir=output_dir,
-                save_plot=False,
+                save_plot=True,
                 plot_type=PlotType.STATIC,
                 p1_name=None,
                 p2_name=None,

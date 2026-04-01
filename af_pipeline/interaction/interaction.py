@@ -8,6 +8,7 @@ One can obtain:
 3. Interacting patches: contiguous regions in the interaction map obtained in (1).
 """
 import os
+from textwrap import dedent
 import warnings
 import numpy as np
 import pandas as pd
@@ -126,6 +127,14 @@ class Interaction:
         - **instance (Initialize)**:<br />
             An instance of the Initialize class.
         """
+
+        if instance.metric_level != MetricLevel.REPRESENTATIVE_TOKEN:
+            raise NotImplementedError(dedent(f"""
+                Currently, Interaction class only considers interactions at the
+                residue-level and not at atomic-level.
+                Hence, Initialize instance should be initialized with:
+                metric_level = "representative_token" """)
+            )
 
         self.structure = instance.structure
         self.structure_parser = instance.structure_parser
@@ -259,54 +268,27 @@ class Interaction:
         """
 
         self.check_is_set_up()
-        chain1, chain2 = list(region_of_interest.keys())
-        p1_region, p2_region = (
-            region_of_interest[chain1],
-            region_of_interest[chain2],
-        )
+        chains = list(region_of_interest.keys())
 
-        token_rep_chain_ids = self.structure_parser.get_token_chain_ids(
-            structure=self.structure,
-            rep_atom_dict=self.rep_atom_dict,
-            metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
-        )
-        token_rep_res_ids = self.structure_parser.get_token_res_ids(
-            structure=self.structure,
-            rep_atom_dict=self.rep_atom_dict,
-            metric_level=MetricLevel.REPRESENTATIVE_TOKEN,
-        )
+        assert len(chains) == 2, f"Region of interest is for a chain-pair. Got {len(chains)} chains"
+
+        chain1, chain2 = chains[0], chains[1]
+        p1_region = region_of_interest[chain1]
+        p2_region = region_of_interest[chain2]
 
         c1_res_nums = list(range(p1_region[0], p1_region[1] + 1))
         c2_res_nums = list(range(p2_region[0], p2_region[1] + 1))
 
-        c1_res_idxs = [
-            idx for idx, (ch_id, res_id)
-            in enumerate(zip(token_rep_chain_ids, token_rep_res_ids))
-            if (
-                ch_id == chain1 and
-                self.renumber.renumber_chain_res_num(res_id, chain1) in c1_res_nums
-            )
-        ]
-        c2_res_idxs = [
-            idx for idx, (ch_id, res_id)
-            in enumerate(zip(token_rep_chain_ids, token_rep_res_ids))
-            if (
-                ch_id == chain2 and
-                self.renumber.renumber_chain_res_num(res_id, chain2) in c2_res_nums
-            )
-        ]
+        c1_res_idxs = [self.rep_num_to_idx[chain1][token_num] for token_num in c1_res_nums]
+        c2_res_idxs = [self.rep_num_to_idx[chain2][token_num] for token_num in c2_res_nums]
 
         avg_pae = self.avg_pae[np.ix_(c1_res_idxs, c2_res_idxs)]
 
         coords1 = np.array([self.token_coords[idx] for idx in c1_res_idxs])
         coords2 = np.array([self.token_coords[idx] for idx in c2_res_idxs])
 
-        plddt1 = {
-            chain1: np.array([self.token_plddts[idx] for idx in c1_res_idxs])
-        }
-        plddt2 = {
-            chain2: np.array([self.token_plddts[idx] for idx in c2_res_idxs])
-        }
+        plddt1 = {chain1: np.array([self.token_plddts[idx] for idx in c1_res_idxs])}
+        plddt2 = {chain2: np.array([self.token_plddts[idx] for idx in c2_res_idxs])}
 
         # Create a contact map or distance map as specified.
         interaction_map = self.get_contact_map(
