@@ -653,6 +653,11 @@ def update_matrix_row_col(
     This function updates a square matrix by replacing the specified rows and
     columns.
 
+    It is used to update PAE or contact probability matrices by replacing the
+    rows and columns corresponding to atom tokens (in case of ligand or
+    modified protein/dna/rna) that belong to the same residue with a single
+    row and column.
+
     `idxs_to_update` is a dictionary which specifies the indices to update.\n
     For each key, a list of indices is provided. In the output matrix, the rows
     and columns corresponding to these indices will be replaced with the

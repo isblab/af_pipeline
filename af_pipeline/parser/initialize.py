@@ -2,7 +2,7 @@ import os
 import warnings
 import numpy as np
 import Bio.PDB.Structure
-from typing import Dict
+from typing import Dict, Optional
 from textwrap import dedent
 from Bio.PDB.Structure import Structure
 from af_pipeline.parser.structure_parser import StructureParser
@@ -44,27 +44,27 @@ class Initialize:
     data_file_path: str
     """ Path to the data file provided with the prediction (json or pkl). """
 
-    af_offset: dict
+    af_offset: Optional[dict] = {}
     """ Offset describing start and end residue number for each chain in
     the predicted structure.\n
     example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
-    rep_atom_dict: dict
+    rep_atom_dict: Optional[dict] = {}
     """ Dictionary containing the representative atoms for residues. """
 
-    average_token_pae: bool
+    average_token_pae: Optional[bool] = InitCons.average_token_pae
     """ If True, average PAE values for residues with per-atom tokens. """
 
-    average_token_plddt: bool
+    average_token_plddt: Optional[bool] = InitCons.average_token_plddt
     """ If True, average pLDDT values for residues with per-atom tokens. """
 
-    metric_level: str
+    metric_level: Optional[str] = InitCons.metric_level
     """ Metric level for the parser, either "per_token" or "representative_token". """
 
-    use_fast_cif_parser: bool
+    use_fast_cif_parser: Optional[bool] = InitCons.use_fast_cif_parser
     """ Whether to use the FastMMCIFParser for cif file. """
 
-    preserve_header_footer: bool
+    preserve_header_footer: Optional[bool] = SPCons.preserve_header_footer
     """ Whether to preserve the header and footer of the structure file while parsing. """
 
     structure: Bio.PDB.Structure.Structure
@@ -186,6 +186,16 @@ class Initialize:
         self.pae = self.data_parser.get_pae(data)
         self.contact_probs = self.data_parser.get_contact_probs_mat(data)
 
+        # If metric level is representative_token, and the prediction has
+        # per-atom tokens (in case of ligand or modified protein/dna/rna), the
+        # PAE and contact probabilities are updated by replacing the rows and
+        # columns corresponding to the atom tokens that belong to the same
+        # residue with a single row and column.
+        #
+        # The PAE and contact probabilities for the repeated residue IDs are
+        # replaced with the mean of the PAE and contact probabilities
+        # respectively if `self.average_token_pae` is set to True, otherwise
+        # the values corresponding to the representative atom is kept.
         if self.metric_level == MetricLevel.REPRESENTATIVE_TOKEN:
 
             idxs_to_keep = self.get_idxs_to_keep(

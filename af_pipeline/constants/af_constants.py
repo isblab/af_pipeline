@@ -76,8 +76,8 @@ class DataFileKeys(StrEnum):
 
 @dataclass
 class InitializeConstants:
-    average_token_pae = True
-    average_token_plddt = True
+    average_token_pae = False
+    average_token_plddt = False
     metric_level = MetricLevel.PER_TOKEN
     use_fast_cif_parser = False
 
