@@ -251,7 +251,7 @@ class RigidBodies:
                 rb_dict = domain_dict
 
             # Remove domains with number of proteins less than certain size
-            # The size is determind by `min_res` or `min_proteins`
+            # The size is determined by `min_res` or `min_proteins`
             rb_dict = RigidBodies._filter_by_domain_size(
                 rb_dict=rb_dict,
                 min_res=min_res,
@@ -503,19 +503,6 @@ class RigidBodies:
         - The structure of the rigid bodies can be saved in PDB or CIF format.
           For rigid bodies with modifications, it is recommended to use PDB
           format.
-        - The PAE plot can be saved to visualize the rigid bodies in the PAE
-          matrix. Set `pae_plot=True` to save the PAE plot.
-        - The rigid bodies can be assessed based on the interface residues,
-          number of contacts, interface PAE and pLDDT, average PAE and plDDT
-          and minimum PAE. Set `rb_assessment` dictionary with the following
-          keys:
-            - `as_average`:<br />
-                Whether to report only the average of assessment metric to the
-                output file.<br />
-            - `symmetric_pae`:<br />
-                Whether to report a single average PAE value or assymetric PAE
-                value for PAE assessment metrics.
-        - The assessment is saved in an Excel file.
 
         ## Arguments:
 
@@ -527,7 +514,9 @@ class RigidBodies:
             Directory to save the output files.
 
         - **rb_out_fmt (str, optional)**:<br />
-            Defaults to "txt". ("txt" or "csv")
+            File type to save the rigid body information. Chain IDs and residue
+            numbers of the rigid bodies are saved in this file ("txt" or "json").
+            Defaults to "txt".
 
         - **save_structure (bool, optional)**:<br />
             Whether to save the structure of the rigid bodies.
@@ -537,6 +526,12 @@ class RigidBodies:
 
         - **filter_struct_by_plddt (bool, optional)**:<br />
             Whether to save the structure without filtering based on pLDDT.
+            > [!NOTE]
+            > If set to true, the txt or json ouput will still have pLDDT
+            > filtered residues but, the rigid body structure file (pdb or cif)
+            > will ignore the pLDDT filter.
+            >
+            > Use this flag when you don't want missing residues in the structure.
 
         - **pae_plot (bool, optional)**:<br />
             Whether to save the PAE plot for the rigid bodies.
@@ -658,6 +653,18 @@ class RigidBodies:
         domains: list[dict],
         output_dir: str,
     ):
+        """ Show the rigid bodies on the PAE matrix plot.
+
+        ## Arguments:
+
+        - **domains (list[dict])**:<br />
+            List of rigid bodies, where each rigid body is a dictionary with
+            chain IDs as keys and residue numbers as values.
+
+        - **output_dir (str)**:<br />
+            Directory to save the output plot.
+        """
+
         for rb_idx, rb_dict in enumerate(domains):
 
             pae_patches = PAEPatches(
@@ -683,6 +690,40 @@ class RigidBodies:
         symmetric_pae: bool = True,
         as_average: bool = True,
     ):
+        """ Assess the rigid bodies based on various metrics and save the assessment.
+
+        - The rigid bodies can be assessed based on the interface residues,
+          number of contacts, interface PAE and pLDDT, average PAE and plDDT
+          and minimum PAE. Set `rb_assessment` dictionary with the following
+          keys:
+            - `as_average`:<br />
+                Whether to report only the average of assessment metric to the
+                output file.<br />
+            - `symmetric_pae`:<br />
+                Whether to report a single average PAE value or an asymmetric PAE
+                value for PAE assessment metrics.
+        - The assessment is saved in an Excel file.
+
+        ## Arguments:
+
+        - **domains (list[dict])**:<br />
+            List of rigid bodies, where each rigid body is a dictionary with
+            chain IDs as keys and residue numbers as values.
+
+        - **output_dir (str)**:<br />
+            Directory to save the output assessment files.
+
+        - **protein_chain_map (dict, optional):**:<br />
+            Protein-to-chain mapping dictionary.
+
+        - **symmetric_pae (bool, optional):**:<br />
+            Whether to report a single average PAE value or an asymmetric PAE
+            value for PAE assessment metrics.
+
+        - **as_average (bool, optional):**:<br />
+            Whether to report only the average of assessment metric to the
+            output file.
+        """
 
         for rb_idx, rb_dict in enumerate(domains):
 
