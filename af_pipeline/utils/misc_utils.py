@@ -18,7 +18,6 @@ from af_pipeline.constants.af_constants import (
     SEED_MULTIPLIER,
     RANDOM_SEED,
     MaskedInteractionType,
-    MaskedInteractionValue,
     MiscStrEnum,
     ReturnType,
     UpdateConfigMode,
@@ -195,8 +194,8 @@ def chain_id_gen():
 def create_mask(
     partition_dict: Dict,
     hide_interactions: str | MaskedInteractionType = MaskedInteractionType.INTRA_PART,
-    masked_value: bool | int | float | str | MaskedInteractionValue = MaskedInteractionValue.MASKED_V,
-    unmasked_value: bool | int | float | str | MaskedInteractionValue = MaskedInteractionValue.UNMASKED_V,
+    masked_value: bool | int | float | str = 1,
+    unmasked_value: bool | int | float | str = 0,
 ):
     """ Create a binary 2D mask.
 

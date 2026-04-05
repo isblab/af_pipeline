@@ -20,7 +20,6 @@ from af_pipeline.parser.initialize import Initialize
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
 from af_pipeline.constants.af_constants import (
     MaskedInteractionType,
-    MaskedInteractionValue,
     InteractionMapType,
     MiscStrEnum
 )
@@ -149,8 +148,8 @@ class _Mask:
         _interchain_mask = create_mask(
             partition_dict=lengths_dict,
             hide_interactions=MaskedInteractionType.INTRA_PART,
-            masked_value=MaskedInteractionValue.UNMASKED_V,
-            unmasked_value=MaskedInteractionValue.MASKED_V,
+            masked_value=0,
+            unmasked_value=1,
         )
 
         self.unique_chains = self.get_unique_chains()
@@ -1513,13 +1512,17 @@ class RigidBodyAssessment:
         overall_assessment = {}
 
         # Average pLDDT across all chains in the rigid body
-        overall_assessment["avg_plddt"] = np.mean([
-            np.mean(plddt_scores)
+        all_plddt_scores = [
+            plddt
             for plddt_scores in rb_c_assess.get_per_chain_plddt(
                 only_avg=False,
                 only_interface=False,
             ).values()
-        ]) if rb_c_assess.per_chain_plddt else np.nan
+            for plddt in plddt_scores
+        ]
+        overall_assessment["avg_plddt"] = (
+            np.mean(all_plddt_scores) if all_plddt_scores else np.nan
+        )
 
         # Number of chains in the rigid body
         overall_assessment["num_chains"] = len(rb_c_assess.unique_chains)
@@ -1629,7 +1632,7 @@ class RigidBodyAssessment:
 
             if callable(attrs_pae[attr_state]):
 
-                global_pae_scores = [
+                global_ipae_scores = [
                     pae
                     for _cp, pae_lst in attrs_pae[attr_state](
                         only_avg=False,
@@ -1640,14 +1643,14 @@ class RigidBodyAssessment:
                 ]
 
             else:
-                global_pae_scores = [
+                global_ipae_scores = [
                     pae
                     for _cp, pae_lst in attrs_pae[attr_state].items()
                     for pae in pae_lst
                 ]
 
             overall_assessment[col_name] = (
-                np.mean(global_pae_scores) if global_pae_scores else np.nan
+                np.mean(global_ipae_scores) if global_ipae_scores else np.nan
             )
 
         return overall_assessment

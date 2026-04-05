@@ -38,10 +38,6 @@ class UpdateConfigMode(StrEnum):
     REPLACE = auto()
     SOFT_REPLACE = auto()
 
-class MaskedInteractionValue(IntEnum):
-    MASKED_V = 1
-    UNMASKED_V = 0
-
 class MaskedInteractionType(StrEnum):
     INTRA_PART = auto()
     INTER_PART = auto()
