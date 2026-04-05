@@ -500,6 +500,23 @@ class RigidBodies:
         Output options:
         - The rigid bodies are saved in a plain text or JSON format with the
           chain IDs and residue numbers.
+        - In the "txt" format, the output file will contain the rigid body index,
+          chain ID, protein name(if `protein_chain_map` is provided), and the residue range.
+        ```text
+          Rigid Body 0
+          prot1_A: 1-10
+          prot2_B: 1-15
+        ```
+        - In the "json" format, the output file will contain a list of rigid bodies,
+          where each rigid body is a dictionary with following format:
+        ```python
+          {"A" : {
+            "protein": prot1,
+            "residues": [(atom_name, res_num), ...]},
+          "B" : {
+            "protein": prot2,
+            "residues": [(atom_name, res_num), ...]}}
+        ```
         - The structure of the rigid bodies can be saved in PDB or CIF format.
           For rigid bodies with modifications, it is recommended to use PDB
           format.
@@ -517,6 +534,14 @@ class RigidBodies:
             File type to save the rigid body information. Chain IDs and residue
             numbers of the rigid bodies are saved in this file ("txt" or "json").
             Defaults to "txt".
+
+            > [!NOTE]
+            > For per-atom tokens JSON format is recommended over text format as it
+            > also contains the atom name of the representative atom for each token
+            > in the rigid body.
+            >
+            > This information is lost when `rb_out_fmt="txt"` as it only
+            > contains the residue numbers for each chain in the rigid body.<br />
 
         - **save_structure (bool, optional)**:<br />
             Whether to save the structure of the rigid bodies.
@@ -543,7 +568,7 @@ class RigidBodies:
             Whether to report only the average of assessment metric to the
             output file.<br />
             - `symmetric_pae`:<br />
-            Whether to report a single average PAE value or assymetric PAE
+            Whether to report a single average PAE value or asymmetric PAE
             value for PAE assessment metrics. \n
 
         - **protein_chain_map (dict | None, optional)**:<br />
@@ -653,7 +678,7 @@ class RigidBodies:
         domains: list[dict],
         output_dir: str,
     ):
-        """ Show the rigid bodies on the PAE matrix plot.
+        """ Show the rigid bodies on the PAE matrix plot as rectangular patches.
 
         ## Arguments:
 
@@ -697,11 +722,11 @@ class RigidBodies:
           and minimum PAE. Set `rb_assessment` dictionary with the following
           keys:
             - `as_average`:<br />
-                Whether to report only the average of assessment metric to the
-                output file.<br />
+                Whether to report only the average of assessment metric over all
+                residues.<br />
             - `symmetric_pae`:<br />
                 Whether to report a single average PAE value or an asymmetric PAE
-                value for PAE assessment metrics.
+                value for a token pair (`as_average=False`) / chain pair (`as_average=True`).
         - The assessment is saved in an Excel file.
 
         ## Arguments:
@@ -718,11 +743,11 @@ class RigidBodies:
 
         - **symmetric_pae (bool, optional):**:<br />
             Whether to report a single average PAE value or an asymmetric PAE
-            value for PAE assessment metrics.
+            value for a token pair (`as_average=False`) / chain pair (`as_average=True`).
 
         - **as_average (bool, optional):**:<br />
-            Whether to report only the average of assessment metric to the
-            output file.
+            Whether to report only the average of assessment metric over all
+            residues.
         """
 
         for rb_idx, rb_dict in enumerate(domains):
@@ -1018,7 +1043,12 @@ def save_rigid_bodies_json(
     """ Save rigid bodies to a JSON file.
 
     This function writes the rigid bodies information to a JSON file.<br />
-    For per-atom tokens JSON format is recommended over text format.
+    For per-atom tokens JSON format is recommended over text format as it
+    contains the atom name of the representative atom for each token in the
+    rigid body.
+
+    This information is lost in the output of `save_rigid_bodies_txt` as it only
+    contains the residue numbers for each chain in the rigid body.<br />
 
     ## Arguments:
 
