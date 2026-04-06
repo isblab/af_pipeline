@@ -2,6 +2,8 @@
 
 ![Coverage Status](./tests/badges/coverage-badge.svg?raw=true)
 
+![af_pipeline_logo](./docs/assets/af_pipeline_logo.png)
+
 A module to assist in creating input files and processing and analyzing output
 predictions from AlphaFold2 and AlphaFold3.
 
