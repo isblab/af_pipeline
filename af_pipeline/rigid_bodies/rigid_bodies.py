@@ -1,7 +1,8 @@
 """
-Rigid Bodies extraction module
+[rigid_bodies](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/rigid_bodies/rigid_bodies.py)
 ==============================
-RigidBodies class with methods to extract rigid bodies from AlphaFold predictions.
+
+RigidBodies class with methods to extract confidently predicted regions (rigid bodies) from AlphaFold predictions.
 """
 import os
 import copy

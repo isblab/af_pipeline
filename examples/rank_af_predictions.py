@@ -1,5 +1,4 @@
 import os
-import yaml
 import warnings
 from pprint import pprint
 from argparse import ArgumentParser
@@ -84,12 +83,6 @@ if __name__ == "__main__":
             af_input_jobs=config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
         )
         if len(best_pred_info) > 0:
-            # print("Updating config yaml with ranked predictions")
-            # update_config(
-            #     input_file=args.input,
-            #     updates={f"{ranker.cycle_name}_job_{str(ranker.job_set_name)}": best_pred_info},
-            #     mode="replace",
-            # )
             best_predictions.update(best_pred_info)
 
     os.makedirs(args.output, exist_ok=True)
@@ -97,11 +90,3 @@ if __name__ == "__main__":
         file_path=os.path.join(args.output, "best_af_predictions.json"),
         data=best_predictions,
     )
-
-    # # Add the best predictions to the config file
-    # if len(best_predictions) > 0:
-    #     update_config(
-    #         input_file=args.input,
-    #         updates={ConfigYaml.best_pred: best_predictions},
-    #         mode="replace",
-    #     )

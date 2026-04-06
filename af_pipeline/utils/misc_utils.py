@@ -1,7 +1,7 @@
 """
-Miscellaneous utils
+[misc_utils](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/utils/misc_utils)
 ===================
-Utility functions for various tasks.
+- Miscellaneous utility functions for various tasks.
 """
 import copy
 import time

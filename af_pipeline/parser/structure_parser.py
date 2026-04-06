@@ -1,9 +1,9 @@
 """
-Structure Parser Module
+[structure_parser](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/parser/structure_parser.py)
 =======================
+
 - This module provides the StructureParser class to parse structure files[^struct_file]
 (.pdb or .cif) using Biopython.
-
 
 [^struct_file]: *The "structure file" in this context refers to the file that contains\
     the 3D coordinates of the predicted structure.*

@@ -1,11 +1,11 @@
 """
-Parser for processing structure predictions
+[parser](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/parser)
 ============================================
 
-This module contains classes and methods for parsing the of structure predictions.
-It is designed to handle the output from various sources, including:
-- Predictions from the AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold[^colabfold]
-- Predictions from the AlphaFold Protein Structure Database[^afdb]
+- Parser for processing structure predictions
+- This module contains classes and methods for parsing the of structure predictions. It is designed to handle the output from various sources, including:
+    - Predictions from the AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold[^colabfold]
+    - Predictions from the AlphaFold Protein Structure Database[^afdb]
 
 [^afdb]: Fleming, J et al. AlphaFold Protein Structure Database and 3D-Beacons: New Data and Capabilities. Journal of Molecular Biology, 168967 (2025). (https://alphafold.ebi.ac.uk/)
 

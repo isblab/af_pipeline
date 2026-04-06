@@ -1,6 +1,7 @@
 """
-AlphaFold server input file creator
+[alphafold3](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/af_input/alphafold3.py)
 ===================================
+
 - Create input `JSON` files for AlphaFold server (https://alphafoldserver.com)
 
 - Keep in mind the following hierarchy:

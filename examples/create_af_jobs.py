@@ -1,11 +1,10 @@
 import os
-import yaml
 from pprint import pprint
 from argparse import ArgumentParser
 from af_pipeline.af_input.alphafold3 import AlphaFoldServer
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from af_pipeline.af_input.colabfold import ColabFold
-from af_pipeline.utils.file_utils import read_fasta
+from af_pipeline.utils.file_utils import read_fasta, read_yaml
 
 if __name__ == "__main__":
 
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     output_dir = os.path.abspath(args.output)
     os.makedirs(output_dir, exist_ok=True)
 
-    config_dict = yaml.load(open(config_path), Loader=yaml.FullLoader)
+    config_dict = read_yaml(config_path)
 
     protein_sequences = read_fasta(args.protein_sequences)
     nucleic_acid_sequences = (

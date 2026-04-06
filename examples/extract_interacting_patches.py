@@ -137,8 +137,6 @@ if __name__ == "__main__":
             setup_instance=initialize,
         )
 
-        # af_interaction.set_attributes_from(instance=initialize)
-
         regions_of_interest_ = af_interaction.create_regions_of_interest()
 
         for region_of_interest in regions_of_interest_:

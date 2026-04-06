@@ -1,13 +1,12 @@
 """
-Data Parser module
+[data_parser](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/parser/data_parser.py)
 ==================
-Methods to parse the `JSON` or `PKL` data files[^data_file] provided with the structure
-predictions from AlphaFold2, AlphaFold3, and ColabFold.
+- Methods to parse the `JSON` or `PKL` data files[^data_file] provided with the structure predictions from AlphaFold2, AlphaFold3, and ColabFold.
 
-Currently supports the following:
-- AlphaFold2 data files (.pkl or .json)
-- AlphaFold3 data files (.json)
-- ColabFold data files (.json)
+- Currently supports the following:
+    - AlphaFold2 data files (.pkl or .json)
+    - AlphaFold3 data files (.json)
+    - ColabFold data files (.json)
 
 [^data_file]: *The "data file" in this context refers to the file that contains \
   prediction metrics such as PAE matrices, pLDDT scores, (token chain IDs, \

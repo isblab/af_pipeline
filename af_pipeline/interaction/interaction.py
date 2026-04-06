@@ -1,5 +1,5 @@
 """
-Interaction module
+[interaction](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/interaction/interaction.py)
 ==============================
 Interaction class to handle interaction data for the predicted structure. \n
 One can obtain:
@@ -382,9 +382,11 @@ class Interaction:
         contact_map: np.ndarray,
         region_of_interest: dict,
     ) -> dict:
-        """ This is a dirty implementation to get the interacting patches. \n
-        This is a temporary solution until we find a better way to get interacting
-        patches for the given contact map.
+        """ Get the interacting patches for the given region of interest of the protein pair.
+
+        An interacting patch is defined as a contiguous region in the contact map
+        where residues are in contact. The interacting patches are obtained using the
+        af_pipeline.tools.matrix_patches.MatrixPatches class.
 
         ## Arguments:
 

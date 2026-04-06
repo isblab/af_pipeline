@@ -1,3 +1,12 @@
+"""
+[initialize](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/parser/initialize.py)
+=======================
+
+- Initializer for RigidBodies and Interaction classes.
+- Stores attributes related to the structure and data files that are used
+by the RigidBodies and Interaction classes.
+
+"""
 import os
 import warnings
 import numpy as np

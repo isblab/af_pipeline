@@ -6,12 +6,13 @@ from Bio.PDB.PDBParser import PDBParser
 from af_pipeline.utils.file_utils import read_json, read_pkl
 from typing import Final
 from dataclasses import dataclass
-from enum import StrEnum, IntEnum, auto
+from enum import StrEnum, auto
 from string import Template
 
 RANDOM_SEED = 47
 
 class ColorMapScheme(StrEnum):
+    """ Color map schemes for plotting."""
     SOFT_WARM = auto()
     STANDARD = auto()
     NON_BRIGHT = auto()
@@ -21,10 +22,12 @@ class ColorMapScheme(StrEnum):
     BINARY = auto()
 
 class BinaryColorMap(StrEnum):
+    """ Color map for binary contact maps."""
     ZERO_C = "black"
     ONE_C = "green"
 
 class MiscStrEnum(StrEnum):
+    """ Miscellaneous string enums."""
     TOTAL = auto()
     FIRST = auto()
     LAST = auto()
@@ -32,17 +35,23 @@ class MiscStrEnum(StrEnum):
     REVERSE_COMPLEMENT = "RevComp"
 
 RES_SEPARATOR = "-"
+""" Separator for residue ranges. For example, a residue range can be represented as `1-100`."""
+
 RES_SPLITTER = ","
+""" Separator for multiple residue ranges. For example, `1-100,150-200`."""
 
 class UpdateConfigMode(StrEnum):
+    """ Modes for updating the config dictionary."""
     REPLACE = auto()
     SOFT_REPLACE = auto()
 
 class MaskedInteractionType(StrEnum):
+    """ Which interactions to mask in the 2D interaction map."""
     INTRA_PART = auto()
     INTER_PART = auto()
 
 class ReturnType(StrEnum):
+    """ Return types for various functions."""
     DICT = auto()
     DATAFRAME = auto()
     LIST = auto()
@@ -50,6 +59,7 @@ class ReturnType(StrEnum):
     SET = auto()
 
 class MetricLevel(StrEnum):
+    """ Levels at which the confidence metrics are calculated."""
     PER_TOKEN = auto()
     REPRESENTATIVE_TOKEN = auto()
     PER_ATOM = auto()
@@ -58,10 +68,13 @@ VALID_AF3_METRIC_LEVELS = [
     MetricLevel.PER_TOKEN,
     MetricLevel.REPRESENTATIVE_TOKEN,
 ]
+""" Valid metric levels for AlphaFold3 predictions."""
 
 VALID_METRIC_LEVELS = list(MetricLevel)
+""" Valid metric levels for confidence metrics."""
 
 class DataFileKeys(StrEnum):
+    """ Keys for the data stored in JSON or PKL files accompanying the predicted structures."""
     TOKEN_CHAIN_IDS = auto()
     TOKEN_RES_IDS = auto()
     ATOM_CHAIN_IDS = auto()
@@ -72,17 +85,20 @@ class DataFileKeys(StrEnum):
 
 @dataclass
 class InitializeConstants:
+    """ Default values for initializing the Initialize instance."""
     average_token_pae = False
     average_token_plddt = False
     metric_level = MetricLevel.PER_TOKEN
     use_fast_cif_parser = False
 
 class CommunityDetectionLibrary(StrEnum):
+    """ Libraries for community detection used in af_pipeline.rigid_bodies.rigid_bodies.RigidBodies class."""
     IGRAPH = auto()
     NETWORKX = auto()
     LABEL_PROPAGATION = auto()
 
 class FileFormat(StrEnum):
+    """ File formats for input and output files."""
     PDB = auto()
     CIF = auto()
     TXT = auto()
@@ -96,6 +112,7 @@ class FileFormat(StrEnum):
 
 @dataclass
 class RigidBodiesConstants:
+    """ Default values for af_pipeline.rigid_bodies.rigid_bodies.RigidBodies class."""
     valid_libraries = list(CommunityDetectionLibrary)
     library = CommunityDetectionLibrary.NETWORKX
     pae_cutoff = 12.0
@@ -123,6 +140,7 @@ class RigidBodiesConstants:
     rb_assessment_name_template = Template("rigid_body_${rb_idx}_assessment")
 
 class KeywordArg(StrEnum):
+    """ Keyword arguments for various functions."""
     PLDDT_CUTOFF_IDR = auto()
     IDR_CHAINS = auto()
     SAVE_PLOT = auto()
@@ -134,12 +152,17 @@ class KeywordArg(StrEnum):
     RESOLUTION = auto()
 
 class PlotType(StrEnum):
+    """ Types of plots. \n
+    - STATIC: Static plots using matplotlib.
+    - INTERACTIVE: Interactive plots using plotly.
+    - BOTH: Both static and interactive plots."""
     STATIC = auto()
     INTERACTIVE = auto()
     BOTH = auto()
 
 @dataclass
 class InteractionConstants:
+    """ Default values for af_pipeline.interaction.interaction.Interaction class."""
     contact_threshold = 8.0 # Distance threshold in (Angstorm) to define a contact between residue pairs.
     plddt_cutoff = 70.0 # pLDDT cutoff to consider a confident prediction.
     pae_cutoff = 5.0 # PAE cutoff to consider a confident prediction.
@@ -206,6 +229,7 @@ class StructureParserConstants:
     use_fast_cif_parser = False
 
 RES_RANGE_SEP: Final[str] = "t"
+""" Separator for residue range in AlphaFold job name."""
 
 SEED_MULTIPLIER: Final[int] = 100
 """ Multiplier to generate model seeds."""

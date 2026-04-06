@@ -1,7 +1,10 @@
 """
-AlphaFold input job file generation
+[af_input](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/af_input)
 ===================================
-This module contains classes and methods to generate input files for
+
+- Module for generating input files for AlphaFold3, AlphaFold2 and ColabFold predictions.
+
+- This module contains classes and methods to generate input files for
 AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 
 [^af3]: Abramson, J. et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. Nature 630, 493–500 (2024). (https://alphafoldserver.com/)
@@ -10,9 +13,7 @@ AlphaFold3[^af3], AlphaFold2[^af2] and ColabFold predictions[^colabfold].
 
 [^colabfold]: Mirdita, M. et al. ColabFold: making protein folding accessible to all. Nature Methods 19, 679–682 (2022). (https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb)
 
-<hr>
-
-The user provides an input config file that contains details about the jobs to be run. The format of the config file is as follows.
+- The user provides an input config file that contains details about the jobs to be run. The format of the config file is as follows.
 Check the [examples directory](https://github.com/isblab/af_pipeline/blob/main/examples/input/config.yaml) for a sample config file.
 
 ```yaml

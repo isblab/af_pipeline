@@ -1,3 +1,9 @@
+"""
+[rigid_body_assessment](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/rigid_bodies/rigid_body_assessment.py)
+==============================
+
+RigidBodyAssessment class with methods to assess confidently predicted regions (rigid bodies) extracted from AlphaFold predictions.
+"""
 from __future__ import annotations
 import warnings
 import numpy as np

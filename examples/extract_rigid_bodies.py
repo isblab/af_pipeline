@@ -1,12 +1,10 @@
 import os
-import yaml
 from argparse import ArgumentParser
 from af_pipeline.parser.initialize import Initialize
 from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
 from af_pipeline.constants.af_constants import (
     BestPredictionFields,
     MetricLevel,
-    ConfigYaml,
     FileFormat
 )
 from af_pipeline.utils.file_utils import read_json
@@ -188,10 +186,6 @@ if __name__ == "__main__":
             idr_chains=idr_chains,
             setup_instance=initialize,
         )
-
-        # rigid_bodies_extractor.set_attributes_from(
-        #     instance=initialize,
-        # )
 
         domains = rigid_bodies_extractor.extract_rigid_bodies(
             pae_matrix=rigid_bodies_extractor.pae,

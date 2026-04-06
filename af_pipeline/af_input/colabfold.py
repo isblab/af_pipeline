@@ -1,5 +1,5 @@
 """
-ColabFold input file creator
+[colabfold](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/af_input/colabfold.py)
 ============================
 - Create input `FASTA` files for ColabFold jobs.
 - For ColabFold, only `proteinChain` entities are supported.

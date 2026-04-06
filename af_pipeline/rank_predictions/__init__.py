@@ -1,8 +1,9 @@
 """
-Methods to rank AlphaFold predictions
+[rank_predictions](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/rank_predictions)
 =====================================
 
-- This module provides functionality to rank AlphaFold3[^af3] predictions based on various metrics
+- Methods to rank AlphaFold predictions.
+- This module provides functionality to rank AlphaFold3[^af3] predictions based on various metrics.
 - Currently supports ranking of AlphaFold3 predictions from AlphaFold server.
 - Note the following directory structure for AlphaFold3 predictions:
 ```

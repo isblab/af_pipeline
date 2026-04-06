@@ -1,5 +1,5 @@
 """
-AlphaFold2 input file creator
+[alphafold2](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/af_input/alphafold2.py)
 =============================
 - Create input `FASTA` files for AlphaFold2 jobs.
 - For AlphaFold2, only `proteinChain` entities are supported.
