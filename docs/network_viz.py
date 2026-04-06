@@ -108,6 +108,17 @@ MODULE_SPECIFIC_IGNORES = {
             "_initialize.py",
         ],
     },
+    "interaction": {
+        "ignore_dirs": [
+            "af_input",
+            "constants",
+            "pae_to_domains",
+            "parser",
+            "rank_predictions",
+            "rigid_bodies",
+            # "tools",
+        ],
+    },
     "tools": {
         "ignore_dirs": [
             "af_input",
@@ -1113,6 +1124,7 @@ if __name__ == "__main__":
         "af_pipeline",
         "af_input",
         # "pae_to_domains",
+        "interaction",
         "parser",
         "rank_predictions",
         "rigid_bodies",

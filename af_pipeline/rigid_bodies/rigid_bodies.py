@@ -17,30 +17,30 @@ from typing import Dict, List, Optional
 from af_pipeline.parser.initialize import Initialize
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from af_pipeline.tools.structure_tools import (
-    save_structure_obj,
-    ResidueSelect,
-)
 from af_pipeline.pae_to_domains.pae_to_domains import (
     domains_from_pae_matrix_igraph,
     domains_from_pae_matrix_networkx,
     domains_from_pae_matrix_label_propagation
+)
+from af_pipeline.rigid_bodies.rigid_body_assessment import RigidBodyAssessment
+from af_pipeline.tools.structure_tools import (
+    has_modifications,
+    save_structure_obj,
+    ResidueSelect,
 )
 from af_pipeline.utils.misc_utils import (
     fill_up_the_blanks,
     extract_protein_chain_mapping,
     get_key_from_res_range,
 )
-from af_pipeline.tools.structure_tools import has_modifications
-from af_pipeline.rigid_bodies.rigid_body_assessment import RigidBodyAssessment
-from af_pipeline.constants.af_constants import RigidBodiesConstants as RBCons
 from af_pipeline.constants.af_constants import (
     RES_SEPARATOR,
     FileFormat,
     KeywordArg,
     MiscStrEnum,
-    CommunityDetectionLibrary,
     ResidueMapKeys,
+    CommunityDetectionLibrary,
+    RigidBodiesConstants as RBCons,
 )
 
 _error_not_set_up = """
@@ -69,7 +69,7 @@ See specific methods for more details on the required attributes for each method
 """
 
 class RigidBodies:
-    """ Class to extract rigid bodies from AlphaFold prediction."""
+    """ Class to extract confidently predicted regions from AlphaFold prediction."""
 
     library: str = RBCons.library.value
     """ Library to use for graph-based community detection.
