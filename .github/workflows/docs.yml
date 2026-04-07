@@ -2,13 +2,14 @@ name: af_pipeline_documentation
 
 # build the documentation whenever there are new commits on main
 on:
-  push:
-    branches:
-      - main_dev
-    paths:
-      - af_pipeline/**
-      - docs/**
-      - .github/workflows/docs.yml
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main_dev
+  #   paths:
+  #     - af_pipeline/**
+  #     - docs/**
+  #     - .github/workflows/docs.yml
 
     # Alternative: only build for tags.
     # tags:
@@ -29,10 +30,10 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.12'
 
       # ADJUST THIS: install all dependencies (including pdoc)
-      - run: pip install pdoc numpy networkx biopython python-igraph ruamel.yaml PyYAML pandas pyvis
+      - run: pip install pdoc pandas numpy biopython networkx python-igraph ruamel.yaml PyYAML pyvis plotly matplotlib scipy openpyxl
       # ADJUST THIS: build your documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       # - run: python docs/make.py
@@ -42,7 +43,7 @@ jobs:
           echo $PYTHONPATH
           echo $HOME
           pwd
-          pdoc --mermaid ./af_pipeline -o docs/
+          pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid ./af_pipeline -o docs/
 
       - uses: actions/upload-pages-artifact@v4
         with:

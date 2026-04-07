@@ -4,10 +4,11 @@
 
 ![af_pipeline_logo](./docs/assets/af_pipeline_logo.png)
 
-A module to assist in creating input files and processing and analyzing output
+A module to assist in creating input files and analyzing and assessing output
 predictions from AlphaFold2 and AlphaFold3.
 
 ## Installation
+
 - Clone the repository
     ```bash
     git clone --recursive https://github.com/isblab/af_pipeline.git
@@ -19,19 +20,16 @@ predictions from AlphaFold2 and AlphaFold3.
   git submodule update
   ```
 
-- Install the required packages using pip:
-    ```bash
-    pip install -r requirements.txt
-    ```
-- Add the PYTHONPATH environment variable to include the af_pipeline directory:
-    ```bash
-    export PYTHONPATH=$PYTHONPATH:/path/to/af_pipeline
-    ```
+- Run `setup.py`
+  ```bash
+  python setup.py
+  ```
 
 ## Usage
-- Refer to the documentation.
+- Refer to the [documentation](./docs/).
 - Example scripts are available in the [examples](./examples/) directory.
 
+<!-- 
 ## Documentation
 
  - Currently, only network visualizations are available in [docs](./docs/) directory.
@@ -66,7 +64,7 @@ predictions from AlphaFold2 and AlphaFold3.
 > ```bash
 > coverage xml -o tests/reports/coverage.xml
 > genbadge coverage -i tests/reports/coverage.xml -l -o tests/badges/coverage-badge.svg
-> ```
+> ``` -->
 
 ## Information
 
