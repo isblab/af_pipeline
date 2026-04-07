@@ -1,6 +1,8 @@
 # AF-Pipeline
 
-![Coverage Status](./tests/badges/coverage-badge.svg?raw=true)
+<!-- ![Coverage Status](./tests/badges/coverage-badge.svg?raw=true) -->
+
+[![codecov](https://codecov.io/gh/isblab/af_pipeline/branch/main/graph/badge.svg)](https://codecov.io/gh/isblab/af_pipeline)
 
 ![af_pipeline_logo](./docs/assets/af_pipeline_logo.png)
 

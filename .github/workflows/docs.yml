@@ -43,7 +43,7 @@ jobs:
           echo $PYTHONPATH
           echo $HOME
           pwd
-          pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid ./af_pipeline -o docs/
+          pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid ./af_pipeline --logo "https://github.com/isblab/af_pipeline/blob/main/docs/assets/af_pipeline_logo.png?raw=true" -o docs/
 
       - uses: actions/upload-pages-artifact@v4
         with:
