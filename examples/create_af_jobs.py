@@ -1,5 +1,4 @@
 import os
-from pprint import pprint
 from argparse import ArgumentParser
 from af_pipeline.af_input.alphafold3 import AlphaFoldServer
 from af_pipeline.af_input.alphafold2 import AlphaFold2

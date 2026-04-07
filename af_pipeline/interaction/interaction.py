@@ -8,10 +8,9 @@ One can obtain:
 3. Interacting patches: contiguous regions in the interaction map obtained in (1).
 """
 import os
-from textwrap import dedent
 import warnings
 import numpy as np
-import pandas as pd
+from textwrap import dedent
 from itertools import product
 from typing import Dict, Optional
 from scipy.spatial import distance_matrix
@@ -633,7 +632,7 @@ def save_map(
     """
 
     if contact_probability:
-        assert avg_contact_probs_mat is not None; (
+        assert avg_contact_probs_mat is not None, (
             "avg_contact_probs_mat must be provided if contact_probability is True"
         )
 

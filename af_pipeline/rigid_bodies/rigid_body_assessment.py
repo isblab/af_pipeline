@@ -9,7 +9,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from itertools import combinations
-from matplotlib import pyplot as plt
 from typing import Dict, List, Tuple
 from af_pipeline.constants.af_constants import (
     CHAIN_PAIRWISE_ASSESSMENT_COLUMNS,
@@ -17,10 +16,7 @@ from af_pipeline.constants.af_constants import (
     OVERALL_ASSESSMENT_COLUMNS,
     KeywordArg,
 )
-from af_pipeline.utils.misc_utils import (
-    time_it,
-    create_mask,
-)
+from af_pipeline.utils.misc_utils import create_mask
 from af_pipeline.tools.structure_tools import get_interaction_map
 from af_pipeline.parser.initialize import Initialize
 from af_pipeline.constants.af_constants import InteractionConstants as IntCons
@@ -554,7 +550,7 @@ class RigidBodyChainAssessment:
         }
 
         plddt_attrs_ = {
-            True: lambda x: np.mean(x),
+            True: np.mean,
             False: lambda x: x.tolist(),
         }
 
@@ -590,7 +586,7 @@ class RigidBodyChainAssessment:
         per_chain_interface_res = {}
 
         interface_attrs_ = {
-            True: lambda x: np.sum(x),
+            True: np.sum,
             False: lambda x: np.where(x)[0],
         }
 
@@ -625,7 +621,7 @@ class RigidBodyChainAssessment:
         per_chain_residues = {}
 
         residue_attrs_ = {
-            True: lambda x: np.sum(x),
+            True: np.sum,
             False: lambda x: np.where(x)[0],
         }
 
@@ -1105,7 +1101,7 @@ class RigidBodyChainPairAssessment:
 
         attrs_ = {
             (True, True): lambda x: (len(x[:, 0]), len(x[:, 1])),
-            (False, True): lambda x: len(x),
+            (False, True): len,
             (True, False): lambda x: x.tolist(),
         }
 

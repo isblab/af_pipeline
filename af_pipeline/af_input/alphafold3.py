@@ -613,15 +613,6 @@ class AFJobSet:
                 {self.job_set_info}"
             )
 
-    # @staticmethod
-    # def generate_seeds(num_seeds: int) -> List[int]:
-    #     """Generate `model_seeds`."""
-
-    #     model_seeds = random.sample(range(1, SEED_MULTIPLIER * num_seeds), num_seeds)
-
-    #     return model_seeds
-
-
 class Entity:
     """Entity constructor in the AlphaFold job
 

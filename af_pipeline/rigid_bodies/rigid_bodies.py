@@ -13,8 +13,7 @@ import matplotlib
 import matplotlib.patches
 from itertools import product
 from collections import defaultdict
-from Bio.PDB.Structure import Structure
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from af_pipeline.parser.initialize import Initialize
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -123,7 +122,7 @@ class RigidBodies:
         if isinstance(setup_instance, Initialize):
             self.set_attributes_from(instance=setup_instance)
 
-    def check_is_set_up(self):
+    def check_is_set_up(self) -> None:
         """ Check if the RigidBodies instance is set up. """
 
         if not self._is_set_up:
@@ -166,7 +165,7 @@ class RigidBodies:
         min_res: int = RBCons.min_res,
         min_proteins: int = RBCons.min_proteins,
         plddt_filter: bool = RBCons.plddt_filter,
-    ) -> list[dict[str, list[tuple[str, int]]]]:
+    ) -> List[Dict[str, List[Tuple[str, int]]]]:
         """Extract Rigid bodies from a PAE file.
 
         Three implementations for community detection are available:
@@ -266,8 +265,8 @@ class RigidBodies:
 
     def _convert_domain_to_dict(
         self,
-        pseudo_domain: list
-    ) -> dict[str, list[tuple[str, int]]]:
+        pseudo_domain: List[int]
+    ) -> Dict[str, List[Tuple[str, int]]]:
         """Convert the pseudo-domain list to a dictionary format.
 
         Example:
@@ -319,9 +318,9 @@ class RigidBodies:
 
     def _filter_by_plddt(
         self,
-        domain_dict: dict,
-        token_plddts: list,
-    ) -> dict[str, list[tuple[str, int]]]:
+        domain_dict: Dict[str, List[Tuple[str, int]]],
+        token_plddts: List[float],
+    ) -> Dict[str, List[Tuple[str, int]]]:
         """Filter the residues in the pseudo-domains based on the pLDDT cutoff.
 
         Only keep the residues with pLDDT >= cutoff in the `domain_dict`.
@@ -383,10 +382,10 @@ class RigidBodies:
 
     @staticmethod
     def _filter_by_domain_size(
-        rb_dict: dict,
+        rb_dict: Dict[str, List[Tuple[str, int]]],
         min_res: int,
         min_proteins: int,
-    ) -> dict:
+    ) -> Dict[str, List[Tuple[str, int]]]:
         """Filter the domain based on the size of the domain.
 
         Only keep the domain if it exceeds certain size.
@@ -430,8 +429,8 @@ class RigidBodies:
 
     @staticmethod
     def _keep_residue_numbers_only(
-        rigid_bodies: list[dict[str, list[tuple[str, int]]]]
-    ) -> list[dict[str, list[int]]]:
+        rigid_bodies: List[Dict[str, List[Tuple[str, int]]]]
+    ) -> List[Dict[str, List[int]]]:
         """ Convert the rigid bodies to a list of residue numbers only.
 
         By default, the rigid body is in the following format.
@@ -487,14 +486,14 @@ class RigidBodies:
 
     def save_rigid_bodies(
         self,
-        domains: list,
+        domains: List[Dict[str, List[Tuple[str, int]]]],
         output_dir: str,
         rb_out_fmt: str = RBCons.rb_out_fmt.value,
         save_structure: bool = RBCons.save_structure,
         rb_struct_fmt: str = RBCons.rb_struct_fmt.value,
         filter_struct_by_plddt: bool = RBCons.filter_struct_by_plddt,
-        protein_chain_map: dict = {},
-    ):
+        protein_chain_map: Dict[str, str] = {},
+    ) -> None:
         """ Save the rigid bodies to a file and/or save the structure of the
         rigid bodies and assess the rigid bodies.
 
@@ -676,9 +675,9 @@ class RigidBodies:
 
     def show_rigid_bodies_on_pae_matrix(
         self,
-        domains: list[dict],
+        domains: List[Dict[str, List[Tuple[str, int]]]],
         output_dir: str,
-    ):
+    ) -> None:
         """ Show the rigid bodies on the PAE matrix plot as rectangular patches.
 
         ## Arguments:
@@ -710,12 +709,12 @@ class RigidBodies:
 
     def assess_rigid_bodies(
         self,
-        domains: list[dict],
+        domains: List[Dict[str, List[Tuple[str, int]]]],
         output_dir: str,
-        protein_chain_map: dict = {},
+        protein_chain_map: Dict[str, str] = {},
         symmetric_pae: bool = True,
         as_average: bool = True,
-    ):
+    ) -> None:
         """ Assess the rigid bodies based on various metrics and save the assessment.
 
         - The rigid bodies can be assessed based on the interface residues,
@@ -780,30 +779,30 @@ class RigidBodies:
 class PAEPatches:
     """ Class to extract and plot PAE patches for rigid bodies."""
 
-    num_to_idx: dict
+    num_to_idx: Dict[str, Dict[int, str]]
     """ Dictionary mapping token numbers to token indices."""
 
     pae: np.ndarray
     """ PAE matrix."""
 
-    lengths_dict: dict
+    lengths_dict: Dict[str, int]
     """ Dictionary containing the chain lengths and total length."""
 
     rb_idx: int
     """ Rigid body index."""
 
-    af_offset: dict | None
+    af_offset: Dict[str, List[int]] | None
     """ Offset describing start and end residue number for each chain in
     the predicted structure.\n
     example: `{'A': [1, 100], 'B': [101, 200]}`."""
 
     def __init__(
         self,
-        num_to_idx: dict,
+        num_to_idx: Dict[str, Dict[int, str]],
         pae: np.ndarray,
-        lengths_dict: dict,
+        lengths_dict: Dict[str, int],
         rb_idx: int,
-        af_offset: dict | None = None,
+        af_offset: Dict[str, List[int]] | None = None,
     ):
 
         self.num_to_idx = num_to_idx
@@ -812,7 +811,7 @@ class PAEPatches:
         self.af_offset = af_offset
         self.rb_idx = rb_idx
 
-    def extract_pae_patches(self, rb_dict: dict) -> list[list]:
+    def extract_pae_patches(self, rb_dict: Dict[str, List[Tuple[str, int]]]) -> List[List]:
         """ Extract PAE patches for the rigid body.
 
         ## Arguments:
@@ -876,9 +875,9 @@ class PAEPatches:
 
     def plot_pae_patches(
         self,
-        patches: list,
+        patches: List[List],
         output_dir: str,
-    ):
+    ) -> None:
         """ Show the PAE patches for the rigid body on the PAE matrix plot.
 
         ## Arguments:
@@ -988,10 +987,10 @@ class PAEPatches:
 
 def save_rigid_bodies_txt(
     output_dir: str,
-    domains: list,
-    protein_chain_map: dict,
+    domains: List[Dict[str, List[Tuple[str, int]]]],
+    protein_chain_map: Dict[str, str],
     file_name: str = "rigid_bodies",
-):
+) -> None:
     """ Save rigid bodies to a text file.
 
     This function writes the rigid bodies information to a text file in a
@@ -1037,10 +1036,10 @@ def save_rigid_bodies_txt(
 
 def save_rigid_bodies_json(
     output_dir: str,
-    domains: list,
-    protein_chain_map: dict,
+    domains: List[Dict[str, List[Tuple[str, int]]]],
+    protein_chain_map: Dict[str, str],
     file_name: str = "rigid_bodies",
-):
+) -> None:
     """ Save rigid bodies to a JSON file.
 
     This function writes the rigid bodies information to a JSON file.<br />

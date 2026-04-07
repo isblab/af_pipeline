@@ -866,8 +866,6 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
             filtered_graph = {k: v for k, v in filtered_graph.items() if v}
 
             for class_name in classes:
-                # if "RigidBodyAssessment" in class_name:
-                #     print("Adding node:", class_name)
                 nodes[node_idx] = {
                     "type": "class",
                     "name": class_name,
@@ -879,8 +877,6 @@ def get_nodes_and_edges(script_paths_dict, module_dir):
 
             for method_name in methods:
                 all_methods.append(method_name) if method_name not in all_methods else None
-                # if "save_rigid_bodies" in method_name:
-                #     print("Adding method node:", method_name)
                 if method_name in node_list:
                     continue
                 nodes[node_idx] = {

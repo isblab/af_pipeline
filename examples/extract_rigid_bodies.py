@@ -121,7 +121,7 @@ if __name__ == "__main__":
     args = args.parse_args()
 
     assert args.plddt_cutoff >= 0 and args.plddt_cutoff <= 100, \
-        f"Invalid calue for PLDDT cutoff {args.plddt_cutoff}"
+        f"Invalid value for PLDDT cutoff {args.plddt_cutoff}"
 
     assert args.pae_cutoff >= 0, \
         f"Invalid value for PAE cutoff {args.pae_cutoff}"

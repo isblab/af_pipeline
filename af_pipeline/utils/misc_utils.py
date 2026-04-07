@@ -7,8 +7,6 @@ import copy
 import time
 import string
 import warnings
-
-import yaml
 import numpy as np
 from typing import Any, Dict
 from collections import Counter
@@ -196,7 +194,7 @@ def create_mask(
     hide_interactions: str | MaskedInteractionType = MaskedInteractionType.INTRA_PART,
     masked_value: bool | int | float | str = 1,
     unmasked_value: bool | int | float | str = 0,
-):
+) -> np.ndarray:
     """ Create a binary 2D mask.
 
     Create a binary 2D mask for selecting only inter_part or intra_part interactions. \n
@@ -343,7 +341,7 @@ def fill_up_the_blanks(li: list) -> list:
 
 def get_key_from_res_range(
     res_range: list,
-    as_list=False
+    as_list: bool=False,
 ) -> str | list:
     """ Returns a residue range string from a list of residue numbers.
 
@@ -472,6 +470,7 @@ def convert_false_to_true(
     where_false = list(np.argwhere(arr == False).flatten())
 
     false_patches = get_key_from_res_range(where_false, as_list=True)
+    assert isinstance(false_patches, list), "False patches should be a list."
 
     for patch in false_patches:
 

@@ -113,7 +113,7 @@ def test_extract_af_offset_from_af_input_jobs(rank_af3_job_set: RankAF3JobSet):
     }
     assert af_offset == expected_af_offset; "AF offset does not match expected value"
 
-def test_extract_af_offset_from_path(rank_af3_job_set: RankAF3JobSet):
+def test_extract_af_offset_from_path1(rank_af3_job_set: RankAF3JobSet):
 
     af_offset = rank_af3_job_set.extract_af_offset_from_path(
         structure_path=dummy_struct_path
@@ -133,7 +133,7 @@ def test_get_job_set_dirs():
     assert set(job_set_dirs) == set(expected_dirs), \
         "Job set directories do not match expected value"
 
-def test_extract_af_offset_from_path(rank_af3_job_set_real: RankAF3JobSet):
+def test_extract_af_offset_from_path2(rank_af3_job_set_real: RankAF3JobSet):
 
     structure_path = "tests/test_data/af_predictions/af3/dummy_cycle/prota_1_1t5_protb_1_11t15/tests/test_data/af_predictions/af3/dummy_cycle/prota_1_1t5_protb_1_11t15/prota_1_1t5_protb_1_11t15_47/fold_prota_1_1t5_protb_1_11t15_47_model_0.cif"
 

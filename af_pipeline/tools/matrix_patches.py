@@ -393,7 +393,7 @@ class MatrixPatches:
             one_set = sorted(one_set)
             df_group.at[idx, agg_col] = set(one_set)
 
-        df_group[groupby_col] = df_group[groupby_col].apply(lambda x: set(x))
+        df_group[groupby_col] = df_group[groupby_col].apply(set)
 
         return df_group
 
@@ -452,19 +452,17 @@ class MatrixPatches:
         combined_df = pd.concat([df2, df1], axis=0)
         combined_df.reset_index(drop=True, inplace=True)
 
-        new_df = pd.DataFrame(columns=[colname_1, colname_2])
         df_rows = []
 
         for _, row in combined_df.iterrows():
             if isinstance(row[colname_1], set) and isinstance(
                 row[colname_2], set
             ):
-                for res_range1 in get_key_from_res_range(
-                    row[colname_1], as_list=True
-                ):
-                    for res_range2 in get_key_from_res_range(
-                        row[colname_2], as_list=True
-                    ):
+                ranges1 = get_key_from_res_range(row[colname_1], as_list=True)
+                ranges2 = get_key_from_res_range(row[colname_2], as_list=True)
+                assert isinstance(ranges1, list) and isinstance(ranges2, list)
+                for res_range1 in ranges1:
+                    for res_range2 in ranges2:
                         df_rows.append([res_range1, res_range2])
 
         new_df = pd.DataFrame(df_rows, columns=[colname_1, colname_2])

@@ -84,7 +84,7 @@ def is_valid_job_dir(job_dir:str) -> tuple[bool, str]:
         msg = f"{job_dir} is not at the expected level 0 for a job directory."
         return False, msg
 
-    elif dir_level == 0:
+    else:
         return True, f"{job_dir} is a valid job directory."
 
 def is_valid_job_set_dir(job_set_dir:str) -> tuple[bool, str, list, list]:

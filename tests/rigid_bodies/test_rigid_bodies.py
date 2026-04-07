@@ -6,7 +6,7 @@ from af_pipeline.rigid_bodies.rigid_bodies import RigidBodies
 struct_path1 = "tests/test_data/af_predictions/af3/fold_dummy_job_1/fold_dummy_job_1_model_0.cif"
 data_path_1 = "tests/test_data/af_predictions/af3/fold_dummy_job_1/fold_dummy_job_1_full_data_0.json"
 
-intializer = Initialize(
+initializer = Initialize(
     data_file_path=data_path_1,
     structure_file_path=struct_path1,
     af_offset={},
@@ -17,13 +17,17 @@ intializer = Initialize(
 )
 
 @pytest.fixture
+def output_dir(tmp_path):
+    return tmp_path
+
+@pytest.fixture
 def rigid_bodies1():
 
     return RigidBodies(
         library="networkx",
         plddt_cutoff=70.0,
         pae_cutoff=2.0,
-        setup_instance=intializer,
+        setup_instance=initializer,
     )
 
 @pytest.fixture
@@ -33,7 +37,7 @@ def rigid_bodies2():
         library="igraph",
         plddt_cutoff=70.0,
         pae_cutoff=2.0,
-        setup_instance=intializer,
+        setup_instance=initializer,
     )
 
 def test_extract_rigid_bodies(
@@ -56,82 +60,77 @@ def test_extract_rigid_bodies(
     ]
     assert rigid_bodies_networkx == expected_rigid_bodies, "Extracted rigid bodies do not match expected output."
 
-    rigid_bodies_igraphx = rigid_bodies2.extract_rigid_bodies(
+    rigid_bodies_igraph = rigid_bodies2.extract_rigid_bodies(
         pae_matrix=rigid_bodies2.pae,
         min_res=1,
         min_proteins=1,
         plddt_filter=True,
     )
-    print(rigid_bodies_igraphx)
 
     expected_rigid_bodies = [
         {'A': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CB', 5)],
         'B': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CA', 5)]}
     ]
-    assert isinstance(rigid_bodies_igraphx, list), "Rigid bodies should be returned as a list."
-    assert rigid_bodies_igraphx == expected_rigid_bodies, "Extracted rigid bodies do not match expected output."
+    assert isinstance(rigid_bodies_igraph, list), "Rigid bodies should be returned as a list."
+    assert rigid_bodies_igraph == expected_rigid_bodies, "Extracted rigid bodies do not match expected output."
 
 def test_save_rigid_bodies(
     rigid_bodies1: RigidBodies,
+    output_dir,
 ):
     """Test the save_rigid_bodies method."""
 
     # Test saving with txt output
     rigid_bodies1.save_rigid_bodies(
         domains=[{'A': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CB', 5)]}],
-        output_dir="tests/test_output",
+        output_dir=str(output_dir),
         rb_out_fmt="txt",
         save_structure=True,
         rb_struct_fmt="cif",
         filter_struct_by_plddt=True,
     )
 
-    assert os.path.exists("tests/test_output/af3_rigid_bodies.txt"), "Rigid bodies txt file was not created."
-    assert os.path.exists("tests/test_output/rigid_body_0.cif"), "Rigid body structure file was not created."
+    assert os.path.exists(output_dir / "af3_rigid_bodies.txt"), "Rigid bodies txt file was not created."
+    assert os.path.exists(output_dir / "rigid_body_0.cif"), "Rigid body structure file was not created."
 
     rigid_bodies1.save_rigid_bodies(
         domains=[{'A': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CB', 5)]}],
-        output_dir="tests/test_output",
+        output_dir=str(output_dir),
         rb_out_fmt="json",
         save_structure=True,
         rb_struct_fmt="pdb",
         filter_struct_by_plddt=False,
     )
 
-    assert os.path.exists("tests/test_output/af3_rigid_bodies.json"), "Rigid bodies json file was not created."
-    assert os.path.exists("tests/test_output/rigid_body_0.pdb"), "Rigid body structure file was not created."
-
-    os.remove("tests/test_output/af3_rigid_bodies.json")
-    os.remove("tests/test_output/rigid_body_0.cif")
-    os.remove("tests/test_output/af3_rigid_bodies.txt")
-    os.remove("tests/test_output/rigid_body_0.pdb")
+    assert os.path.exists(output_dir / "af3_rigid_bodies.json"), "Rigid bodies json file was not created."
+    assert os.path.exists(output_dir / "rigid_body_0.pdb"), "Rigid body structure file was not created."
 
 
 def test_show_rigid_bodies_on_pae_matrix(
     rigid_bodies1: RigidBodies,
+    output_dir,
 ):
     """Test the show_rigid_bodies_on_pae_matrix method."""
 
     rigid_bodies1.show_rigid_bodies_on_pae_matrix(
         domains=[{'A': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CB', 5)]}],
-        output_dir="tests/test_output",
+        output_dir=str(output_dir),
     )
 
-    assert os.path.exists("tests/test_output/rigid_body_0.png"), "PAE matrix with rigid bodies was not created."
-    os.remove("tests/test_output/rigid_body_0.png")
+    assert os.path.exists(output_dir / "rigid_body_0.png"), "PAE matrix with rigid bodies was not created."
 
 def test_assess_rigid_bodies(
     rigid_bodies1: RigidBodies,
+    output_dir,
 ):
     """Test the assess_rigid_bodies method."""
 
     rigid_bodies1.assess_rigid_bodies(
         domains=[{'A': [('CB', 1), ('CB', 2), ('CB', 3), ('CB', 4), ('CB', 5)]}],
-        output_dir="tests/test_output",
+        output_dir=str(output_dir),
         protein_chain_map={'A': 'protein1'},
         symmetric_pae=True,
         as_average=True,
     )
 
-    assert os.path.exists("tests/test_output/rigid_body_0_assessment.xlsx"), "Rigid body assessment file was not created."
-    os.remove("tests/test_output/rigid_body_0_assessment.xlsx")
+    assert os.path.exists(output_dir / "rigid_body_0_assessment.xlsx"), "Rigid body assessment file was not created."

@@ -48,7 +48,7 @@ def get_interaction_map(
     coords2: np.ndarray,
     contact_threshold: float,
     map_type: InteractionMapType,
-    ):
+) -> np.ndarray:
     """ Create an interaction map, given the input coordinates.
 
     Returns a distance map or a contact map, based on the map_type specified.

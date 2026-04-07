@@ -20,7 +20,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         default="./output/af_input_jobs.json",
-        help="Path to input yaml file containing the target proteins and their uniprot ids",
+        help="Path to input json file containing the target proteins and their uniprot ids",
     )
 
     args.add_argument(

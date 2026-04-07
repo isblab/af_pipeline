@@ -1,4 +1,3 @@
-import os
 import pytest
 from af_pipeline.af_input.colabfold import ColabFold
 from af_pipeline.constants.af_constants import (

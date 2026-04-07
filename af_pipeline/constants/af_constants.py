@@ -216,13 +216,6 @@ VALID_INTERACTION_MAP_TYPES = [
     InteractionMapType.CONTACT,
 ]
 
-# @dataclass
-# class RenumberResiduesConstants:
-#     valid_depths = [
-#         ResidueMapDepth.ATOM,
-#         ResidueMapDepth.RESIDUE,
-#     ]
-
 @dataclass
 class StructureParserConstants:
     preserve_header_footer = False
@@ -289,14 +282,6 @@ class ProteinModificationFields(StrEnum):
 class NucleicAcidModificationFields(StrEnum):
     MODIFICATION_TYPE = "modificationType"
     BASE_POSITION = "basePosition"
-
-# @dataclass(frozen=True)
-# class ConfigYaml:
-#     input: str = "af_input_jobs"
-#     master: str = "af_master_dirs"
-#     cycle: str = "af_cycle_dirs"
-#     job_set: str = "af_job_set_dirs"
-#     best_pred: str = "best_af3_predictions"
 
 class ConfigYaml(StrEnum):
     AF_INPUT_JOBS = auto()

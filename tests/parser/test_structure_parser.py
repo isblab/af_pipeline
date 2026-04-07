@@ -2,7 +2,6 @@ import pytest
 import Bio.PDB.Structure
 from af_pipeline.constants.af_constants import MetricLevel
 from af_pipeline.parser.structure_parser import StructureParser
-from af_pipeline.parser.data_parser import DataParser
 import numpy as np
 
 
