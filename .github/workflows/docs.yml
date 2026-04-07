@@ -2,10 +2,10 @@ name: af_pipeline_documentation
 
 # build the documentation whenever there are new commits on main
 on:
-  workflow_dispatch:
-  # push:
-  #   branches:
-  #     - main_dev
+  workflow_dispatch: # allows manual triggering of the workflow from the GitHub UI.
+  push:
+    branches:
+      - main
   #   paths:
   #     - af_pipeline/**
   #     - docs/**
@@ -32,17 +32,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      # ADJUST THIS: install all dependencies (including pdoc)
-      - run: pip install pdoc pandas numpy biopython networkx python-igraph ruamel.yaml PyYAML pyvis plotly matplotlib scipy openpyxl
-      # ADJUST THIS: build your documentation into docs/.
-      # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
-      # - run: python docs/make.py
+      - run: pip install -r requirements.txt
       - run: |
           echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
       - run: |
           echo $PYTHONPATH
           echo $HOME
           pwd
+          python ./docs/network_viz.py -d ./af_pipeline
           pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid ./af_pipeline --logo "https://github.com/isblab/af_pipeline/blob/main/docs/assets/af_pipeline_logo.png?raw=true" -o docs/
 
       - uses: actions/upload-pages-artifact@v4
