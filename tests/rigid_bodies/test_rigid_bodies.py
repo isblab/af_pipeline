@@ -101,6 +101,12 @@ def test_save_rigid_bodies(
     assert os.path.exists("tests/test_output/af3_rigid_bodies.json"), "Rigid bodies json file was not created."
     assert os.path.exists("tests/test_output/rigid_body_0.pdb"), "Rigid body structure file was not created."
 
+    os.remove("tests/test_output/af3_rigid_bodies.json")
+    os.remove("tests/test_output/rigid_body_0.cif")
+    os.remove("tests/test_output/af3_rigid_bodies.txt")
+    os.remove("tests/test_output/rigid_body_0.pdb")
+
+
 def test_show_rigid_bodies_on_pae_matrix(
     rigid_bodies1: RigidBodies,
 ):
@@ -112,6 +118,7 @@ def test_show_rigid_bodies_on_pae_matrix(
     )
 
     assert os.path.exists("tests/test_output/rigid_body_0.png"), "PAE matrix with rigid bodies was not created."
+    os.remove("tests/test_output/rigid_body_0.png")
 
 def test_assess_rigid_bodies(
     rigid_bodies1: RigidBodies,
@@ -127,3 +134,4 @@ def test_assess_rigid_bodies(
     )
 
     assert os.path.exists("tests/test_output/rigid_body_0_assessment.xlsx"), "Rigid body assessment file was not created."
+    os.remove("tests/test_output/rigid_body_0_assessment.xlsx")
