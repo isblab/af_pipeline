@@ -1066,7 +1066,7 @@ def save_rigid_bodies_json(
         Name of the output file without extension.
     """
 
-    file_name += FileFormat.JSON
+    file_name += f".{FileFormat.JSON}"
     output_path = os.path.join(output_dir, file_name)
 
     rigid_bodies = []
