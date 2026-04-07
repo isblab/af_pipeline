@@ -13,6 +13,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Fetches all nested submodules
 
       - name: Setup Python
         uses: actions/setup-python@v5
