@@ -23,7 +23,11 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest pytest-cov
-
+      - run: |
+          echo "/home/runner/work/af_pipeline/af_pipeline" >> $GITHUB_PATH
+          echo $PYTHONPATH
+          echo $HOME
+          pwd
       - name: Run tests with coverage
         run: |
           pytest --cov=af_pipeline --doctest-modules --cov-report=xml
