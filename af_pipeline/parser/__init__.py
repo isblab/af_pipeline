@@ -128,13 +128,4 @@ classDiagram
     - [`extract_interacting_patches.py`](https://github.com/isblab/af_pipeline/blob/main/examples/extract_interacting_patches.py#L118)
     - [`extract_rigid_bodies.py`](https://github.com/isblab/af_pipeline/blob/main/examples/extract_rigid_bodies.py#L170)
 
-## Network
-
-<body>
-    <p>
-        Double click on the node to go to the corresponding line in the source code.
-    </p>
-    <iframe src="../../docs/network_viz/network_parser.html" width="800" height="600" frameborder="0">
-    </iframe>
-</body>
 """
