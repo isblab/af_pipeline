@@ -167,75 +167,85 @@
         </style>
     </head>
 
-
     <body>
         <div class="card" style="width: 100%">
-            {% if select_menu %}
-                <div id="select-menu" class="card-header">
-                    <div class="row no-gutters">
-                        <div class="col-10 pb-2">
-                            <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            onchange="selectNode([value]);"
-                            id="select-node"
-                            placeholder="Select node..."
-                            >
-                                <option selected>Select a Node by ID</option>
-                                {% for node in nodes %}
-                                    <option value="{{ node.id }}">{{node.id}}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-2 pb-2">
-                            <button type="button" class="btn btn-primary btn-block" onclick="neighbourhoodHighlight({nodes: []});">Reset Selection</button>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
-            {% if filter_menu %}
-              <div id="filter-menu" class="card-header">
-                <div class="row no-gutters">
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            onchange="updateFilter(value, 'item')"
-                            id="select-item"
-                        >
-                        <option value="">Select a network item</option>
-                        <option value="edge">edge</option>
-                        <option value="node">node</option>
-                    </select>
-                  </div>
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            onchange="updateFilter(value, 'property')"
-                            id="select-property"
-                        >
-                        <option value="">Select a property...</option>
-                    </select>
-                  </div>
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            id="select-value"
-                        >
-                        <option value="">Select value(s)...</option>
-                    </select>
-                  </div>
-                  <div class="col-1 pb-2">
-                    <button type="button" class="btn btn-primary btn-block" onclick="highlightFilter(filter);">Filter</button>
-                  </div>
-                  <div class="col-2 pb-2">
-                    <button type="button" class="btn btn-primary btn-block" onclick="clearFilter(true)">Reset Selection</button>
-                  </div>
-                </div>
-              </div>
-            {% endif %}
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                    Toggle Options
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    {% if select_menu %}
+                        <li>
+                            <div id="select-menu" class="card-header">
+                                <div class="row no-gutters">
+                                    <div class="col-10 pb-2">
+                                        <select
+                                        class="form-select"
+                                        aria-label="Default select example"
+                                        onchange="selectNode([value]);"
+                                        id="select-node"
+                                        placeholder="Select node..."
+                                        >
+                                            <option selected>Select a Node by ID</option>
+                                            {% for node in nodes %}
+                                                <option value="{{ node.id }}">{{node.id}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-2 pb-2">
+                                        <button type="button" class="btn btn-primary btn-block" onclick="neighbourhoodHighlight({nodes: []});">Reset Selection</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    {% endif %}
+                    {% if filter_menu %}
+                        <li>
+                          <div id="filter-menu" class="card-header">
+                            <div class="row no-gutters">
+                              <div class="col-3 pb-2">
+                                <select
+                                        class="form-select"
+                                        aria-label="Default select example"
+                                        onchange="updateFilter(value, 'item')"
+                                        id="select-item"
+                                    >
+                                    <option value="">Select a network item</option>
+                                    <option value="edge">edge</option>
+                                    <option value="node">node</option>
+                                </select>
+                              </div>
+                              <div class="col-3 pb-2">
+                                <select
+                                        class="form-select"
+                                        aria-label="Default select example"
+                                        onchange="updateFilter(value, 'property')"
+                                        id="select-property"
+                                    >
+                                    <option value="">Select a property...</option>
+                                </select>
+                              </div>
+                              <div class="col-3 pb-2">
+                                <select
+                                        class="form-select"
+                                        aria-label="Default select example"
+                                        id="select-value"
+                                    >
+                                    <option value="">Select value(s)...</option>
+                                </select>
+                              </div>
+                              <div class="col-1 pb-2">
+                                <button type="button" class="btn btn-primary btn-block" onclick="highlightFilter(filter);">Filter</button>
+                              </div>
+                              <div class="col-2 pb-2">
+                                <button type="button" class="btn btn-primary btn-block" onclick="clearFilter(true)">Reset Selection</button>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
             <div id="mynetwork" class="card-body"></div>
         </div>
 
@@ -252,6 +262,7 @@
         {% if conf %}
             <div id="config"></div>
         {% endif %}
+
 
         <script type="text/javascript">
 

@@ -39,12 +39,11 @@ jobs:
           echo $PYTHONPATH
           echo $HOME
           pwd
-          python ./docs/network_viz.py -d ./af_pipeline
-          pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid ./af_pipeline --logo "https://github.com/isblab/af_pipeline/blob/main/docs/assets/af_pipeline_logo.png?raw=true" -o docs/
+          python ./docs/generate_docs.py
 
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: docs/
+          path: docs_/
 
   # Deploy the artifact to GitHub pages.
   # This is a separate job so that only actions/deploy-pages has the necessary permissions.
