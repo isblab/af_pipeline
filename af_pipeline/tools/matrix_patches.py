@@ -1,3 +1,10 @@
+"""
+[matrix_patches](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/tools/matrix_patches.py)
+==============================
+
+Class to get interacting patches from a binary matrix.
+"""
+
 import numpy as np
 import pandas as pd
 from collections import defaultdict

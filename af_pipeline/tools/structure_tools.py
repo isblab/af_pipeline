@@ -1,5 +1,5 @@
 """
-Tools to work with structure files
+[structure_tools](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/tools/structure_tools.py)
 ==================================
 - This module provides utility functions and classes to work with structure files (PDB or CIF).
 - Uses `Biopython` for structure manipulation and parsing.
