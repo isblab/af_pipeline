@@ -755,7 +755,7 @@ class RigidBodies:
 
             rb_save_path = os.path.join(
                 output_dir,
-                f"{RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)}_new.{FileFormat.XLSX}"
+                f"{RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)}.{FileFormat.XLSX}"
             )
 
             rb_assess = RigidBodyAssessment(

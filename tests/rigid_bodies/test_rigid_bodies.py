@@ -131,6 +131,7 @@ def test_assess_rigid_bodies(
         protein_chain_map={'A': 'protein1'},
         symmetric_pae=True,
         as_average=True,
+        show_interface_residues_only=False,
     )
 
     assert os.path.exists(output_dir / "rigid_body_0_assessment.xlsx"), "Rigid body assessment file was not created."
