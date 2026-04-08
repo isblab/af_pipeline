@@ -1,13 +1,8 @@
 # AF-Pipeline
 
-<!-- ![Coverage Status](./tests/badges/coverage-badge.svg?raw=true) -->
-
 [![codecov](https://codecov.io/gh/isblab/af_pipeline/branch/main/graph/badge.svg)](https://codecov.io/gh/isblab/af_pipeline)
 
-![af_pipeline_logo](./docs/assets/af_pipeline_logo.png)
-
-A module to assist in creating input files and analyzing and assessing output
-predictions from AlphaFold2 and AlphaFold3.
+<img src="./docs/assets/af_pipeline_logo.png" alt="af_pipeline_logo" width="100%">
 
 ## Installation
 
@@ -22,62 +17,66 @@ predictions from AlphaFold2 and AlphaFold3.
   git submodule update
   ```
 
-- Run `setup.py`
+- Run [`setup.py`](./setup.py)
   ```bash
   python setup.py
   ```
 
+## Overview
+
+[AF-Pipeline](https://isblab.github.io/af_pipeline/) is a package to assist in
+AlphaFold2 and AlphaFold3 related tasks. These include:
+- Creating input files for prediction (for AlphaFold server or AlphaFold2 or Colabfold)
+- Ranking the predictions based on confidence metrics
+- Extracting confidently predicted regions from the predictions
+- Extracting interacting regions from the predictions
+
+The workflow for the entire pipeline can be viewed [here](#workflow).
+
+See also:
+- [Changelog](changelog.md)
+- [Contributing](contributing.md)
+- [Documentation](https://isblab.github.io/af_pipeline/)
+
 ## Usage
-- Refer to the [documentation](https://isblab.github.io/af_pipeline/).
+
 - Example scripts are available in the [examples](./examples/) directory.
 
-<!-- 
-## Documentation
+## Workflow
 
- - Currently, only network visualizations are available in [docs](./docs/) directory.
+```mermaid
 
-> [!NOTE]
-> *Assuming your working directory is `/path/to/af_pipeline`*
->
-> For now, generate documentation using `pdoc` manually as follows:
-> ```bash
-> pdoc -t ./docs/template --search -e af_pipeline=https://github.com/isblab/af_pipeline/tree/main/af_pipeline/ --mermaid af_pipeline
-> ```
->
-> The generated documentation will be available at `http://localhost:8080`
->
-> To generate the network visualizations, run:
-> ```bash
-> python docs/network_viz.py -d af_pipeline
-> ```
+graph TD
+    A([Create job files for AlphaFold Server]) e1@--> B[[AlphaFoldServer]]
+    click B "af_pipeline/af_input/alphafold3.html#AlphaFoldServer" "AlphaFoldServer" _blank
+    B e2@--> C[/Input FASTA or JSON files for AlphaFold/] e3@--> D([Submit jobs to AlphaFold server])
+    click D "https://alphafoldserver.com" "alphafoldserver" _blank
+    D e4@--> E[/Output files from AlphaFold server/]
+    E e5@--> F[[Initialize]]
+    click F "af_pipeline/parser/initialize.html#Initialize" "Initialize" _blank
+    F e6@--> G[[RigidBodies]]
+    click G "af_pipeline/rigid_bodies/rigid_bodies.html#RigidBodies" "RigidBodies" _blank
+    F e7@--> H[[Interaction]]
+    click H "af_pipeline/interaction/interaction.html#Interaction" "Interaction" _blank
+    G e8@--> I[extract_rigid_bodies]
+    click I "af_pipeline/rigid_bodies/rigid_bodies.html#RigidBodies.extract_rigid_bodies" "extract_rigid_bodies" _blank
+    N e9@--> J[save_rigid_bodies]
+    click J "af_pipeline/rigid_bodies/rigid_bodies.html#RigidBodies.save_rigid_bodies" "save_rigid_bodies" _blank
+    N e10@--> K[assess_rigid_bodies]
+    click K "af_pipeline/rigid_bodies/rigid_bodies.html#RigidBodies.assess_rigid_bodies" "assess_rigid_bodies" _blank
+    H e11@--> M[save_ppair_interaction]
+    click M "af_pipeline/interaction/interaction.html#Interaction.save_ppair_interaction" "save_ppair_interaction" _blank
+    I e12@--> N(["Confidently predicted regions (rigid bodies) from AlphaFold predictions"])
+    J e13@--> O[/"Output files for rigid bodies (txt/json and pdb)"/]
+    K e14@--> P[/"Output files for rigid body assessment (xlsx)"/]
+    M e15@--> Q[/"Output files for interacting patches (xlsx and plots)"/]
+    classDef animate stroke-dasharray: 9,5,stroke-dashoffset: 900,animation: dash 25s linear infinite;
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 animate
 
-## Testing
-- Refer to the [tests](./tests/) directory.
+```
 
-> [!NOTE]
-> *Assuming your working directory is `/path/to/af_pipeline`*
->
-> For now, run tests using `pytest` manually as follows:
-> ```bash
-> pytest --cov=af_pipeline --doctest-modules --cov-context=test
-> ```
->
-> The coverage badge was generated locally using `genbadge` as follows.
-> ```bash
-> coverage xml -o tests/reports/coverage.xml
-> genbadge coverage -i tests/reports/coverage.xml -l -o tests/badges/coverage-badge.svg
-> ``` -->
+## Additional Information
 
-## Information
+**License**: GPLv3
 
-__Author(s):__ Omkar Golatkar
-
-__Date:__ 21st March, 2026
-
-__License:__ GPLv3
-
-__Testable:__ Yes
-
-__Parallelizeable:__
-
-__Publications:__
+**Testable**: Yes
