@@ -10,17 +10,19 @@ import numpy as np
 import pandas as pd
 from itertools import combinations
 from typing import Dict, List, Tuple
+from af_pipeline.utils.misc_utils import create_mask
+from af_pipeline.tools.structure_tools import get_interaction_map
+from af_pipeline.parser.initialize import Initialize
+from af_pipeline.constants.af_constants import InteractionConstants as IntCons, OverallAssessment
 from af_pipeline.constants.af_constants import (
     CHAIN_PAIRWISE_ASSESSMENT_COLUMNS,
     CHAINWISE_ASSESSMENT_COLUMNS,
     OVERALL_ASSESSMENT_COLUMNS,
+    ChainAssessment,
+    ChainPairAssessment,
+    ChainType,
     KeywordArg,
-)
-from af_pipeline.utils.misc_utils import create_mask
-from af_pipeline.tools.structure_tools import get_interaction_map
-from af_pipeline.parser.initialize import Initialize
-from af_pipeline.constants.af_constants import InteractionConstants as IntCons
-from af_pipeline.constants.af_constants import (
+    ResidueMapKeys,
     MaskedInteractionType,
     InteractionMapType,
     MiscStrEnum
@@ -453,7 +455,15 @@ class RigidBodyChainAssessment:
     """ Class to perform chain-wise assessment of a rigid body."""
 
     as_average: bool
-    """ Whether to return average values or residue-level values as lists."""
+    """ Whether to return an average value of a metric for the chain or residue-level values as lists."""
+
+    show_interface_residues_only: bool
+    """ Whether to show the metrics for the interface residues only in the output
+    chain assessment and chain-pair assessment.
+    > [!NOTE]
+    > This option only takes effect when there are residue-level or
+    > residue-pair-level metrics available, i.e. when `as_average` is `False`.
+    """
 
     unique_chains: List[str]
     """ List of unique chain IDs in the rigid body."""
@@ -461,13 +471,13 @@ class RigidBodyChainAssessment:
     idx_to_num: Dict[int, Dict[str, int]]
     """ Mapping from residue indices to numbers."""
 
-    chain_mask_stack_1d: np.ndarray
+    _chain_mask_stack_1d: np.ndarray
     """ Stack of boolean masks for each chain (1D)."""
 
-    rb_mask_1d: np.ndarray
+    _rb_mask_1d: np.ndarray
     """ Boolean mask of residues in the rigid body (1D)."""
 
-    contact_map_mask_1d: np.ndarray
+    _contact_map_mask_1d: np.ndarray
     """ Boolean mask of contact map for inter-chain interactions (1D)."""
 
     plddt_list: np.ndarray
@@ -485,23 +495,40 @@ class RigidBodyChainAssessment:
     per_chain_iplddt: Dict[str, list | float]
     """ Interface pLDDT scores per chain."""
 
-    per_chain_interface_res: Dict[str, List[int] | int]
+    per_chain_residues: Dict[str, List[int] | int]
+    """ Residues per chain."""
+
+    per_chain_interface_residues: Dict[str, List[int] | int]
     """ Interface residues per chain."""
+
+    total_residues: int
+    """ Total number of residues in the rigid body."""
+
+    total_interface_residues: int
+    """ Total number of interface residues in the rigid body."""
+
+    total_idr_residues: int
+    """ Total number of residues in the rigid body that within IDRs."""
+
+    total_interface_idr_residues: int
+    """ Total number of interface residues in the rigid body that within IDRs."""
 
     def __init__(
         self,
         _mask: _Mask,
         as_average: bool = True,
+        show_interface_residues_only: bool = False,
     ):
 
         self.as_average = as_average
+        self.show_interface_residues_only = show_interface_residues_only
 
         self.unique_chains = _mask.unique_chains
         self.idx_to_num = _mask.idx_to_num
 
-        self.chain_mask_stack_1d = _mask.chain_mask_stack_1d
-        self.rb_mask_1d = _mask.rb_mask_1d
-        self.contact_map_mask_1d = _mask.contact_map_mask_1d
+        self._chain_mask_stack_1d = _mask.chain_mask_stack_1d
+        self._rb_mask_1d = _mask.rb_mask_1d
+        self._contact_map_mask_1d = _mask.contact_map_mask_1d
 
         self.plddt_list = _mask.plddt_list
         self.idr_chains = _mask.idr_chains
@@ -515,17 +542,48 @@ class RigidBodyChainAssessment:
             only_avg=self.as_average,
             only_interface=True,
         )
-        self.per_chain_interface_res = self.get_per_chain_interface_residues(
-            only_count=self.as_average
+        self.per_chain_residues = self.get_per_chain_residues(
+            only_count=self.as_average,
+            only_interface=False,
         )
-
+        self.per_chain_interface_residues = self.get_per_chain_residues(
+            only_count=self.as_average,
+            only_interface=True,
+        )
+        self.total_residues = self.get_total_residue_count(
+            only_interface=False,
+            only_idr=False,
+        )
+        self.total_interface_residues = self.get_total_residue_count(
+            only_interface=True,
+            only_idr=False,
+        )
+        self.total_idr_residues = self.get_total_residue_count(
+            only_interface=False,
+            only_idr=True,
+        )
+        self.total_interface_idr_residues = self.get_total_residue_count(
+            only_interface=True,
+            only_idr=True,
+        )
     # @time_it
     def get_per_chain_plddt(
         self,
         only_avg: bool = True,
         only_interface: bool = False,
     ) -> Dict[str, float | List[float]]:
-        """Get average pLDDT score per chain in the rigid body.
+        """Get pLDDT or ipLDDT score per chain in the rigid body.
+
+        There are four possible outcomes depending on the combination of `only_avg`
+        and `only_interface` arguments:
+        - **only_avg=True** and **only_interface=False**:<br />
+            Average pLDDT score per chain for all residues in the chain. (Default)
+        - **only_avg=False** and **only_interface=False**:<br />
+            List of per-residue pLDDT scores in each chain.
+        - **only_avg=True** and **only_interface=True**:<br />
+            Average pLDDT score per chain for interface residues only.
+        - **only_avg=False** and **only_interface=True**:<br />
+            List of per-residue pLDDT scores (only interface residues) in the chain.
 
         ## Arguments:
 
@@ -544,11 +602,13 @@ class RigidBodyChainAssessment:
 
         per_chain_plddt = {}
 
+        # only_interface
         mask_attrs_ = {
-            True: self.rb_mask_1d * self.contact_map_mask_1d,
-            False: self.rb_mask_1d,
+            True: self._rb_mask_1d * self._contact_map_mask_1d,
+            False: self._rb_mask_1d,
         }
 
+        # only_avg
         plddt_attrs_ = {
             True: np.mean,
             False: lambda x: x.tolist(),
@@ -556,7 +616,7 @@ class RigidBodyChainAssessment:
 
         for i, ch_id in enumerate(self.unique_chains):
 
-            chain_mask_1d = self.chain_mask_stack_1d[i, :]
+            chain_mask_1d = self._chain_mask_stack_1d[i, :]
             plddt_mask_1d = chain_mask_1d * mask_attrs_[only_interface]
             per_chain_plddt[ch_id] = plddt_attrs_[only_avg](
                 self.plddt_list[plddt_mask_1d]
@@ -565,61 +625,47 @@ class RigidBodyChainAssessment:
         return per_chain_plddt
 
     # @time_it
-    def get_per_chain_interface_residues(
-        self,
-        only_count: bool = True
-    ) -> Dict[str, int | List[int]]:
-        """Get interface residues per chain in the rigid body.
-
-        ## Arguments:
-
-        - **only_count (bool)**:<br />
-            If True, returns count of interface residues per chain.
-
-        ## Returns:
-
-        - **per_chain_interface_res (dict)**:<br />
-            Dictionary with chain IDs as keys and list of residue numbers
-            at the interface as values.
-        """
-
-        per_chain_interface_res = {}
-
-        interface_attrs_ = {
-            True: np.sum,
-            False: lambda x: np.where(x)[0],
-        }
-
-        mask_multiplier = self.rb_mask_1d * self.contact_map_mask_1d
-
-        for i, ch_id in enumerate(self.unique_chains):
-
-            chain_mask_1d = self.chain_mask_stack_1d[i, :]
-            interface_mask_1d = chain_mask_1d * mask_multiplier
-            per_chain_interface_res[ch_id] = interface_attrs_[only_count](
-                interface_mask_1d
-            )
-
-        return per_chain_interface_res
-
     def get_per_chain_residues(
         self,
-        only_count: bool = True
+        only_count: bool = True,
+        only_interface: bool = False,
     ) -> Dict[str, int | List[int]]:
-        """Get residues per chain in the rigid body.
+        """Get residue indices or count per chain in the rigid body.
+
+        There are four possible outcomes depending on the combination of `only_count`
+        and `only_interface` arguments:
+        - **only_count=True** and **only_interface=False**:<br />
+            Count of residues per chain in the rigid body. (Default)
+        - **only_count=False** and **only_interface=False**:<br />
+            List of residue indices in each chain within the rigid body.
+        - **only_count=True** and **only_interface=True**:<br />
+            Count of interface residues per chain in the rigid body.
+        - **only_count=False** and **only_interface=True**:<br />
+            List of interface residue indices in each chain within the rigid body.
 
         ## Arguments:
 
         - **only_count (bool)**:<br />
             If True, returns count of residues per chain.
 
+        - **only_interface (bool)**:<br />
+            If True, considers only interface residues for counting.
+
         ## Returns:
         - **per_chain_residues (dict)**:<br />
-            Dictionary with chain IDs as keys and list of residue numbers
+            Dictionary with chain IDs as keys and list of residue indices
             in the rigid body as values.
         """
+
         per_chain_residues = {}
 
+        # only_interface
+        mask_attrs_ = {
+            True: self._rb_mask_1d * self._contact_map_mask_1d,
+            False: self._rb_mask_1d,
+        }
+
+        # only_count
         residue_attrs_ = {
             True: np.sum,
             False: lambda x: np.where(x)[0],
@@ -627,13 +673,70 @@ class RigidBodyChainAssessment:
 
         for i, ch_id in enumerate(self.unique_chains):
 
-            chain_mask_1d = self.chain_mask_stack_1d[i, :]
-            residue_mask_1d = chain_mask_1d * self.rb_mask_1d
+            chain_mask_1d = self._chain_mask_stack_1d[i, :]
+            residue_mask_1d = chain_mask_1d * mask_attrs_[only_interface]
             per_chain_residues[ch_id] = residue_attrs_[only_count](
                 residue_mask_1d
             )
 
         return per_chain_residues
+
+    def get_total_residue_count(
+        self,
+        only_interface: bool = False,
+        only_idr: bool = False
+    ) -> int:
+        """ Get total residue count in the rigid body.
+
+        There are four possible outcomes depending on the combination of `only_interface`
+        and `only_idr` arguments:
+        - **only_interface=False** and **only_idr=False**:<br />
+            Total count of residues in the rigid body. (Default)
+        - **only_interface=True** and **only_idr=False**:<br />
+            Total count of interface residues in the rigid body.
+        - **only_interface=False** and **only_idr=True**:<br />
+            Total count of residues in the rigid body that are within IDRs.
+        - **only_interface=True** and **only_idr=True**:<br />
+            Total count of interface residues in the rigid body that are within IDRs.
+
+        ## Arguments:
+
+        - **only_interface (bool, optional):**:<br />
+            If True, counts only interface residues in the rigid body. Default is False.
+
+        - **only_idr (bool, optional):**:<br />
+            If True, counts only residues within IDRs in the rigid body. Default is False.
+
+        ## Returns:
+
+        - **int**:<br />
+            Total residue count in the rigid body based on the specified criteria.
+        """
+
+        # only_interface, only_idr
+        quantity_attrs_ = {
+            (True, False): self.per_chain_interface_residues,
+            (False, False): self.per_chain_residues,
+            (True, True): {
+                ch_id: res
+                for ch_id, res in self.per_chain_interface_residues.items()
+                if ch_id in self.idr_chains
+            },
+            (False, True): {
+                ch_id: res for ch_id, res in self.per_chain_residues.items()
+                if ch_id in self.idr_chains
+            },
+        }
+
+        attr_state = (only_interface, only_idr)
+        if self.as_average:
+            total_residues = sum(quantity_attrs_[attr_state].values())
+        else:
+            total_residues = sum([
+                len(res_idxs) for res_idxs in quantity_attrs_[attr_state].values()
+            ])
+
+        return total_residues
 
     def get_chain_attr(
         self,
@@ -651,8 +754,8 @@ class RigidBodyChainAssessment:
             Chain ID.
 
         - **attr_name (str)**:<br />
-            Name of the attribute to retrieve.
-            Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
+            Name of the attribute to retrieve. Valid attributes are defined in
+            `af_pipeline.constants.af_constants.CHAINWISE_ASSESSMENT_COLUMNS`.
 
         ## Returns:
 
@@ -667,12 +770,12 @@ class RigidBodyChainAssessment:
             )
 
         attrs_ = {
-            "Chain ID": chain_id,
-            "Protein Name": self.protein_chain_map.get(chain_id, chain_id),
-            "Average pLDDT": self.per_chain_plddt[chain_id],
-            "Average ipLDDT": self.per_chain_iplddt[chain_id],
-            "Interface Residues": self.per_chain_interface_res[chain_id],
-            "Chain Type": "IDR" if chain_id in self.idr_chains else "R",
+            ChainAssessment.CHAIN_ID: chain_id,
+            ChainAssessment.PROTEIN_NAME: self.protein_chain_map.get(chain_id, f"chain_{chain_id}"),
+            ChainAssessment.AVERAGE_PLDDT: self.per_chain_plddt[chain_id],
+            ChainAssessment.AVERAGE_IPLDDT: self.per_chain_iplddt[chain_id],
+            ChainAssessment.INTERFACE_RESIDUES: self.per_chain_interface_residues[chain_id],
+            ChainAssessment.CHAIN_TYPE: ChainType.IDR if chain_id in self.idr_chains else ChainType.R,
         }
 
         return attrs_[attr_name]
@@ -697,8 +800,8 @@ class RigidBodyChainAssessment:
             Token index of the residue in the chain.
 
         - **attr_name (str)**:<br />
-            Name of the attribute to retrieve.
-            Valid attributes are defined in `CHAINWISE_ASSESSMENT_COLUMNS`.
+            Name of the attribute to retrieve. Valid attributes are defined in
+            `af_pipeline.constants.af_constants.CHAINWISE_ASSESSMENT_COLUMNS`.
 
         ## Returns:
 
@@ -714,21 +817,33 @@ class RigidBodyChainAssessment:
                 f"'{res_num}' in chain '{chain_id}'."
             )
 
-        local_idx = list(self.per_chain_interface_res[chain_id]).index(res_idx)
+        local_idx1 = list(self.per_chain_residues[chain_id]).index(res_idx)
+        local_idx2 = (
+            list(self.per_chain_interface_residues[chain_id]).index(res_idx)
+            if res_idx in self.per_chain_interface_residues[chain_id] else None
+        )
 
         attrs_ = {
-            "Chain ID": chain_id,
-            "Residue Number": res_num,
-            "Protein Name": self.protein_chain_map.get(chain_id, chain_id),
-            "Average pLDDT": self.per_chain_plddt[chain_id][local_idx],
-            "Average ipLDDT": self.per_chain_iplddt[chain_id][local_idx],
-            "Chain Type": "IDR" if chain_id in self.idr_chains else "R",
+            ChainAssessment.CHAIN_ID: chain_id,
+            ChainAssessment.RESIDUE_NUMBER: res_num,
+            ChainAssessment.PROTEIN_NAME: self.protein_chain_map.get(chain_id, f"chain_{chain_id}"),
+            ChainAssessment.AVERAGE_PLDDT: self.per_chain_plddt[chain_id][local_idx1],
+            ChainAssessment.IS_INTERFACE_RESIDUE: True if local_idx2 is not None else False,
+            ChainAssessment.CHAIN_TYPE: ChainType.IDR if chain_id in self.idr_chains else ChainType.R,
         }
 
         return attrs_[attr_name]
 
     def get_chain_assessment(self) -> pd.DataFrame:
         """Get chain-wise assessment for the rigid body.
+
+        Chain-wise assessment includes the following:
+        - Chain ID
+        - Protein name (if available, otherwise defaults to "chain_{chain_id}")
+        - pLDDT score
+        - Interface pLDDT score
+        - Interface residues
+        - Chain type (IDR or R)
 
         ## Returns:
 
@@ -745,17 +860,31 @@ class RigidBodyChainAssessment:
 
         else:
 
+            if self.show_interface_residues_only:
+                _per_chain_residues = self.per_chain_interface_residues
+            else:
+                _per_chain_residues = self.per_chain_residues
+
             iterators = [
                 (ch_id, res_idx)
                 for ch_id in self.unique_chains
-                for res_idx in self.per_chain_interface_res[ch_id]
+                for res_idx in _per_chain_residues[ch_id]
             ]
             func = self.get_res_attr
 
-        chain_wise_assessment_rows = [{
-                k: func(*it, k)
-                for k in CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
-            }
+        valid_cols = CHAINWISE_ASSESSMENT_COLUMNS[self.as_average]
+
+        if (
+            self.show_interface_residues_only and
+            ChainAssessment.IS_INTERFACE_RESIDUE in valid_cols
+        ):
+            valid_cols = [
+                col for col in valid_cols
+                if col != ChainAssessment.IS_INTERFACE_RESIDUE
+            ]
+
+        chain_wise_assessment_rows = [
+            {k: func(*it, k) for k in valid_cols}
             for it in iterators
         ]
 
@@ -767,6 +896,14 @@ class RigidBodyChainPairAssessment:
 
     as_average: bool
     """ Whether to return average values or residue-level values as lists."""
+
+    show_interface_residues_only: bool
+    """ Whether to show the metrics for the interface residues only in the output
+    chain assessment and chain-pair assessment.
+    > [!NOTE]
+    > This option only takes effect when there are residue-level or
+    > residue-pair-level metrics available, i.e. when `as_average` is `False`.
+    """
 
     unique_chains: List[str]
     """ List of unique chain IDs in the rigid body."""
@@ -780,28 +917,28 @@ class RigidBodyChainPairAssessment:
     symmetric_pae: bool
     """ Whether to consider PAE matrix as symmetric."""
 
-    chain_mask_stack_1d: np.ndarray
+    _chain_mask_stack_1d: np.ndarray
     """ Stack of boolean masks for each chain (1D)."""
 
-    chain_mask_stack_2d: np.ndarray
-    """ Stack of boolean masks for each chain (2D)."""
+    # _chain_mask_stack_2d: np.ndarray
+    # """ Stack of boolean masks for each chain (2D)."""
 
-    chain_pair_mask_stack_1d: np.ndarray
-    """ Stack of boolean masks for each chain pair (1D)."""
+    # _chain_pair_mask_stack_1d: np.ndarray
+    # """ Stack of boolean masks for each chain pair (1D)."""
 
-    chain_pair_mask_stack_2d: np.ndarray
+    _chain_pair_mask_stack_2d: np.ndarray
     """ Stack of boolean masks for each chain pair (2D)."""
 
-    rb_mask_1d: np.ndarray
-    """ Boolean mask of residues in the rigid body (1D)."""
+    # _rb_mask_1d: np.ndarray
+    # """ Boolean mask of residues in the rigid body (1D)."""
 
-    rb_mask_2d: np.ndarray
+    _rb_mask_2d: np.ndarray
     """ Boolean mask of residues in the rigid body (2D)."""
 
-    contact_map_mask_1d: np.ndarray
-    """ Boolean mask of contact map for inter-chain interactions (1D)."""
+    # _contact_map_mask_1d: np.ndarray
+    # """ Boolean mask of contact map for inter-chain interactions (1D)."""
 
-    contact_map_mask_2d: np.ndarray
+    _contact_map_mask_2d: np.ndarray
     """ Boolean mask of contact map for inter-chain interactions (2D)."""
 
     plddt_list: np.ndarray
@@ -819,7 +956,7 @@ class RigidBodyChainPairAssessment:
     protein_chain_map: Dict[str, str]
     """ Mapping from chain IDs to protein names."""
 
-    chain_pair_interface_res: Dict[Tuple[str, str], List[int] | int]
+    chain_pair_interface_residues: Dict[Tuple[str, str], List[int] | int]
     """ Interface residues per chain pair."""
 
     chain_pair_contacts: Dict[Tuple[str, str], List[int] | int]
@@ -846,30 +983,38 @@ class RigidBodyChainPairAssessment:
     chain_pair_ipae_ji: Dict[Tuple[str, str], List[float] | float]
     """ iPAE (j->i) per chain pair."""
 
+    chain_pair_residues: Dict[Tuple[str, str], List[int] | int] = {}
+    """ Residues per chain pair. Only calculated when `show_interface_residues_only` is `False`."""
+
+    chain_pair_residue_counts: Dict[Tuple[str, str], int] = {}
+    """ Residue counts per chain pair. Only calculated when `show_interface_residues_only` is `False`."""
+
     def __init__(
         self,
         _mask: _Mask,
         as_average: bool = True,
+        show_interface_residues_only: bool = True,
     ):
 
         self.as_average = as_average
+        self.show_interface_residues_only = show_interface_residues_only
 
         self.unique_chains = _mask.unique_chains
         self.chain_pairs = _mask.chain_pairs
         self.idx_to_num = _mask.idx_to_num
         self.symmetric_pae = _mask.symmetric_pae
 
-        self.chain_mask_stack_1d = _mask.chain_mask_stack_1d
-        self.chain_mask_stack_2d = _mask.chain_mask_stack_2d
+        self._chain_mask_stack_1d = _mask.chain_mask_stack_1d
+        # self._chain_mask_stack_2d = _mask.chain_mask_stack_2d
 
-        self.chain_pair_mask_stack_1d = _mask.chain_pair_mask_stack_1d
-        self.chain_pair_mask_stack_2d = _mask.chain_pair_mask_stack_2d
+        # self._chain_pair_mask_stack_1d = _mask.chain_pair_mask_stack_1d
+        self._chain_pair_mask_stack_2d = _mask.chain_pair_mask_stack_2d
 
-        self.rb_mask_1d = _mask.rb_mask_1d
-        self.rb_mask_2d = _mask.rb_mask_2d
+        # self._rb_mask_1d = _mask.rb_mask_1d
+        self._rb_mask_2d = _mask.rb_mask_2d
 
-        self.contact_map_mask_1d = _mask.contact_map_mask_1d
-        self.contact_map_mask_2d = _mask.contact_map_mask_2d
+        # self._contact_map_mask_1d = _mask.contact_map_mask_1d
+        self._contact_map_mask_2d = _mask.contact_map_mask_2d
 
         self.plddt_list = _mask.plddt_list
         self.pae = _mask.pae
@@ -884,14 +1029,33 @@ class RigidBodyChainPairAssessment:
         self.chain_pair_ipae_ij = {}
         self.chain_pair_ipae_ji = {}
 
-        self.chain_pair_interface_res = self.get_chain_pair_interface(
+        self.chain_pair_residues = {}
+        self.chain_pair_residue_counts = {}
+
+        if self.show_interface_residues_only is False:
+
+            self.chain_pair_residues = self.get_chain_pair_residues(
+                per_chain=True,
+                only_count=self.as_average,
+                only_interface=False,
+            )
+
+            self.chain_pair_residue_counts = self.get_chain_pair_residues(
+                per_chain=False,
+                only_count=True,
+                only_interface=False,
+            )
+
+        self.chain_pair_interface_residues = self.get_chain_pair_residues(
             per_chain=True,
             only_count=self.as_average,
+            only_interface=True,
         )
 
-        self.chain_pair_contacts = self.get_chain_pair_interface(
+        self.chain_pair_contacts = self.get_chain_pair_residues(
             per_chain=False,
             only_count=True,
+            only_interface=True,
         )
 
         self.chain_pair_iplddt = self.get_chain_pair_plddt(
@@ -905,6 +1069,11 @@ class RigidBodyChainPairAssessment:
                 only_interface=False,
                 symmetric=(True, ""),
             )
+            self.chain_pair_ipae = self.get_chain_pair_pae(
+                only_avg=self.as_average,
+                only_interface=True,
+                symmetric=(True, ""),
+            )
         else:
             self.chain_pair_pae_ij = self.get_chain_pair_pae(
                 only_avg=self.as_average,
@@ -916,14 +1085,6 @@ class RigidBodyChainPairAssessment:
                 only_interface=False,
                 symmetric=(False, "ji"),
             )
-
-        if self.symmetric_pae:
-            self.chain_pair_ipae = self.get_chain_pair_pae(
-                only_avg=self.as_average,
-                only_interface=True,
-                symmetric=(True, ""),
-            )
-        else:
             self.chain_pair_ipae_ij = self.get_chain_pair_pae(
                 only_avg=self.as_average,
                 only_interface=True,
@@ -942,14 +1103,17 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get the attribute value for a given chain pair.
 
+        > [!NOTE]
+        > This function should be used when `as_average` is `True`.
+
         ## Arguments:
 
         - **chain_pair (tuple)**:<br />
             Tuple of two chain IDs.
 
         - **attr_name (str)**:<br />
-            Name of the attribute to retrieve.
-            Valid attributes are defined in `CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
+            Name of the attribute to retrieve. Valid attributes are defined in
+            `af_pipeline.constants.af_constants.CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
 
         ## Returns:
 
@@ -964,50 +1128,47 @@ class RigidBodyChainPairAssessment:
             raise ValueError(f"Invalid attribute name: {attr_name}")
 
         attrs_ = {
-            "Chain ID": (chain1, chain2),
+            ChainPairAssessment.CHAIN_ID: (chain1, chain2),
 
-            "Protein Name": (
-                self.protein_chain_map.get(chain1, chain1),
-                self.protein_chain_map.get(chain2, chain2),
+            ChainPairAssessment.PROTEIN_NAME: (
+                self.protein_chain_map.get(chain1, f"chain_{chain1}"),
+                self.protein_chain_map.get(chain2, f"chain_{chain2}"),
             ),
 
-            "Chain Type": (
-                "IDR" if chain1 in self.idr_chains else "R",
-                "IDR" if chain2 in self.idr_chains else "R",
+            ChainPairAssessment.CHAIN_TYPE: (
+                ChainType.IDR if chain1 in self.idr_chains else ChainType.R,
+                ChainType.IDR if chain2 in self.idr_chains else ChainType.R,
             ),
 
-            "Interface Residues": self.chain_pair_interface_res[chain_pair],
-            "Number of contacts": self.chain_pair_contacts[chain_pair],
+            ChainPairAssessment.INTERFACE_RESIDUES: self.chain_pair_interface_residues[chain_pair],
+            ChainPairAssessment.NUMBER_OF_CONTACTS: self.chain_pair_contacts[chain_pair],
 
-            # "pLDDT Chain 1": self.chain_pair_plddt[chain_pair][0],
-            # "pLDDT Chain 2": self.chain_pair_plddt[chain_pair][1],
+            ChainPairAssessment.AVERAGE_IPLDDT_CHAIN1: self.chain_pair_iplddt[chain_pair][0],
+            ChainPairAssessment.AVERAGE_IPLDDT_CHAIN2: self.chain_pair_iplddt[chain_pair][1],
 
-            "Average ipLDDT chain1": self.chain_pair_iplddt[chain_pair][0],
-            "Average ipLDDT chain2": self.chain_pair_iplddt[chain_pair][1],
-
-            "Average PAE": (
+            ChainPairAssessment.AVERAGE_PAE: (
                 self.chain_pair_pae[chain_pair]
                 if self.symmetric_pae else None
             ),
-            "Average iPAE": (
+            ChainPairAssessment.AVERAGE_IPAE: (
                 self.chain_pair_ipae[chain_pair]
                 if self.symmetric_pae else None
             ),
 
-            "Average PAE ij": (
+            ChainPairAssessment.AVERAGE_PAE_IJ: (
                 self.chain_pair_pae_ij[chain_pair]
                 if not self.symmetric_pae else None
             ),
-            "Average PAE ji": (
+            ChainPairAssessment.AVERAGE_PAE_JI: (
                 self.chain_pair_pae_ji[chain_pair]
                 if not self.symmetric_pae else None
             ),
 
-            "Average iPAE ij": (
+            ChainPairAssessment.AVERAGE_IPAE_IJ: (
                 self.chain_pair_ipae_ij[chain_pair]
                 if not self.symmetric_pae else None
             ),
-            "Average iPAE ji": (
+            ChainPairAssessment.AVERAGE_IPAE_JI: (
                 self.chain_pair_ipae_ji[chain_pair]
                 if not self.symmetric_pae else None
             ),
@@ -1023,6 +1184,9 @@ class RigidBodyChainPairAssessment:
     ):
         """ Get the attribute value for a given residue pair in a chain pair.
 
+        > [!NOTE]
+        > This function should be used when `as_average` is `False`.
+
         ## Arguments:
 
         - **chain_pair (tuple)**:<br />
@@ -1032,8 +1196,8 @@ class RigidBodyChainPairAssessment:
             Tuple of two residue token indices.
 
         - **attr_name (str)**:<br />
-            Name of the attribute to retrieve.
-            Valid attributes are defined in `CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
+            Name of the attribute to retrieve. Valid attributes are defined in
+            `af_pipeline.constants.af_constants.CHAIN_PAIRWISE_ASSESSMENT_COLUMNS`.
 
         ## Returns:
 
@@ -1049,80 +1213,123 @@ class RigidBodyChainPairAssessment:
             raise ValueError(f"Invalid attribute name: {attr_name}")
 
         attrs_ = {
-            "Chain ID 1": ch_id_1,
-            "Chain ID 2": ch_id_2,
+            ChainPairAssessment.CHAIN_ID_1: ch_id_1,
+            ChainPairAssessment.CHAIN_ID_2: ch_id_2,
 
-            "Protein Name 1": self.protein_chain_map.get(ch_id_1, ch_id_1),
-            "Protein Name 2": self.protein_chain_map.get(ch_id_2, ch_id_2),
+            ChainPairAssessment.PROTEIN_NAME_1: self.protein_chain_map.get(ch_id_1, f"chain_{ch_id_1}"),
+            ChainPairAssessment.PROTEIN_NAME_2: self.protein_chain_map.get(ch_id_2, f"chain_{ch_id_2}"),
 
-            "Chain Type 1": "IDR" if ch_id_1 in self.idr_chains else "R",
-            "Chain Type 2": "IDR" if ch_id_2 in self.idr_chains else "R",
+            ChainPairAssessment.CHAIN_TYPE_1: ChainType.IDR if ch_id_1 in self.idr_chains else ChainType.R,
+            ChainPairAssessment.CHAIN_TYPE_2: ChainType.IDR if ch_id_2 in self.idr_chains else ChainType.R,
 
-            "Residue 1": self.idx_to_num[res_idx_1]["token_num"],
-            "Residue 2": self.idx_to_num[res_idx_2]["token_num"],
+            ChainPairAssessment.RESIDUE_1: self.idx_to_num[res_idx_1][ResidueMapKeys.TOKEN_NUM],
+            ChainPairAssessment.RESIDUE_2: self.idx_to_num[res_idx_2][ResidueMapKeys.TOKEN_NUM],
 
-            "pLDDT 1": self.plddt_list[res_idx_1],
-            "pLDDT 2": self.plddt_list[res_idx_2],
+            ChainPairAssessment.PLDDT_1: self.plddt_list[res_idx_1],
+            ChainPairAssessment.PLDDT_2: self.plddt_list[res_idx_2],
 
-            "PAE ij": self.pae[res_idx_1, res_idx_2],
-            "PAE ji": self.pae[res_idx_2, res_idx_1],
-            "PAE": self.avg_pae[res_idx_1, res_idx_2],
+            ChainPairAssessment.PAE_IJ: self.pae[res_idx_1, res_idx_2],
+            ChainPairAssessment.PAE_JI: self.pae[res_idx_2, res_idx_1],
+            ChainPairAssessment.PAE: self.avg_pae[res_idx_1, res_idx_2],
         }
 
         return attrs_[attr_name]
 
-    # @time_it
-    def get_chain_pair_interface(
+    def get_chain_pair_residues(
         self,
         per_chain: bool = True,
+        only_interface: bool = False,
         only_count: bool = True,
     ) -> Dict[Tuple[str, str], List[int] | int | Tuple[int, int]]:
-        """Get interface residues for the chain pair in the rigid body.
+        """ Get residues in each chain pair within a rigid body.
+
+        There are several possible outcomes depending on the combination of `per_chain`,
+        `only_interface`, and `only_count` arguments:
+        - **per_chain=True**, **only_interface=False**, and **only_count=True**:<br />
+            Count of residues per chain in each chain pair in the rigid body. (Default)
+        - **per_chain=True**, **only_interface=False**, and **only_count=False**:<br />
+            List of residue indices per chain in each chain pair in the rigid body.
+        - **per_chain=True**, **only_interface=True**, and **only_count=True**:<br />
+            Count of interface residues per chain in each chain pair in the rigid body.
+        - **per_chain=True**, **only_interface=True**, and **only_count=False**:<br />
+            List of interface residue indices per chain in each chain pair in the rigid body.
+        - **per_chain=False**, **only_interface=False**, and **only_count=True**:<br />
+            Count of residue pairs in each chain pair in the rigid body.
+        - **per_chain=False**, **only_interface=False**, and **only_count=False**:<br />
+            List of residue index pairs as tuples in each chain pair in the rigid body.
+        - **per_chain=False**, **only_interface=True**, and **only_count=True**:<br />
+            Count of interface residue pairs in each chain pair in the rigid body.
+        - **per_chain=False**, **only_interface=True**, and **only_count=False**:<br />
+            List of interface residue index pairs as tuples in each chain pair in the rigid body.
 
         ## Arguments:
 
-        - **per_chain (bool)**:<br />
-            If True, returns count of interface residues per chain pair.
+        - **per_chain (bool, optional):**:<br />
+            If True, returns residues for each chain in the pair separately.
+            If False, returns residue pairs as tuples of indices.
 
-        - **only_count (bool)**:<br />
-            If True, returns number of contacts per chain pair.
+        - **only_interface (bool, optional):**:<br />
+            If True, considers only interface residues.
+
+        - **only_count (bool, optional):**:<br />
+            If True, returns the count of residues instead of their indices.
 
         ## Returns:
 
-        - **chain_pair_interface_residues (dict)**:<br />
-            Dictionary with chain IDs as keys and list of residue numbers
-            at the interface as values.
+        - **Dict[Tuple[str, str], List[int] | int | Tuple[int, int]]**:<br />
+            Dictionary with chain pair tuples as keys and residue indices (or counts)
+            as values.
         """
 
-        chain_pair_interface_residues = {}
+        chain_pair_residues = {}
 
-        attr_state = (per_chain, only_count)
-        interface_mask_multiplier = self.rb_mask_2d * self.contact_map_mask_2d
+        # only_interface
+        mask_attrs_ = {
+            True: self._rb_mask_2d * self._contact_map_mask_2d,
+            False: self._rb_mask_2d,
+        }
 
-        attrs_ = {
+        # per_chain, only_count
+        res_pair_attrs_ = {
             (True, True): lambda x: (len(x[:, 0]), len(x[:, 1])),
             (False, True): len,
             (True, False): lambda x: x.tolist(),
+            (False, False): lambda x: x.tolist(),
         }
 
+        attr_state = (per_chain, only_count)
         for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
 
-            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
-            interface_mask = chain_pair_mask * interface_mask_multiplier
-            interface_mask = np.triu(interface_mask) # To avoid duplicates
-            res_idx_pairs = np.argwhere(interface_mask)
-            chain_pair_interface_residues[(ch_id_1, ch_id_2)] = (
-                attrs_[attr_state](res_idx_pairs)
+            chain_pair_mask = self._chain_pair_mask_stack_2d[i, :, :]
+            residue_mask = chain_pair_mask * mask_attrs_[only_interface]
+            residue_mask = np.triu(residue_mask) # To avoid duplicates
+            res_idx_pairs = np.argwhere(residue_mask)
+            chain_pair_residues[(ch_id_1, ch_id_2)] = (
+                res_pair_attrs_[attr_state](res_idx_pairs)
             )
 
-        return chain_pair_interface_residues
+        return chain_pair_residues
 
     def get_chain_pair_plddt(
         self,
         only_avg: bool = True,
         only_interface: bool = False,
     ):
-        """ Get pLDDT scores for the chain pair in the rigid body.
+        """ Get pLDDT or ipLDDT scores for the chain pair in the rigid body.
+
+        There are four possible outcomes depending on the combination of `only_avg`
+        and `only_interface` arguments:
+        - **only_avg=True** and **only_interface=False**:<br />
+            Average pLDDT score per chain for all residues in the chain pair. (Default)
+        - **only_avg=False** and **only_interface=False**:<br />
+            List of per-residue pLDDT scores for each residue pair in the chain pair
+            in the rigid body.
+        - **only_avg=True** and **only_interface=True**:<br />
+            Average pLDDT score per chain for interface residues only in the chain pair
+            in the rigid body.
+        - **only_avg=False** and **only_interface=True**:<br />
+            List of per-residue pLDDT scores for each interface residue pair in the chain
+            pair in the rigid body.
 
         ## Arguments:
 
@@ -1142,17 +1349,17 @@ class RigidBodyChainPairAssessment:
         chain_pair_plddt = {}
 
         for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
-            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
-            plddt_mask = chain_pair_mask * self.rb_mask_2d
+            chain_pair_mask = self._chain_pair_mask_stack_2d[i, :, :]
+            plddt_mask = chain_pair_mask * self._rb_mask_2d
 
             if only_interface:
-                plddt_mask = plddt_mask * self.contact_map_mask_2d
+                plddt_mask = plddt_mask * self._contact_map_mask_2d
 
             plddt_mask_1d = plddt_mask.any(axis=0)
             ch1_idx = self.unique_chains.index(ch_id_1)
-            chain1_mask = plddt_mask_1d * self.chain_mask_stack_1d[ch1_idx, :]
+            chain1_mask = plddt_mask_1d * self._chain_mask_stack_1d[ch1_idx, :]
             ch2_idx = self.unique_chains.index(ch_id_2)
-            chain2_mask = plddt_mask_1d * self.chain_mask_stack_1d[ch2_idx, :]
+            chain2_mask = plddt_mask_1d * self._chain_mask_stack_1d[ch2_idx, :]
 
             if only_avg:
                 chain_pair_plddt[(ch_id_1, ch_id_2)] = (
@@ -1180,6 +1387,33 @@ class RigidBodyChainPairAssessment:
         symmetric: Tuple[bool, str] = (True, ""),
     ):
         """ Get PAE values for the chain pair in the rigid body.
+
+        There are several possible outcomes depending on the combination of `only_avg`,
+        `only_interface`, and `symmetric` arguments:
+        - **only_avg=True**, **only_interface=False**, and **symmetric=(True, '')**:<br />
+            Average PAE value per chain pair in the rigid body, treating PAE symmetrically. (Default)
+        - **only_avg=False**, **only_interface=False**, and **symmetric=(True, '')**:<br />
+            List of PAE values for each residue pair in the chain pair in the rigid body, treating PAE symmetrically.
+        - **only_avg=True**, **only_interface=False**, and **symmetric=(False, 'ij')**:<br />
+            Average PAE value per chain pair in the rigid body, treating PAE asymmetrically (i->j).
+        - **only_avg=False**, **only_interface=False**, and **symmetric=(False, 'ij')**:<br />
+            List of PAE values for each residue pair in the chain pair in the rigid body, treating PAE asymmetrically (i->j).
+        - **only_avg=True**, **only_interface=False**, and **symmetric=(False, 'ji')**:<br />
+            Average PAE value per chain pair in the rigid body, treating PAE asymmetrically (j->i).
+        - **only_avg=False**, **only_interface=False**, and **symmetric=(False, 'ji')**:<br />
+            List of PAE values for each residue pair in the chain pair in the rigid body, treating PAE asymmetrically (j->i).
+        - **only_avg=True**, **only_interface=True**, and **symmetric=(True, '')**:<br />
+            Average PAE value per chain pair in the rigid body for interface residues only, treating PAE symmetrically.
+        - **only_avg=False**, **only_interface=True**, and **symmetric=(True, '')**:<br />
+            List of PAE values for each interface residue pair in the chain pair in the rigid body, treating PAE symmetrically.
+        - **only_avg=True**, **only_interface=True**, and **symmetric=(False, 'ij')**:<br />
+            Average PAE value per chain pair in the rigid body for interface residues only, treating PAE asymmetrically (i->j).
+        - **only_avg=False**, **only_interface=True**, and **symmetric=(False, 'ij')**:<br />
+            List of PAE values for each interface residue pair in the chain pair in the rigid body, treating PAE asymmetrically (i->j).
+        - **only_avg=True**, **only_interface=True**, and **symmetric=(False, 'ji')**:<br />
+            Average PAE value per chain pair in the rigid body for interface residues only, treating PAE asymmetrically (j->i).
+        - **only_avg=False**, **only_interface=True**, and **symmetric=(False, 'ji')**:<br />
+            List of PAE values for each interface residue pair in the chain pair in the rigid body, treating PAE asymmetrically (j->i).
 
         ## Arguments:
 
@@ -1215,8 +1449,8 @@ class RigidBodyChainPairAssessment:
         }
         # only_interface
         mask_attrs_ = {
-            True: self.rb_mask_2d * self.contact_map_mask_2d,
-            False: self.rb_mask_2d,
+            True: self._rb_mask_2d * self._contact_map_mask_2d,
+            False: self._rb_mask_2d,
         }
         # sym_bool
         sym_bool_attrs_ = {
@@ -1230,7 +1464,7 @@ class RigidBodyChainPairAssessment:
 
         for i, (ch_id_1, ch_id_2) in enumerate(self.chain_pairs):
 
-            chain_pair_mask = self.chain_pair_mask_stack_2d[i, :, :]
+            chain_pair_mask = self._chain_pair_mask_stack_2d[i, :, :]
             pae_mask_2d = chain_pair_mask * pae_mask_multiplier
             pae_idxs = np.where(pae_mask_2d)
             pae_vals = pae_matrix[pae_idxs].flatten()
@@ -1245,6 +1479,19 @@ class RigidBodyChainPairAssessment:
 
     def get_chain_pair_assessment(self):
         """Get chain-pair-wise assessment for the rigid body.
+
+        Chain-pair-wise assessment includes the following:
+        - Chain IDs
+        - Protein names (if available, otherwise defaults to "chain_{chain_id}")
+        - Chain types (IDR or R)
+        - Number of interface residues
+        - Average pLDDT for interface residues
+        - Average PAE (if `symmetric_pae` is `True`)
+        - Average iPAE (if `symmetric_pae` is `True`)
+        - Average PAE (i->j) (if `symmetric_pae` is `False`)
+        - Average PAE (j->i) (if `symmetric_pae` is `False`)
+        - Average iPAE (i->j) (if `symmetric_pae` is `False`)
+        - Average iPAE (j->i) (if `symmetric_pae` is `False`)
 
         ## Returns:
 
@@ -1263,10 +1510,15 @@ class RigidBodyChainPairAssessment:
 
         else:
 
+            if self.show_interface_residues_only is True:
+                _chain_pair_residues = self.chain_pair_interface_residues
+            else:
+                _chain_pair_residues = self.chain_pair_residues
+
             iterators_cp = [
                 (chain_pair, res_pair)
                 for chain_pair in self.chain_pairs
-                for res_pair in self.chain_pair_interface_res[chain_pair]
+                for res_pair in _chain_pair_residues[chain_pair]
             ]
             func_cp = self.get_res_pair_attr
 
@@ -1284,6 +1536,20 @@ class RigidBodyAssessment:
     rb_dict: Dict[str, List[Tuple[str, int]]]
     """ Dictionary of rigid bodies, where each rigid body is a dictionary
     with chain IDs as keys and residue numbers as values."""
+
+    as_average: bool
+    """ Whether to report only the average of assessment metrics."""
+
+    symmetric_pae: bool
+    """ Whether to treat PAE symmetrically between chain pairs."""
+
+    show_interface_residues_only: bool
+    """ Whether to show the metrics for the interface residues only in the output
+    chain assessment and chain-pair assessment.
+    > [!NOTE]
+    > This option only takes effect when there are residue-level or
+    > residue-pair-level metrics available, i.e. when `as_average` is `False`.
+    """
 
     num_to_idx: Dict[str, Dict[int, Dict[str, int]]]
     """ Residue number to index mapping."""
@@ -1303,26 +1569,14 @@ class RigidBodyAssessment:
     lengths_dict: Dict[str, int]
     """ Dictionary of lengths of chains in the structure."""
 
-    symmetric_pae: bool
-    """ Whether to treat PAE symmetrically between chain pairs."""
-
-    as_average: bool
-    """ Whether to report only the average of assessment metrics."""
-
     idr_chains: List[str]
     """ List of chain IDs that are considered disordered (IDRs)."""
 
     protein_chain_map: Dict[str, str]
     """ Mapping of chain IDs to protein names."""
 
-    unique_chains: List[str]
-    """ List of unique chain IDs in the rigid body."""
-
     chain_pairs: List[Tuple[str, str]]
     """ List of unique chain pairs in the rigid body."""
-
-    rb_mask: np.ndarray
-    """ Binary map of residues in the rigid body."""
 
     overall_assessment: dict
     """ Dictionary of overall assessment metrics for the rigid body."""
@@ -1335,14 +1589,16 @@ class RigidBodyAssessment:
         rb_dict: dict,
         as_average: bool = True,
         symmetric_pae: bool = True,
+        show_interface_residues_only: bool = True,
         **kwargs,
     ):
 
         self.as_average = as_average
         self.symmetric_pae = symmetric_pae
+        self.show_interface_residues_only = show_interface_residues_only
         self.idr_chains = kwargs.get(KeywordArg.IDR_CHAINS, [])
         self.protein_chain_map = kwargs.get(KeywordArg.PROTEIN_CHAIN_MAP, {})
-        self.is_set_up = False
+        self._is_set_up = False
         setup_instance = kwargs.get(KeywordArg.SETUP_INSTANCE, None)
         if isinstance(setup_instance, Initialize):
             self.set_attributes_from(instance=setup_instance)
@@ -1355,40 +1611,8 @@ class RigidBodyAssessment:
     def check_is_set_up(self):
         """ Check if the RigidBodyAssessment instance is set up. """
 
-        if not self.is_set_up:
+        if not self._is_set_up:
             raise ValueError(_error_not_set_up)
-
-    def perform_assessment(self):
-        """ Perform the assessment of the rigid body."""
-
-        self.check_is_set_up()
-
-        _mask = _Mask(
-            rb_dict=self.rb_dict,
-            num_to_idx=self.num_to_idx,
-            idx_to_num=self.idx_to_num,
-            contact_map=self.contact_map,
-            plddt_list=self.token_plddts,
-            pae=self.pae,
-            avg_pae=self.avg_pae,
-            lengths_dict=self.lengths_dict,
-            symmetric_pae=self.symmetric_pae,
-            idr_chains=self.idr_chains,
-            protein_chain_map=self.protein_chain_map,
-        )
-
-        self.rb_c_assess = RigidBodyChainAssessment(
-            _mask=_mask,
-            as_average=self.as_average,
-        )
-        self.rb_cp_assess = RigidBodyChainPairAssessment(
-            _mask=_mask,
-            as_average=self.as_average,
-        )
-        self.overall_assessment = self.get_overall_assessment(
-            rb_c_assess=self.rb_c_assess,
-            rb_cp_assess=self.rb_cp_assess,
-        )
 
     def set_attributes_from(
         self,
@@ -1424,16 +1648,14 @@ class RigidBodyAssessment:
             map_type=InteractionMapType.CONTACT,
         )
 
-        self.is_set_up = True
+        self._is_set_up = True
 
-    def save_rb_assessment(
-        self,
-        rb_c_assess: RigidBodyChainAssessment,
-        rb_cp_assess: RigidBodyChainPairAssessment,
-        overall_assessment: dict,
-        save_path: str,
-    ):
-        """ Save the assessment of the rigid bodies to an Excel file.
+    def perform_assessment(self):
+        """ Perform the assessment of the rigid body.
+
+        The assessment is performed using the following:
+        - af_pipeline.rigid_bodies.rigid_body_assessment.RigidBodyChainAssessment
+        - af_pipeline.rigid_bodies.rigid_body_assessment.RigidBodyChainPairAssessment
 
         The assessment includes:
         - **Per chain assessment**:<br />
@@ -1446,25 +1668,75 @@ class RigidBodyAssessment:
         - **Overall assessment**:<br />
             Average pLDDT, Average iLDDT, interface residues count,
             Chain type (IDR or R).
+        """
+
+        self.check_is_set_up()
+
+        _mask = _Mask(
+            rb_dict=self.rb_dict,
+            num_to_idx=self.num_to_idx,
+            idx_to_num=self.idx_to_num,
+            contact_map=self.contact_map,
+            plddt_list=self.token_plddts,
+            pae=self.pae,
+            avg_pae=self.avg_pae,
+            lengths_dict=self.lengths_dict,
+            symmetric_pae=self.symmetric_pae,
+            idr_chains=self.idr_chains,
+            protein_chain_map=self.protein_chain_map,
+        )
+
+        self.rb_c_assess = RigidBodyChainAssessment(
+            _mask=_mask,
+            as_average=self.as_average,
+            show_interface_residues_only=self.show_interface_residues_only,
+        )
+        self.rb_cp_assess = RigidBodyChainPairAssessment(
+            _mask=_mask,
+            as_average=self.as_average,
+            show_interface_residues_only=self.show_interface_residues_only,
+        )
+
+        self.avg_plddt = self.get_average_plddt(
+            only_idr=False,
+            only_interface=False,
+        )
+        self.avg_idr_plddt = self.get_average_plddt(
+            only_idr=True,
+            only_interface=False,
+        )
+        self.avg_iplddt = self.get_average_plddt(
+            only_idr=False,
+            only_interface=True,
+        )
+        self.avg_idr_iplddt = self.get_average_plddt(
+            only_idr=True,
+            only_interface=True,
+        )
+        self.interacting_chains = self.get_interacting_chains()
+
+        self.overall_assessment = self.get_overall_assessment()
+
+    def save_rb_assessment(self, save_path: str):
+        """ Save the assessment of the rigid bodies to an Excel file.
 
         The assessment is saved in an Excel file with three sheets:
-        - "Chain Wise Assessment": Contains per chain assessment data.
-        - "Chain Pairwise Assessment": Contains per chain pair assessment data.
-        - "Overall Assessment": Contains overall assessment data.
+        - **"Chain Wise Assessment"**: Contains per chain assessment data.
+        - **"Chain Pairwise Assessment"**: Contains per chain pair assessment data.
+        - **"Overall Assessment"**: Contains overall assessment data.
         """
 
         overall_assessment_rows = []
 
-        for col, key in OVERALL_ASSESSMENT_COLUMNS[self.symmetric_pae].items():
-            if overall_assessment.get(key, np.nan) is not np.nan:
-                overall_assessment_rows.append({
-                    "Key": col,
-                    "Value": overall_assessment.get(key)
-                })
+        for col in OVERALL_ASSESSMENT_COLUMNS[self.symmetric_pae]:
+            overall_assessment_rows.append({
+                "Key": col,
+                "Value": self.overall_assessment.get(col, np.nan),
+            })
         overall_assessment_df = pd.DataFrame(overall_assessment_rows)
 
-        c_assessment_df = rb_c_assess.get_chain_assessment()
-        cp_assessment_df = rb_cp_assess.get_chain_pair_assessment()
+        c_assessment_df = self.rb_c_assess.get_chain_assessment()
+        cp_assessment_df = self.rb_cp_assess.get_chain_pair_assessment()
 
         df_dict = {
             "chain_pairwise_assessment": cp_assessment_df,
@@ -1494,13 +1766,206 @@ class RigidBodyAssessment:
                     index=False,
                 )
 
-    # @time_it
-    def get_overall_assessment(
+    def get_average_plddt(
         self,
-        rb_c_assess: RigidBodyChainAssessment,
-        rb_cp_assess: RigidBodyChainPairAssessment
-    ):
+        only_idr: bool = False,
+        only_interface: bool = False,
+    ) -> float:
+        """ Get the average pLDDT score across all chains in the rigid body.
+
+        There are four possible outcomes depending on the combination of `only_idr`
+        and `only_interface` arguments:
+        - **only_idr=False** and **only_interface=False**:<br />
+            Average pLDDT score considering all chains and all residues in the rigid body. (Default)
+        - **only_idr=True** and **only_interface=False**:<br />
+            Average pLDDT score considering only IDR chains and all residues in the rigid body
+        - **only_idr=False** and **only_interface=True**:<br />
+            Average pLDDT score considering all chains and only interface residues in the rigid body
+        - **only_idr=True** and **only_interface=True**:<br />
+            Average pLDDT score considering only IDR chains and only interface residues in the rigid body
+
+        ## Arguments:
+
+        - **only_idr (bool, optional)**:<br />
+            If True, calculates the average pLDDT score considering only IDR chains.
+            If False, considers all chains in the rigid body. (Default)
+
+        - **only_interface (bool, optional)**:<br />
+            If True, calculates the average pLDDT score considering only interface residues.
+            If False, considers all residues in the rigid body. (Default)
+
+        ## Returns:
+
+        - **avg_plddt (float)**:<br />
+            The average pLDDT score across all chains in the rigid body.
+        """
+
+        res_selector = {
+            True: self.rb_c_assess.per_chain_interface_residues,
+            False: self.rb_c_assess.per_chain_residues,
+        }
+        plddt_selector = {
+            True: self.rb_c_assess.per_chain_iplddt,
+            False: self.rb_c_assess.per_chain_plddt,
+        }
+
+        def get_numerator_from_avg_plddt(only_idr:bool, only_interface:bool) -> float:
+            numerator = 0
+            for chain_id in self.rb_c_assess.unique_chains:
+                if only_idr and chain_id not in self.idr_chains:
+                    continue
+                weight_factor = res_selector[only_interface].get(chain_id, 0)
+                avg_plddt_chain = plddt_selector[only_interface].get(chain_id, 0)
+                numerator += weight_factor * avg_plddt_chain
+            return numerator
+
+        def get_numerator_from_all_plddt(only_idr:bool, only_interface:bool) -> float:
+            return np.sum([
+                plddt
+                for chain_id, plddt_scores in plddt_selector[only_interface].items()
+                if not only_idr or chain_id in self.idr_chains
+                for plddt in plddt_scores
+            ])
+
+        func_selector = {
+            True: get_numerator_from_avg_plddt,
+            False: get_numerator_from_all_plddt,
+        }
+
+        # only_idr, only_interface
+        denominator_selector = {
+            (True, False): self.rb_c_assess.total_idr_residues,
+            (True, True): self.rb_c_assess.total_interface_idr_residues,
+            (False, True): self.rb_c_assess.total_interface_residues,
+            (False, False): self.rb_c_assess.total_residues,
+        }
+
+        numerator = func_selector[self.as_average](only_idr, only_interface)
+        denominator = denominator_selector[(only_idr, only_interface)]
+        avg_plddt = numerator / denominator if denominator > 0 else np.nan
+
+        return avg_plddt
+
+    def get_interacting_chains(self) -> List[Tuple[str, str]]:
+        """ Get the list of interacting chain pairs in the rigid body.
+
+        ## Returns:
+
+        - **interacting_chains (List[Tuple[str, str]])**:<br />
+            A list of tuples, where each tuple contains the IDs of two
+            interacting chains in the rigid body.
+        """
+
+        interacting_chains = [
+            pair
+            for pair in self.rb_cp_assess.chain_pairs
+            if self.rb_cp_assess.chain_pair_contacts[pair] > 0
+        ]
+        return interacting_chains
+
+    def get_avg_pae(
+        self,
+        only_interface: bool = True,
+    ) -> Tuple[float, float | None, float | None]:
+        """ Get average PAE or iPAE for a rigid body.
+
+        ## Arguments:
+
+        - **only_interface (bool, optional):**:<br />
+            If True, calculates the average PAE considering only interface residues.
+            If False, considers all residues in the rigid body. (Default)
+
+        ## Returns:
+
+        - **avg_pae (float)**:<br />
+            The average PAE or iPAE for the rigid body.
+        - **avg_pae_ij (float | None)**:<br />
+            The average PAE for i->j across all interacting chain pairs in the rigid body.
+        - **avg_pae_ji (float | None)**:<br />
+            The average PAE for j->i across all interacting chain pairs in the rigid body.
+        """
+
+        avg_pae_ij = avg_pae_ji = None
+
+        # direction, only_interface
+        pae_selector = {
+            ("sym", True): self.rb_cp_assess.chain_pair_ipae,
+            ("sym", False): self.rb_cp_assess.chain_pair_pae,
+            ("ij", True): self.rb_cp_assess.chain_pair_ipae_ij,
+            ("ij", False): self.rb_cp_assess.chain_pair_pae_ij,
+            ("ji", True): self.rb_cp_assess.chain_pair_ipae_ji,
+            ("ji", False): self.rb_cp_assess.chain_pair_pae_ji,
+        }
+
+        chain_pair_selector = {
+            True: [
+                pair for pair in self.rb_cp_assess.chain_pairs
+                if self.rb_cp_assess.chain_pair_contacts[pair] > 0
+            ],
+            False: self.rb_cp_assess.chain_pairs,
+        }
+        residue_selector = {
+            True: self.rb_cp_assess.chain_pair_contacts,
+            False: self.rb_cp_assess.chain_pair_residue_counts,
+        }
+
+        def get_numerator_denominator_from_avg_pae(direction:str, only_interface:bool) -> float:
+
+            numerator = 0
+            denominator = 0
+            for pair in chain_pair_selector[only_interface]:
+                weight_factor = residue_selector[only_interface].get(pair, 0)
+                numerator += weight_factor * pae_selector[(direction, only_interface)].get(pair, 0)
+                denominator += weight_factor
+            return numerator, denominator
+
+        def get_numerator_denominator_from_all_pae(direction:str, only_interface:bool) -> float:
+
+            all_paes = np.array([
+                pae
+                for pae_vals in pae_selector[(direction, only_interface)].values()
+                for pae in pae_vals
+            ])
+
+            return np.sum(all_paes), len(all_paes)
+
+        func_selector = {
+            True: get_numerator_denominator_from_avg_pae,
+            False: get_numerator_denominator_from_all_pae,
+        }
+
+        if self.symmetric_pae:
+            numerator, denominator = func_selector[self.as_average]("sym", only_interface)
+            avg_pae = numerator / denominator if denominator > 0 else np.nan
+        else:
+            numerator_ij, denominator_ij = func_selector[self.as_average]("ij", only_interface)
+            numerator_ji, denominator_ji = func_selector[self.as_average]("ji", only_interface)
+            avg_pae_ij = numerator_ij / denominator_ij if denominator_ij > 0 else np.nan
+            avg_pae_ji = numerator_ji / denominator_ji if denominator_ji > 0 else np.nan
+            if not np.isnan(avg_pae_ij) and not np.isnan(avg_pae_ji):
+                avg_pae = (avg_pae_ij + avg_pae_ji) / 2
+            else:
+                avg_pae = np.nan
+
+        return avg_pae, avg_pae_ij, avg_pae_ji
+
+    # @time_it
+    def get_overall_assessment(self):
         """ Get overall assessment of the rigid body.
+
+        Overall assessment includes the following metrics:
+        - Average pLDDT across all chains in the rigid body
+        - Number of chains in the rigid body
+        - Number of interacting chain pairs in the rigid body
+        - Number of interface residues in the rigid body
+        - Total number of residues in the rigid body
+        - Rigid body coverage (total residues in the rigid body / total residues in the prediction)
+        - Number of contacts formed in the rigid body
+        - Average ipLDDT scores across all chains in the rigid body
+        - Average ipLDDT scores for IDR chains in the rigid body
+        - Average iPAE scores across all interacting chain pairs in the rigid body
+        - Average iPAE (i->j) scores across all interacting chain pairs (if `symmetric_pae` is `False`)
+        - Average iPAE (j->i) scores across all interacting chain pairs (if `symmetric_pae` is `False`)
 
         ## Returns:
 
@@ -1514,145 +1979,39 @@ class RigidBodyAssessment:
         overall_assessment = {}
 
         # Average pLDDT across all chains in the rigid body
-        all_plddt_scores = [
-            plddt
-            for plddt_scores in rb_c_assess.get_per_chain_plddt(
-                only_avg=False,
-                only_interface=False,
-            ).values()
-            for plddt in plddt_scores
-        ]
-        overall_assessment["avg_plddt"] = (
-            np.mean(all_plddt_scores) if all_plddt_scores else np.nan
-        )
+        overall_assessment[OverallAssessment.AVERAGE_PLDDT] = self.avg_plddt
 
         # Number of chains in the rigid body
-        overall_assessment["num_chains"] = len(rb_c_assess.unique_chains)
+        overall_assessment[OverallAssessment.NUMBER_OF_CHAINS] = len(self.rb_c_assess.unique_chains)
 
         # Number of interacting chain pairs in the rigid body
-        overall_assessment["num_interacting_chain_pairs"] = len([
-            pair
-            for pair in rb_cp_assess.chain_pairs
-            if len(rb_cp_assess.chain_pair_interface_res[pair]) > 0
-        ])
+        overall_assessment[OverallAssessment.NUMBER_OF_INTERACTING_CHAIN_PAIRS] = len(self.interacting_chains)
 
         # Number of interface residues in the rigid body
-        per_c_interface = rb_c_assess.get_per_chain_interface_residues(
-            only_count=True
-        )
-        overall_assessment["num_interface_residues"] = sum(
-            per_c_interface.values()
-        )
+        overall_assessment[OverallAssessment.INTERFACE_RESIDUES] = self.rb_c_assess.total_interface_residues
 
         # Total number of residues in the rigid body
-        per_c_total_res = rb_c_assess.get_per_chain_residues(
-            only_count=True
-        )
-        overall_assessment["num_total_residues"] = sum(
-            per_c_total_res.values()
-        )
-        overall_assessment["rb_coverage"] = (
-            overall_assessment["num_total_residues"] /
-            self.lengths_dict[MiscStrEnum.TOTAL]
+        overall_assessment[OverallAssessment.TOTAL_RESIDUES] = self.rb_c_assess.total_residues
+
+        overall_assessment[OverallAssessment.SEQUENCE_COVERAGE] = (
+            overall_assessment[OverallAssessment.TOTAL_RESIDUES] /
+            self.lengths_dict[MiscStrEnum.TOTAL] # total residues in the prediction
         )
 
         # Number of contacts formed in the rigid body
-        overall_assessment["num_contacts"] = sum(
-            rb_cp_assess.chain_pair_contacts.values()
-        )
+        overall_assessment[OverallAssessment.NUMBER_OF_CONTACTS] = sum(self.rb_cp_assess.chain_pair_contacts.values())
 
         # Average ipLDDT scores across all chains in the rigid body
-        global_iplddt_scores = np.array([
-            np.array([iplddt, chain_id])
-            for chain_id, iplddt_scores in rb_c_assess.get_per_chain_plddt(
-                only_avg=False,
-                only_interface=True,
-            ).items()
-            for iplddt in iplddt_scores
-        ])
-        overall_assessment["avg_iplddt"] = (
-            np.mean(global_iplddt_scores[:, 0].astype(float))
-            if global_iplddt_scores.size > 0 else np.nan
-        )
+        overall_assessment[OverallAssessment.AVERAGE_IPLDDT] = self.avg_iplddt
 
         # Average ipLDDT scores for IDR chains in the rigid body
-        if (
-            len(rb_c_assess.idr_chains) == 0 or
-            global_iplddt_scores.size == 0
-        ):
-            overall_assessment["avg_idr_iplddt"] = np.nan
-        else:
-            _idr_chain_mask = np.isin(
-                global_iplddt_scores[:, 1],
-                rb_c_assess.idr_chains
-            )
-            global_idr_iplddt_scores = global_iplddt_scores[
-                _idr_chain_mask, 0
-            ].astype(float)
-            overall_assessment["avg_idr_iplddt"] = (
-                np.mean(global_idr_iplddt_scores)
-                if global_idr_iplddt_scores.size > 0 else np.nan
-            )
+        overall_assessment[OverallAssessment.AVERAGE_IDR_IPLDDT] = self.avg_idr_iplddt
 
-        # Average iPAE scores across all chain pairs in the rigid body
-        attrs_pae = {
-            (True, False, "ij"): rb_cp_assess.get_chain_pair_pae,
-            (False, False, "ij"): rb_cp_assess.chain_pair_ipae_ij,
-            (True, False, "ji"): rb_cp_assess.get_chain_pair_pae,
-            (False, False, "ji"): rb_cp_assess.chain_pair_ipae_ji,
-            (True, True, ""): rb_cp_assess.get_chain_pair_pae,
-            (False, True, ""): rb_cp_assess.chain_pair_ipae,
-        }
+        # Average iPAE scores across all interacting chain pairs in the rigid body
+        avg_ipae, avg_ipae_ij, avg_ipae_ji = self.get_avg_pae(only_interface=True)
+        overall_assessment[OverallAssessment.AVERAGE_IPAE] = avg_ipae
 
-        col_template = "avg_ipae"
-        attr_states_ = {
-            True: [
-                {
-                    "key": (self.as_average, self.symmetric_pae, ""),
-                    "col": "",
-                },
-            ],
-            False: [
-                {
-                    "key": (self.as_average, self.symmetric_pae, "ij"),
-                    "col": "_ij",
-                },
-                {
-                    "key": (self.as_average, self.symmetric_pae, "ji"),
-                    "col": "_ji",
-                }
-            ],
-        }
-
-        attr_states = attr_states_[self.symmetric_pae]
-
-        for attr_dict in attr_states:
-
-            attr_state = attr_dict["key"]
-            col_name = f"{col_template}{attr_dict['col']}"
-            pae_direction = attr_dict['col'].lstrip("_")
-
-            if callable(attrs_pae[attr_state]):
-
-                global_ipae_scores = [
-                    pae
-                    for _cp, pae_lst in attrs_pae[attr_state](
-                        only_avg=False,
-                        only_interface=True,
-                        symmetric=(self.symmetric_pae, pae_direction),
-                    ).items()
-                    for pae in pae_lst
-                ]
-
-            else:
-                global_ipae_scores = [
-                    pae
-                    for _cp, pae_lst in attrs_pae[attr_state].items()
-                    for pae in pae_lst
-                ]
-
-            overall_assessment[col_name] = (
-                np.mean(global_ipae_scores) if global_ipae_scores else np.nan
-            )
-
+        if not self.symmetric_pae:
+            overall_assessment[OverallAssessment.AVERAGE_IPAE_IJ] = avg_ipae_ij
+            overall_assessment[OverallAssessment.AVERAGE_IPAE_JI] = avg_ipae_ji
         return overall_assessment

@@ -714,6 +714,7 @@ class RigidBodies:
         protein_chain_map: Dict[str, str] = {},
         symmetric_pae: bool = True,
         as_average: bool = True,
+        show_interface_residues_only: bool = True,
     ) -> None:
         """ Assess the rigid bodies based on various metrics and save the assessment.
 
@@ -754,13 +755,14 @@ class RigidBodies:
 
             rb_save_path = os.path.join(
                 output_dir,
-                f"{RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)}.{FileFormat.XLSX}"
+                f"{RBCons.rb_assessment_name_template.substitute(rb_idx=rb_idx)}_new.{FileFormat.XLSX}"
             )
 
             rb_assess = RigidBodyAssessment(
                 rb_dict=rb_dict,
-                symmetric_pae=symmetric_pae,
                 as_average=as_average,
+                symmetric_pae=symmetric_pae,
+                show_interface_residues_only=show_interface_residues_only,
                 idr_chains=self.idr_chains,
                 protein_chain_map=protein_chain_map,
                 setup_instance=self,
@@ -768,12 +770,7 @@ class RigidBodies:
 
             # rb_assess.set_attributes_from(instance=self)
             rb_assess.perform_assessment()
-            rb_assess.save_rb_assessment(
-                rb_c_assess=rb_assess.rb_c_assess,
-                rb_cp_assess=rb_assess.rb_cp_assess,
-                overall_assessment=rb_assess.overall_assessment,
-                save_path=rb_save_path,
-            )
+            rb_assess.save_rb_assessment(save_path=rb_save_path)
 
 
 class PAEPatches:

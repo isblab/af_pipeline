@@ -210,6 +210,7 @@ if __name__ == "__main__":
             protein_chain_map=protein_chain_map,
             symmetric_pae=True,
             as_average=True,
+            show_interface_residues_only=True,
         )
 
         rigid_bodies_extractor.show_rigid_bodies_on_pae_matrix(
