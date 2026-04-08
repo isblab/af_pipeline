@@ -83,7 +83,8 @@ def get_conda_environments() -> tuple[dict[str, dict[str, str]], str | None]:
 
 def add_statement_to_bashrc(statement: str):
     with open(BASHRC_PATH, 'r') as f:
-        bashrc_content = f.read()
+        bashrc_content = f.readlines()
+        bashrc_content = [line.strip() for line in bashrc_content if not line.strip().startswith("#")]
         if statement not in bashrc_content:
             # print(f"Adding {statement} to ~/.bashrc...")
             with open(BASHRC_PATH, 'a') as f_append:

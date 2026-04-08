@@ -28,7 +28,7 @@ predictions from AlphaFold2 and AlphaFold3.
   ```
 
 ## Usage
-- Refer to the [documentation](./docs/).
+- Refer to the [documentation](https://isblab.github.io/af_pipeline/).
 - Example scripts are available in the [examples](./examples/) directory.
 
 <!-- 
