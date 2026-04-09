@@ -52,7 +52,15 @@ if __name__ == "__main__":
 
     os.makedirs(docs_path, exist_ok=True)
     subprocess.run(
-        ["python", str(network_viz_path)],
+        [
+            "python", str(network_viz_path),
+            "--analyse_dirs", str(module_path),
+            "--module_dirs", str(module_path / "af_pipeline"),
+            "--module_names", "af_pipeline",
+            "--repository_names", "af_pipeline:af_pipeline",
+            "--repository_organization", "isblab",
+            "--output_path", str(here / "network" / "af_pipeline_network.html"),
+        ],
         check=True
     )
 
