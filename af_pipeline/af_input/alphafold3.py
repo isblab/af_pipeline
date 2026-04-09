@@ -228,6 +228,11 @@ class AlphaFoldServer:
             AFInputJobFields.AF_OFFSET: self.af_offsets,
             AFInputJobFields.MODEL_SEEDS: self.cycle_seeds,
         }
+        add_first = {
+            AFInputJobFields.JOB_SET_NAME: True,
+            AFInputJobFields.AF_OFFSET: False,
+            AFInputJobFields.MODEL_SEEDS: True,
+        }
 
         for field_name, field_value in to_update.items():
             self.config_dict = add_attribute(
@@ -235,7 +240,7 @@ class AlphaFoldServer:
                 attribute_name=field_name,
                 attribute_value=field_value,
                 mode="replace",
-                add_first=True,
+                add_first=add_first.get(field_name, False),
             )
 
         write_json(
