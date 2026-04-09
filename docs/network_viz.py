@@ -3,12 +3,13 @@ import os
 import ast
 import glob
 import json
+import getpass
 import argparse
 import networkx as nx
 from collections import defaultdict
 from pyvis.network import Network
 
-_user = os.getlogin()
+_user = getpass.getuser()
 
 GITHUB_ORGANIZATION = "isblab"
 
