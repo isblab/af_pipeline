@@ -56,10 +56,12 @@ if __name__ == "__main__":
             "python", str(network_viz_path),
             "--analyse_dirs", str(module_path),
             "--module_dirs", str(module_path / "af_pipeline"),
+            "--ignore_submodules", str(module_path / "tests"), str(module_path / "docs"), str(module_path / "examples"),
             "--module_names", "af_pipeline",
             "--repository_names", "af_pipeline:af_pipeline",
             "--repository_organization", "isblab",
             "--output_path", str(here / "network" / "af_pipeline_network.html"),
+            "--template_directory", str(here / "template"),
         ],
         check=True
     )
