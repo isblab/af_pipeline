@@ -342,6 +342,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--ignore_submodules",
+        nargs='*',
+        default=IGNORE_SUBMODULES,
+        help="Subdirectories to ignore when analyzing for Python files.",
+    )
+
+    parser.add_argument(
         "--module_names",
         nargs='*',
         default=["af_pipeline"],
@@ -377,6 +384,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--template_directory",
+        type=str,
+        default=f"/home/{_user}/Projects/af_pipeline/docs/template",
+        help="Directory containing custom templates for graph visualization.",
+    )
+
+    parser.add_argument(
         "--show_physics_button",
         action='store_true',
         default=False,
@@ -389,6 +403,8 @@ if __name__ == "__main__":
     analyse_dirs = args.analyse_dirs
     module_dirs = args.module_dirs
     allowed_modules = args.module_names
+    template_directory = args.template_directory
+    ignore_submodules = args.ignore_submodules
     repo_names = {
         m_: repo_name
         for m_, repo_name in (repo.split(":") for repo in args.repository_names)
@@ -408,7 +424,7 @@ if __name__ == "__main__":
     all_python_files = [(p, f, m) for (p, f, m) in all_python_files]
     all_python_files = [
         (p, f, m) for (p, f, m) in all_python_files
-        if not any(f.startswith(ignore) for ignore in IGNORE_SUBMODULES)
+        if not any(f.startswith(ignore) for ignore in ignore_submodules)
     ]
     only_python_file_names = [f for _, f, _ in all_python_files]
 
@@ -1225,10 +1241,7 @@ if __name__ == "__main__":
         })
 
     net.set_options(json.dumps(options))
-    net.set_template_dir(
-        f"/home/{_user}/Projects/af_pipeline/docs/template",
-        template_file="template_custom.html"
-    )
+    net.set_template_dir(template_directory, template_file="template_custom.html")
 
     # custom javascript to open links in new tab on double click to nodes
     custom_js = """

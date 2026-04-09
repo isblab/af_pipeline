@@ -19,7 +19,7 @@ module_path = here.parent
 print(module_path)
 # module_path = Path(__file__).parent.parent
 docs_path = here / ".." / "docs_"
-network_viz_path = here / ".." / "docs" / "network_viz.py"
+network_viz_path = here / "network_viz.py"
 github_pages_url = "https://isblab.github.io/af_pipeline/"
 
 def get_af_pipeline_version():
