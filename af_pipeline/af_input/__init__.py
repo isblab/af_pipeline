@@ -45,6 +45,27 @@ af_input_jobs:
 
 <hr>
 
+## Usage
+
+- Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples) for sample scripts and
+  config file.
+
+- Use the following command to run the example script:
+  ```
+  python create_af_jobs.py \\
+      -i ./input/config.yaml \\
+      -o ./output/af_input_jobs \\
+      -p ./input/protein_sequences.fasta \\
+      -n ./input/nucleic_acid_sequences.fasta
+  ```
+
+> [!TIP]
+> You can use [`sequence`](https://github.com/isblab/IMP_Toolbox/blob/main/IMP_Toolbox/sequence/sequence.py)
+> module from [`IMP_Toolbox`](https://github.com/isblab/IMP_Toolbox) to get the protein sequences fasta file 
+> from a list of UniProt IDs.
+
+<hr>
+
 ## Organization
 
 - Keep in mind the following structure while using or adding new classes or methods to
@@ -95,84 +116,26 @@ graph LR
 
 <hr>
 
-## Usage
-
-- Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples) for sample scripts and
-  config file.
-
-- Use the following command to run the example script:
-```
-python create_af_jobs.py \\
-    -i ./input/config.yaml \\
-    -o ./output/af_input_jobs \\
-    -p ./input/protein_sequences.fasta \\
-    -n ./input/nucleic_acid_sequences.fasta
-```
-
-> [!TIP]
-> You can use `FetchSequences` class from `IMP_Toolbox` to get the protein
-sequences fasta file from a list of UniProt IDs.
-
-<hr>
-
 ## Workflows
 
-- Workflow for creating AlphaFold3 job `JSON` files:
+- Workflow for creating AlphaFold3 job `JSON` files or AlphaFold2/ColabFold job `FASTA` files:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant User
-    participant FetchSequences
-    participant AlphaFold3
 
-    rect rgb(210, 250, 200)
-    User->>FetchSequences: uniprot_ids
-    User->>FetchSequences: query_uniprot_for_sequences()
-    FetchSequences->>User: protein_sequences (fasta format)
-    end
-
-    rect rgb(240, 255, 255)
-    note over User, AlphaFold3: Create AlphaFold3 instance.
-    User->>AlphaFold3: config_dict
-    User->>AlphaFold3: protein_sequences (dict)
-    note over User, AlphaFold3: The following parameters are optional.
-    User->>AlphaFold3: nucleic_acid_sequences (dict)
-    end
-
-    rect rgb(245, 255, 200)
-    note over User, AlphaFold3: Create AlphaFold3 job cycles.
-    User->>output(.json): create_af3_job_cycles() & write_job_files()
-    end
+graph TD
+  A([config.yaml]) --> B[/config_dict/]
+  C([protein_sequences.fasta]) --> D[/protein_sequences/]
+  E([nucleotide_sequences.fasta]) --> F[/nucleic_acid_sequences/]
+  B --> G[AlphaFoldServer instance]
+  click G "af_input/alphafold3.html#AlphaFoldServer" "AlphaFoldServer" _blank
+  D --> G
+  F -- optional --> G
+  G --> H[create_af3_job_cycles / create_af2_job_cycles / create_colabfold_job_cycles]
+  click H "af_input/alphafold3.html#AlphaFoldServer.create_af3_job_cycles" "create_af3_job_cycles" _blank
+  H --> I[write_job_files]
+  click I "af_input/alphafold3.html#AlphaFoldServer.write_job_files" "write_job_files" _blank
+  I --> J([JSON files for AF3 jobs or FASTA files for AF2/ColabFold jobs])
 ```
-
-- Workflow for creating AlphaFold2/ColabFold job `FASTA` files:
-```mermaid
-sequenceDiagram
-    autonumber
-    participant User
-    participant FetchSequences
-    participant AlphaFold2/ColabFold
-
-    rect rgb(210, 250, 200)
-    User->>FetchSequences: uniprot_ids
-    User->>FetchSequences: query_uniprot_for_sequences()
-    FetchSequences->>User: protein_sequences (fasta format)
-    end
-
-    rect rgb(240, 255, 255)
-    note over User, AlphaFold2/ColabFold: Create AlphaFold2/ColabFold instance.
-    User->>AlphaFold2/ColabFold: config_dict
-    User->>AlphaFold2/ColabFold: protein_sequences (dict)
-    end
-
-    rect rgb(245, 255, 200)
-    note over User, AlphaFold2/ColabFold: Create AlphaFold2/ColabFold job cycles.
-    User->>output(.fasta): create_af2_job_cycles() / create_colabfold_job_cycles() & write_job_cycles()
-    end
-```
-
-- You can customize the above workflows as per the requirements.
 
 <hr>
 

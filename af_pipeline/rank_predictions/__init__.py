@@ -41,6 +41,29 @@ master_directory
 
 [^af3]: Abramson, J. et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. Nature 630, 493–500 (2024). (https://alphafoldserver.com/)
 
+## Organization
+
+The rank_predictions module is organized into the following submodules:
+- **rank_af**: Contains the `RankAF3JobSet` class, which is repsonsible for ranking
+  the AlphaFold3 predictions for a given job set and selecting the best model based
+  on the above-mentioned metrics.
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    class RankAF3JobSet {
+        + str job_set_dir
+        + str job_set_name
+        + str job_cycle_name
+        + int job_set_id
+        + bool try_af_offset_from_path
+    }
+```
+
 ## Prerequisites
 
 - **af_input_jobs.json**: obtained by running [`create_af_jobs.py`](https://github.com/isblab/af_pipeline/tree/main/examples/create_af_jobs.py).
@@ -67,18 +90,18 @@ python rank_af_predictions.py \\
 - Workflow to rank AF3 predictions:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant User
-    participant RankAF3JobSet
 
-    rect rgb(210, 250, 200)
-    User->>RankAF3JobSet: job_set_dir
-    User->>RankAF3JobSet: add_job_set_id()
-    create participant best_pred_info
-    User->>best_pred_info: extract_af3_best_pred_data()
-    best_pred_info->>best_predictions.json: write_json()
-    end
+graph TD
+  A[pred_dir] --> B[get_job_set_dirs]
+  B[get_job_set_dirs] --> C[/job_set_dirs/]
+  C -- for each --> D[RankAF3JobSet instance]
+  click D "rank_predictions/rank_af.html#RankAF3JobSet" "RankAF3JobSet" _blank
+  D --> E[add_job_set_id]
+  click E "rank_predictions/rank_af.html#RankAF3JobSet.add_job_set_id" "add_job_set_id" _blank
+  E --> F[extract_af3_best_pred_data]
+  click F "rank_predictions/rank_af.html#RankAF3JobSet.extract_af3_best_pred_data" "extract_af3_best_pred_data" _blank
+  F -- update --> G[/best_predictions/]
+  G --> I([best_af_predictions.json])
 
 ```
 

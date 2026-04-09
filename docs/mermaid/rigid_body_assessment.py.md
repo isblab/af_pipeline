@@ -5,46 +5,54 @@ title: rigid_body_assessment.py
 classDiagram
     class RigidBodyAssessment {
         + Dict[str, List[Tuple[str, int]]] rb_dict
+        + bool as_average
+        + bool symmetric_pae
+        + bool show_interface_residues_only
         + Dict[str, Dict[int, Dict[str, int]]] num_to_idx
         + Dict[int, Dict[str, str | int]] idx_to_num
         + np.ndarray contact_map
         + np.ndarray plddt_list
         + np.ndarray pae
         + Dict[str, int] lengths_dict
-        + bool symmetric_pae
-        + bool as_average
         + List[str] idr_chains
         + Dict[str, str] protein_chain_map
-        + List[str] unique_chains
         + List[Tuple[str, str]] chain_pairs
-        + np.ndarray rb_mask
         + dict overall_assessment
         + str save_path
-        - \_\_init__(self, rb_dict, as_average, symmetric_pae, **kwargs) None
+        - \_\_init__(self, rb_dict, as_average, symmetric_pae, show_interface_residues_only, **kwargs) None
         + check_is_set_up(self)
-        + perform_assessment(self)
         + set_attributes_from(self, instance)
-        + save_rb_assessment(self, rb_c_assess, rb_cp_assess, overall_assessment, save_path)
-        + get_overall_assessment(self, rb_c_assess, rb_cp_assess)
+        + perform_assessment(self)
+        + save_rb_assessment(self, save_path)
+        + get_average_plddt(self, only_idr, only_interface) float
+        + get_interacting_chains(self) List[Tuple[str, str]]
+        + get_avg_pae(self, only_interface) Tuple[float, float | None, float | None]
+        + get_overall_assessment(self)
     }
 
     class RigidBodyChainAssessment {
         + bool as_average
+        + bool show_interface_residues_only
         + List[str] unique_chains
         + Dict[int, Dict[str, int]] idx_to_num
-        + np.ndarray chain_mask_stack_1d
-        + np.ndarray rb_mask_1d
-        + np.ndarray contact_map_mask_1d
+        - np.ndarray \_chain_mask_stack_1d
+        - np.ndarray \_rb_mask_1d
+        - np.ndarray \_contact_map_mask_1d
         + np.ndarray plddt_list
         + List[str] idr_chains
         + Dict[str, str] protein_chain_map
         + Dict[str, list | float] per_chain_plddt
         + Dict[str, list | float] per_chain_iplddt
-        + Dict[str, List[int] | int] per_chain_interface_res
-        - \_\_init__(self, _mask, as_average) None
+        + Dict[str, List[int] | int] per_chain_residues
+        + Dict[str, List[int] | int] per_chain_interface_residues
+        + int total_residues
+        + int total_interface_residues
+        + int total_idr_residues
+        + int total_interface_idr_residues
+        - \_\_init__(self, _mask, as_average, show_interface_residues_only) None
         + get_per_chain_plddt(self, only_avg, only_interface) Dict[str, float | List[float]]
-        + get_per_chain_interface_residues(self, only_count) Dict[str, int | List[int]]
-        + get_per_chain_residues(self, only_count) Dict[str, int | List[int]]
+        + get_per_chain_residues(self, only_count, only_interface) Dict[str, int | List[int]]
+        + get_total_residue_count(self, only_interface, only_idr) int
         + get_chain_attr(self, chain_id, attr_name) float | str | int
         + get_res_attr(self, chain_id, res_idx, attr_name) float | str | int
         + get_chain_assessment(self) pd.DataFrame
@@ -52,24 +60,21 @@ classDiagram
 
     class RigidBodyChainPairAssessment {
         + bool as_average
+        + bool show_interface_residues_only
         + List[str] unique_chains
         + List[Tuple[str, str]] chain_pairs
         + Dict[int, Dict[str, int]] idx_to_num
         + bool symmetric_pae
-        + np.ndarray chain_mask_stack_1d
-        + np.ndarray chain_mask_stack_2d
-        + np.ndarray chain_pair_mask_stack_1d
-        + np.ndarray chain_pair_mask_stack_2d
-        + np.ndarray rb_mask_1d
-        + np.ndarray rb_mask_2d
-        + np.ndarray contact_map_mask_1d
-        + np.ndarray contact_map_mask_2d
+        - np.ndarray \_chain_mask_stack_1d
+        - np.ndarray \_chain_pair_mask_stack_2d
+        - np.ndarray \_rb_mask_2d
+        - np.ndarray \_contact_map_mask_2d
         + np.ndarray plddt_list
         + np.ndarray pae
         + np.ndarray avg_pae
         + List[str] idr_chains
         + Dict[str, str] protein_chain_map
-        + Dict[Tuple[str, str], List[int] | int] chain_pair_interface_res
+        + Dict[Tuple[str, str], List[int] | int] chain_pair_interface_residues
         + Dict[Tuple[str, str], List[int] | int] chain_pair_contacts
         + Dict[Tuple[str, str], List[float] | float] chain_pair_iplddt
         + Dict[Tuple[str, str], List[float] | float] chain_pair_pae
@@ -78,10 +83,12 @@ classDiagram
         + Dict[Tuple[str, str], List[float] | float] chain_pair_pae_ji
         + Dict[Tuple[str, str], List[float] | float] chain_pair_ipae_ij
         + Dict[Tuple[str, str], List[float] | float] chain_pair_ipae_ji
-        - \_\_init__(self, _mask, as_average) None
+        + Dict[Tuple[str, str], List[int] | int] chain_pair_residues
+        + Dict[Tuple[str, str], int] chain_pair_residue_counts
+        - \_\_init__(self, _mask, as_average, show_interface_residues_only) None
         + get_chain_pair_attr(self, chain_pair, attr_name)
         + get_res_pair_attr(self, chain_pair, res_pair, attr_name)
-        + get_chain_pair_interface(self, per_chain, only_count) Dict[Tuple[str, str], List[int] | int | Tuple[int, int]]
+        + get_chain_pair_residues(self, per_chain, only_interface, only_count) Dict[Tuple[str, str], List[int] | int | Tuple[int, int]]
         + get_chain_pair_plddt(self, only_avg, only_interface)
         + get_chain_pair_pae(self, only_avg, only_interface, symmetric)
         + get_chain_pair_assessment(self)

@@ -8,6 +8,25 @@
 interactions between residue-pairs from AlphaFold predictions based on the
 assessment metrics provided by AlphaFold: PAE and pLDDT.
 
+<hr>
+
+## Usage
+
+- Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples)
+  for sample scripts and config file.
+
+- Use the following command to run the example script for extracting interacting patches:
+  ```
+  python extract_interacting_patches.py \\
+      --i ./input/best_af_predictions.json \\
+      --o ./output/interacting_patches \\
+      --interaction_pae_cutoff 5.0 \\
+      --plddt_cutoff 70.0 \\
+      --contact_threshold 8.0
+  ```
+
+<hr>
+
 ## Organization
 
 The module is organized into the following submodules:
@@ -30,16 +49,6 @@ classDiagram
         + Optional[list] idr_chains
         + Optional[bool] save_plot
         + Optional[bool] save_table
-        - \_\_init__(self, contact_threshold, plddt_cutoff, pae_cutoff, **kwargs) None
-        + check_is_set_up(self)
-        + set_attributes_from(self, instance)
-        + @staticmethod get_contact_map(coords1, coords2, contact_threshold) np.ndarray$
-        + create_regions_of_interest(self) list
-        + get_interaction_data(self, region_of_interest) tuple
-        + apply_confidence_cutoffs(self, plddt1, plddt2, avg_pae) tuple
-        + get_confident_interaction_map(self, region_of_interest) np.ndarray
-        + get_interacting_patches(self, contact_map, region_of_interest) dict
-        + save_ppair_interaction(self, region_of_interest, output_dir, save_plot, plot_type, p1_name, p2_name, concat_residues, contact_probability)
     }
 
     link Interaction "interaction/interaction.html#Interaction" "link to Interaction class documentation"
@@ -50,20 +59,7 @@ classDiagram
 
 ```
 
-## Usage
-
-- Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples) for sample scripts and
-  config file.
-
-- Use the following command to run the example script for extracting interacting patches:
-```
-python extract_interacting_patches.py \\
-    --i ./input/best_af_predictions.json \\
-    --o ./output/interacting_patches \\
-    --interaction_pae_cutoff 5.0 \\
-    --plddt_cutoff 70.0 \\
-    --contact_threshold 8.0
-```
+<hr>
 
 ## Prerequisites
 
@@ -73,28 +69,24 @@ python extract_interacting_patches.py \\
 - **Structure predictions**: obtained by running the prediction jobs on AlphaFold server
   or AlphaFold2 or ColabFold.
 
+<hr>
+
 ## Workflows
 
 - Workflow for extracting interacting patches from AF predictions:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant User
-    participant Initialize
-    participant Interaction
 
-    rect rgb(210, 250, 200)
-    note over User, Interaction: Set up Interaction instance.
-    User->>Initialize:
-    User->>Interaction: parameters & instance of Initialize
-    end
-
-    rect rgb(240, 255, 255)
-    note over User, Interaction: Extract and save interacting patches.
-    User->>Interaction: create_regions_of_interest()
-    User->>Interaction: save_ppair_interaction()
-    end
+graph TD
+  A([data_file_path]) --> D[Initialize instance]
+  click D "parser/initialize.html#Initialize" "Initialize" _blank
+  B([structure_file_path]) --> D
+  D --> E[Interaction instance]
+  click E "interaction/interaction.html#Interaction" "Interaction" _blank
+  E --> F[create_regions_of_interest] --> G[/regions_of_interest/]
+  click F "interaction/interaction.html#Interaction.create_regions_of_interest" "create_regions_of_interest" _blank
+  E --> H[save_ppair_interaction]
+  G --> H
 ```
 
 """

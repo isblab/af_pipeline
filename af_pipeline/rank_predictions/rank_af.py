@@ -1,5 +1,5 @@
 """
-Rank AlphaFold Predictions
+[rank_af](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/rank_predictions/rank_af)
 ===================================
 - Rank AlphaFold predictions based on various metrics and select the best model for each job set.
 """

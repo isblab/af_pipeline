@@ -1,4 +1,8 @@
-# some constants
+"""
+[af_constants](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/constants/af_constants.py)
+===================================
+
+"""
 
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.MMCIFParser import FastMMCIFParser

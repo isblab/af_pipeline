@@ -4,6 +4,8 @@
 
 <img src="./docs/assets/af_pipeline_logo.png" alt="af_pipeline_logo" width="100%">
 
+<hr>
+
 ## Installation
 
 - Clone the repository
@@ -22,11 +24,13 @@
   python setup.py
   ```
 
+<hr>
+
 ## Overview
 
 [AF-Pipeline](https://isblab.github.io/af_pipeline/) is a package to assist in
-AlphaFold2 and AlphaFold3 related tasks. These include:
-- Creating input files for prediction (for AlphaFold server or AlphaFold2 or Colabfold)
+AlphaFold2[^af2] and AlphaFold3[^af3] related tasks. These include:
+- Creating input files for prediction (for AlphaFold server[^afserver] or AlphaFold2[^af2] or Colabfold[^colabfold])
 - Ranking the predictions based on confidence metrics
 - Extracting confidently predicted regions from the predictions
 - Extracting interacting regions from the predictions
@@ -38,9 +42,58 @@ See also:
 - [Contributing](contributing.md)
 - [Documentation](https://isblab.github.io/af_pipeline/)
 
+<hr>
+
 ## Usage
 
-- Example scripts are available in the [examples](./examples/) directory.
+- Refer to the scripts available in the [examples](./examples/) directory.
+
+- Create `JSON` job files for AlphaFold server [^afserver].
+  ```bash
+  python create_af_jobs.py \\
+      -i ./input/config.yaml \\
+      -o ./output/af_input_jobs \\
+      -p ./input/protein_sequences.fasta \\
+      -n ./input/nucleic_acid_sequences.fasta
+  ```
+
+- Upload the `JSON` files to AlphaFold server [^afserver] and download and extract the results.
+
+- Rank the output predictions.
+  ```bash
+  python rank_af_predictions.py \\
+      -i ./output/af_input_jobs.json \\
+      -o ./output \\
+      --pred_dirs ./input/AF_predictions/AF3
+  ```
+
+- Extract interacting patches from the predictions.
+  ```bash
+  python extract_interacting_patches.py \\
+      --i ./input/best_af_predictions.json \\
+      --o ./output/interacting_patches \\
+      --interaction_pae_cutoff 5.0 \\
+      --plddt_cutoff 70.0 \\
+      --contact_threshold 8.0
+  ```
+
+- Extract confidently predicted regions from the predictions.
+  ```bash
+  python extract_rigid_bodies.py \\
+      -i ./input/best_af_predictions.json \\
+      -o ./output/rigid_bodies \\
+      --apply_plddt_filter True
+  ```
+
+[^afserver]: AlphaFold Server. alphafoldserver.com. Available at: https://alphafoldserver.com/.
+
+[^af3]: Abramson, J. et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. Nature 630, 493–500 (2024). (https://alphafoldserver.com/)
+
+[^af2]: Jumper, J. et al. Highly Accurate Protein Structure Prediction with Alphafold. Nature 596, 583–589 (2021).
+
+[^colabfold]: Mirdita, M. et al. ColabFold: making protein folding accessible to all. Nature Methods 19, 679–682 (2022). (https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb)
+
+<hr>
 
 ## Workflow
 
@@ -74,6 +127,8 @@ graph TD
     class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 animate
 
 ```
+
+<hr>
 
 ## Additional Information
 
