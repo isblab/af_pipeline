@@ -86,8 +86,8 @@ if __name__ == "__main__":
         edit_url_map={
             "af_pipeline": "https://github.com/isblab/af_pipeline/blob/main/af_pipeline/",
         },
-        favicon="./assets/af_pipeline_favicon.svg",
-        logo="./assets/af_pipeline_logo.svg",
+        favicon = str(here / "assets" / "af_pipeline_favicon.svg"),
+        logo=str(here / "assets" / "af_pipeline_logo.svg"),
         logo_link=github_pages_url,
         footer_text=f"af_pipeline v{get_af_pipeline_version()}",
         mermaid=True,

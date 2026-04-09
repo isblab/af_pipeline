@@ -1,4 +1,5 @@
 docs/network/af_pipeline_network.html
+tests/badges/*
 docs_/*
 config_setup.json
 tests/test_data/af_predictions/af2/result_model_1_multimer_v3_pred_3.pkl

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## Unreleased
+## [1.0.1] - 2026/04/09
 
 ### Added
 
@@ -10,12 +10,12 @@ All notable changes to this project will be documented here.
 
 ### Updated
 
+- Added usage on home page.
 - Network diagram is only shown for the entire AF-Pipeline at once and not separately for the submodules.
 
 ### Fixed
 
 - Bug fixes in `rigid_body_assessment.py`.
-- Documentation link in the readme.
 
 ## [1.0.0] - 2026/04/07
 
