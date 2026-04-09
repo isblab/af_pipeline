@@ -13,13 +13,17 @@ from jinja2 import FileSystemLoader
 from pdoc.render_helpers import minify_css
 import pdoc.render
 
-module_path = Path(__file__).parent.parent
-docs_path = module_path / "docs_"
-network_viz_path = module_path / "docs" / "network_viz.py"
+here = Path(__file__).parent
+print(here)
+module_path = here.parent
+print(module_path)
+# module_path = Path(__file__).parent.parent
+docs_path = here / ".." / "docs_"
+network_viz_path = here / ".." / "docs" / "network_viz.py"
 github_pages_url = "https://isblab.github.io/af_pipeline/"
 
 def get_af_pipeline_version():
-    changelog = (module_path / "changelog.md").read_text("utf8")
+    changelog = (here / ".." / "changelog.md").read_text("utf8")
     # e.g. ## [1.0.0] - 2026/04/06
     version_regex = r"## \[(\d+\.\d+\.\d+)\]"
     for line in changelog.splitlines():
@@ -56,7 +60,7 @@ if __name__ == "__main__":
     pdoc_path = Path(spec.origin).parent
 
     env = Environment(
-        loader=FileSystemLoader([module_path, pdoc_path / "templates", pdoc_path / "templates" / "default"]),
+        loader=FileSystemLoader([pdoc_path / "templates", pdoc_path / "templates" / "default"]),
         autoescape=True,
     )
     env.filters['minify_css'] = minify_css
@@ -80,7 +84,7 @@ if __name__ == "__main__":
         math=True,
         search=True,
         show_source = True,
-        template_directory = module_path / "docs" / "template",
+        template_directory = here / "template",
     )
 
     pdoc.pdoc(
