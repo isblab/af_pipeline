@@ -1137,8 +1137,8 @@ class RigidBodyChainPairAssessment:
             ),
 
             ChainPairAssessment.CHAIN_TYPE: (
-                ChainType.IDR if chain1 in self.idr_chains else ChainType.R,
-                ChainType.IDR if chain2 in self.idr_chains else ChainType.R,
+                ChainType.IDR.value if chain1 in self.idr_chains else ChainType.R.value,
+                ChainType.IDR.value if chain2 in self.idr_chains else ChainType.R.value,
             ),
 
             ChainPairAssessment.INTERFACE_RESIDUES: self.chain_pair_interface_residues[chain_pair],
