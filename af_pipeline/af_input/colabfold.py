@@ -24,9 +24,7 @@ class ColabFold(AlphaFold2):
             protein_sequences=protein_sequences,
         )
 
-    def create_colabfold_job_cycles(
-        self,
-    ) -> Dict[str, List[Tuple[Dict[str, str], str]]]:
+    def create_colabfold_job_cycles(self) -> None:
         """Create job cycles for ColabFold
 
         Convert the input information into the format required by

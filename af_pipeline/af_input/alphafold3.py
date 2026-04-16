@@ -111,7 +111,7 @@ class AlphaFoldServer:
         self.nucleic_acid_sequences = nucleic_acid_sequences
         self.set_seed = set_seed
 
-    def create_af3_job_cycles(self) -> Dict[str, List[Dict[str, Any]]]:
+    def create_af3_job_cycles(self) -> None:
         """Create job cycles for AlphaFold server.
 
         Convert the input information into the dictionary format required by
@@ -245,7 +245,10 @@ class AlphaFoldServer:
 
         write_json(
             file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
-            data=self.config_dict,
+            data={
+                ConfigYaml.PROTEIN_UNIPROT_MAP: self.config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {}),
+                ConfigYaml.AF_INPUT_JOBS: self.config_dict.get(ConfigYaml.AF_INPUT_JOBS, {}),
+            },
         )
 
 

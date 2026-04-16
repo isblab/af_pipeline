@@ -60,9 +60,7 @@ class AlphaFold2:
         self.input_dict = config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
         self.protein_sequences = protein_sequences
 
-    def create_af2_job_cycles(
-        self
-    ) -> Dict[str, List[Tuple[Dict[str, str], str]]]:
+    def create_af2_job_cycles(self) -> None:
         """Create job cycles for AlphaFold2.
 
         Convert the input information into the format required by
