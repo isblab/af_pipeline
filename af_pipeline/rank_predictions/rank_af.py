@@ -74,6 +74,48 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     return job_set_dirs
 
+class RankAF2JobSet:
+    """ Class to rank AF2 predictions for a given job set directory """
+
+    def __init__(
+        self,
+        job_set_dir:str,
+        job_set_id: int = -1,
+        af_input_jobs: list| None = None,
+        soft_match: bool = False,
+        **kwargs,
+    ):
+        self.job_set_dir = os.path.abspath(job_set_dir)
+        self.job_set_id = job_set_id
+        self.af_input_jobs = af_input_jobs
+        self.data_format = kwargs.get("data_format", "json")
+
+    def extract_af2_best_pred_data(self) -> list:
+
+        best_pred_info = {}
+
+        ranking_debug_json = os.path.join(self.job_set_dir, "ranking_debug.json")
+        ranking_debug = read_json(ranking_debug_json)
+        order = ranking_debug.get("order", [])
+        # scores = ranking_debug.get("iptm+ptm", [])
+
+        structure_path = os.path.join(self.job_set_dir, f"relaxed_{order[0]}.pdb")
+        if not os.path.exists(structure_path):
+            structure_path = os.path.join(self.job_set_dir, f"unrelaxed_{order[0]}.pdb")
+
+        data_path = os.path.join(self.job_set_dir, f"result_{order[0]}.{self.data_format}")
+
+        key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
+
+        best_pred_info[key] = {
+            BestPredictionFields.STRUCTURE_PATH: structure_path,
+            BestPredictionFields.DATA_PATH: data_path,
+            # BestPredictionFields.AF_OFFSET: af_offset,
+            # BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
+        }
+
+        return best_pred_info
+
 class RankAF3JobSet:
     """ Class to rank AF3 predictions for a given job set directory """
 
