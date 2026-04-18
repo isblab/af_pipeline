@@ -32,7 +32,7 @@
 AlphaFold2[^af2] and AlphaFold3[^af3] related tasks. These include:
 - Creating input files for prediction (for AlphaFold server[^afserver] or AlphaFold2[^af2] or Colabfold[^colabfold])
 - Ranking the predictions based on confidence metrics
-- Extracting confidently predicted regions from the predictions
+- Extracting confidently predicted regions from the predictions (based on [pae_to_domains](https://github.com/tristanic/pae_to_domains)[^pae_to_domains] package by Tristan Croll)
 - Extracting interacting regions from the predictions
 
 The workflow for the entire pipeline can be viewed [here](#workflow).
@@ -92,6 +92,8 @@ See also:
 [^af2]: Jumper, J. et al. Highly Accurate Protein Structure Prediction with Alphafold. Nature 596, 583–589 (2021).
 
 [^colabfold]: Mirdita, M. et al. ColabFold: making protein folding accessible to all. Nature Methods 19, 679–682 (2022). (https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb)
+
+[^pae_to_domains]: pae_to_domains: Graph-based community clustering approach to extract protein domains from a predicted aligned error matrix. Tristan Croll (https://github.com/tristanic/pae_to_domains)
 
 <hr>
 
