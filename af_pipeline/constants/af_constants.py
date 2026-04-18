@@ -365,6 +365,7 @@ class BestPredictionFields(StrEnum):
     STRUCTURE_PATH = auto()
     DATA_PATH = auto()
     AF_OFFSET = auto()
+    ENTITY_CHAIN_MAP = auto()
 
 class AF3Metrics(StrEnum):
     """ Metrics for assessing the confidence of AlphaFold 3 predictions."""
