@@ -8,7 +8,6 @@
 
 ```mermaid
 graph LR
-    job_cycle -->|contains| job_set
     job_set -->|contains| job
     job -->|contains| entity
 ```
@@ -30,15 +29,15 @@ from typing import List, Dict, Any, Tuple
 
 from af_pipeline.utils.file_utils import write_json
 from af_pipeline.utils.misc_utils import (
-    add_attribute,
     chain_id_gen,
     generate_seeds
 )
 from af_pipeline.constants.af_constants import (
-    PTM, DNA_MOD, RES_RANGE_SEP, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
+    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
     MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE,
     ConfigYaml, MiscStrEnum, NucleicAcidStrand
 )
+from af_pipeline.constants import af_constants
 from af_pipeline.constants.af_constants import (
     NucleicAcidModificationFields,
     ProteinModificationFields,
@@ -50,19 +49,11 @@ from af_pipeline.constants.af_constants import (
     FileFormat,
 )
 
-
 class AlphaFoldServer:
     """Class to help create JSON files for AlphaFold server jobs."""
 
     input_dict: Dict[str, List[Dict[str, Any]]]
-    """Dictionary with:<br />
-
-    - `key` -> `job_cycle_id` <br />
-      Unique string identifier for the job cycle.<br />
-
-    - `val` -> `job_sets_list` <br />
-      List of `AFJobSet.job_set_info`s, each of which specifies
-      the entities, model seeds, job name, etc."""
+    """List of job sets, each of which specifies the entities, model seeds, job name, etc."""
 
     protein_sequences: Dict[str, str] | None
     """Dictionary with:<br />
@@ -105,43 +96,91 @@ class AlphaFoldServer:
     ):
 
         self.config_dict = config_dict
-        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {})
-        self.input_dict = config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
+        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {}).copy()
+        self.input_job_sets = config_dict.get(ConfigYaml.AF_INPUT_JOBS, []).copy()
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
         self.set_seed = set_seed
 
-    def create_af3_job_cycles(self) -> None:
-        """Create job cycles for AlphaFold server.
+    def write_job_files(
+        self,
+        output_dir: str,
+        num_jobs_per_file: int = 20,
+    ) -> None:
+        """Convert the input information into the dictionary format required by
+        the AlphaFold server and write job files to the output directory.
 
-        Convert the input information into the dictionary format required by
-        the AlphaFold server.
+        For each set in `input_job_sets`, split the jobs into `sets_of_n_jobs`
+        (depending on `num_jobs_per_file`) and write `JSON` files in
+        set-specific directory.
+
+        The files are stored as:\n
+            {output_dir}/{job_set_id}/{job_set_id}_set_{i}.json
+        where, `i` denotes the index.
+
+        There is a upper limit of 100 jobs per `JSON` file imposed by
+        AlphaFold server.
 
         <a href="https://github.com/google-deepmind/alphafold/blob/main/server/example.json">
         Check example JSON file.</a>
+
+        Arguments:
+
+        - **output_dir (str)**:<br />
+            Directory to save the `JSON` files.
+
+        - **num_jobs_per_file (int, optional)**:<br />
+            Number of jobs per file.
         """
 
-        self.job_cycles = {}
-        self.job_set_names = {}
-        self.af_offsets = {}
-        self.cycle_seeds = {}
+        assert JOB_LIMIT_PER_JSON + 1 > num_jobs_per_file > 0; (
+            "Number of jobs per file must be within 1 and 100"
+        )
 
-        for job_cycle_id, job_sets_list in self.input_dict.items():
-
-            print("Creating job cycle", job_cycle_id, "\n")
-
-            af_cycle = AFCycle(
-                job_sets_list=job_sets_list,
+        for job_set_idx, job_set_info in enumerate(self.input_job_sets):
+            job_set = AFJobSet(
+                job_set_info=job_set_info,
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
                 set_seed=self.set_seed,
             )
-            af_cycle.update_cycle()
-            self.job_cycles[job_cycle_id] = af_cycle.job_list
-            self.job_set_names[job_cycle_id] = af_cycle.job_set_names
-            self.af_offsets[job_cycle_id] = af_cycle.job_set_af_offsets
-            self.cycle_seeds[job_cycle_id] = af_cycle.cycle_seeds
+            job_set_dict = job_set.create_job_set()
+            job_list = self.seed_jobs(job_set_dict=job_set_dict)
+
+            sets_of_n_jobs = [
+                job_list[i:i + num_jobs_per_file]
+                for i in range(0, len(job_list), num_jobs_per_file)
+            ]
+            os.makedirs(output_dir, exist_ok=True)
+
+            AlphaFoldServer.write_to_json(
+                sets_of_n_jobs=sets_of_n_jobs,
+                file_name=job_set.job_set_name,
+                output_dir=os.path.join(output_dir, job_set.job_set_name),
+            )
+
+            self.input_job_sets[job_set_idx] = {
+                AFInputJobFields.JOB_SET_NAME: job_set.job_set_name,
+                AFInputJobFields.MODEL_SEEDS: job_set.model_seeds,
+                **{
+                    k:v for k,v in self.input_job_sets[job_set_idx].items()
+                    if k not in [
+                        AFInputJobFields.JOB_SET_NAME,
+                        AFInputJobFields.MODEL_SEEDS,
+                        AFInputJobFields.AF_OFFSET,
+                    ]
+                },
+                AFInputJobFields.AF_OFFSET: job_set.job_set_af_offset,
+            }
+
+            write_json(
+                file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
+                data={
+                    ConfigYaml.PROTEIN_UNIPROT_MAP: self.entities_map,
+                    ConfigYaml.AF_INPUT_JOBS: self.input_job_sets,
+                },
+            )
 
     @staticmethod
     def write_to_json(
@@ -178,179 +217,6 @@ class AlphaFoldServer:
 
             print(f"{len(job)} jobs written for {f_name}")
 
-    def write_job_files(
-        self,
-        output_dir: str,
-        num_jobs_per_file: int = 20,
-    ):
-        """Write job files to the output directory in `JSON` format.
-
-        For each cycle in `job_cycles`, split the jobs into `sets_of_n_jobs`
-        (depending on `num_jobs_per_file`) and write `JSON` files in
-        cycle-specific directory.
-
-        The files are stored as:\n
-            {output_dir}/{job_cycle_id}/{job_cycle_id}_set_{i}.json
-        where, `i` denotes the index.
-
-        There is a upper limit of 100 jobs per `JSON` file imposed by
-        AlphaFold server.
-
-        Arguments:
-
-        - **output_dir (str)**:<br />
-            Directory to save the `JSON` files.
-
-        - **num_jobs_per_file (int, optional)**:<br />
-            Number of jobs per file.
-        """
-
-        assert JOB_LIMIT_PER_JSON + 1 > num_jobs_per_file > 0; (
-            "Number of jobs per file must be within 1 and 100"
-        )
-
-        for job_cycle_id, job_list in self.job_cycles.items():
-
-            sets_of_n_jobs = [
-                job_list[i : i + num_jobs_per_file]
-                for i in range(0, len(job_list), num_jobs_per_file)
-            ]
-            os.makedirs(output_dir, exist_ok=True)
-
-            AlphaFoldServer.write_to_json(
-                sets_of_n_jobs=sets_of_n_jobs,
-                file_name=job_cycle_id,
-                output_dir=os.path.join(output_dir, job_cycle_id),
-            )
-
-        to_update = {
-            AFInputJobFields.JOB_SET_NAME: self.job_set_names,
-            AFInputJobFields.AF_OFFSET: self.af_offsets,
-            AFInputJobFields.MODEL_SEEDS: self.cycle_seeds,
-        }
-        add_first = {
-            AFInputJobFields.JOB_SET_NAME: True,
-            AFInputJobFields.AF_OFFSET: False,
-            AFInputJobFields.MODEL_SEEDS: True,
-        }
-
-        for field_name, field_value in to_update.items():
-            self.config_dict = add_attribute(
-                config_yaml=self.config_dict,
-                attribute_name=field_name,
-                attribute_value=field_value,
-                mode="replace",
-                add_first=add_first.get(field_name, False),
-            )
-
-        write_json(
-            file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
-            data={
-                ConfigYaml.PROTEIN_UNIPROT_MAP: self.config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {}),
-                ConfigYaml.AF_INPUT_JOBS: self.config_dict.get(ConfigYaml.AF_INPUT_JOBS, {}),
-            },
-        )
-
-
-class AFCycle:
-    """ AlphaFold job cycle constructor"""
-
-    job_sets_list: List[Dict[str, Any]]
-    """List of dictionaries containing job information for each job set.<br />
-    Each job set can correspond to multiple jobs based on `model_seeds`.<br />
-    All jobs corresponding to a job set are same except for the model seed."""
-
-    protein_sequences: Dict[str, str] | None
-    """Dictionary with:<br />
-
-    - `key` -> `identifier` <br />
-       Usually `uniprot_id` in case of `proteinChain` entities.<br />
-       `identifier != entity_name` necessitates `entities_map`.<br />
-
-    - `val` -> `sequence` <br />
-      Amino acid sequence of the protein chain.
-    """
-
-    nucleic_acid_sequences: Dict[str, str] | None
-    """Dictionary with:<br />
-
-    - `key` -> `identifier` <br />
-      `identifier != entity_name` necessitates `entities_map`.<br />
-
-    - `val` -> `sequence` <br />
-      Nucleotide sequence of the nucleic acid.
-    """
-
-    entities_map: Dict[str, str]
-    """Dictionary with:<br />
-
-    - `key` -> `entity_name` <br />
-
-    - `val` -> `identifier` <br />
-      `identifier` is usually `uniprot_id` in case of `proteinChain` entities."""
-
-    set_seed: int
-    """Seed used to generate `model_seeds` if not provided."""
-
-    job_list: List[Dict[str, Any]]
-    """List of jobs created from the job information in `job_sets_list`.<br />
-    Here, the jobs are in their final form."""
-
-    job_set_names: List[str]
-    """List of job set names in the cycle."""
-
-    job_set_af_offsets: List[Dict[str, List[int]]]
-    """Chain-wise offset for each job set in the cycle.<br />
-    It is defined as `[start, end]` positions of the chain.<br />
-    Only useful when the entities are fragments of the full sequences. <br />
-    This is same as `range` in `Entity.entity_info` of each entity in the job set
-    with only difference being that the `chain_id` is mapped to the `range` instead
-    of `entity_name`."""
-
-    def __init__(
-        self,
-        job_sets_list: List[Dict[str, Any]],
-        protein_sequences: Dict[str, str] | None = None,
-        nucleic_acid_sequences: Dict[str, str] | None = None,
-        entities_map: Dict[str, str] = {},
-        set_seed: int = 47,
-    ):
-
-        self.job_sets_list = job_sets_list  # all jobs within the cycle
-        self.entities_map = entities_map
-        self.protein_sequences = protein_sequences
-        self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.set_seed = set_seed
-        self.job_list = []
-        self.job_set_names = []
-        self.job_set_af_offsets = []
-        self.cycle_seeds = []
-
-    def update_cycle(self):
-        """Update the cycle with the jobs
-
-        Each job set in the cycle is converted to multiple jobs.
-        - `AFJobSet.create_job_set` creates a job set dictionary.
-        - `seed_jobs` creates a job for each model seed in the job set.
-
-        The jobs (in their final form) are stored in `job_list`.
-        """
-
-        for job_set_info in self.job_sets_list:
-            af_job_set = AFJobSet(
-                job_set_info=job_set_info,
-                protein_sequences=self.protein_sequences,
-                nucleic_acid_sequences=self.nucleic_acid_sequences,
-                entities_map=self.entities_map,
-                set_seed=self.set_seed,
-            )
-
-            job_set_dict = af_job_set.create_job_set()
-            self.job_set_names.append(af_job_set.job_set_name)
-            self.job_set_af_offsets.append(af_job_set.job_set_af_offset)
-            self.cycle_seeds.append(af_job_set.model_seeds)
-            self.seed_jobs(job_set_dict)
-
     def seed_jobs(
         self,
         job_set_dict: Dict[str, Any],
@@ -385,17 +251,19 @@ class AFCycle:
             Job set dictionary in the format mentioned above.
         """
 
+        job_list = []
         # this will lead to AF3 server deciding the seed
         if len(job_set_dict[AFInputJobFields.MODEL_SEEDS]) == 0:
-            self.job_list.append(job_set_dict)
+            job_list.append(job_set_dict)
 
         else:
             for seed in job_set_dict[AFInputJobFields.MODEL_SEEDS]:
                 job_copy = job_set_dict.copy()
                 job_copy[AFInputJobFields.MODEL_SEEDS] = [seed]
                 job_copy[AFInputJobFields.NAME] = f"{job_set_dict[AFInputJobFields.NAME]}_{seed}"
-                self.job_list.append(job_copy)
+                job_list.append(job_copy)
 
+        return job_list
 
 class AFJobSet:
     """AlphaFold job set constructor"""
@@ -708,6 +576,7 @@ class Entity:
         )
         self.entity_type = entity_info[AFInputEntityFields.TYPE]
         self.entity_name = entity_info[AFInputEntityFields.NAME]
+        self.sanity_check_entity_name()
 
         self.entity_count = 1
         self.real_sequence = ""
@@ -972,6 +841,19 @@ class Entity:
         ]
 
         return modifications
+
+    def sanity_check_entity_name(self):
+
+        if (self.entity_type in [
+            EntityType.PROTEIN_CHAIN,
+            EntityType.DNA_SEQUENCE,
+            EntityType.RNA_SEQUENCE,
+        ]):
+
+            assert "_" not in self.entity_name, (
+                f"""Underscore is not allowed in entity name for {self.entity_type}
+                entities. Found in {self.entity_name}."""
+            )
 
     @staticmethod
     def sanity_check_entity_type(entity_type):
@@ -1349,4 +1231,4 @@ class AFSequence(Entity):
             Name fragment of the entity.
         """
 
-        return f"{self.name}_{self.count}_{self.start}{RES_RANGE_SEP}{self.end}"
+        return f"{self.name}_{self.count}_{self.start}{af_constants.RES_RANGE_SEP}{self.end}"
