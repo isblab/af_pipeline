@@ -158,6 +158,7 @@ if __name__ == "__main__":
         af_offset = pred_to_analyse.get(BestPredictionFields.AF_OFFSET, None)
         structure_path = pred_to_analyse.get(BestPredictionFields.STRUCTURE_PATH, None)
         data_path = pred_to_analyse.get(BestPredictionFields.DATA_PATH, None)
+        entity_chain_map = pred_to_analyse.get(BestPredictionFields.ENTITY_CHAIN_MAP, {})
         dir_name = os.path.basename(
             os.path.dirname(os.path.dirname(structure_path))
         )
@@ -201,13 +202,13 @@ if __name__ == "__main__":
             save_structure=True,
             rb_struct_fmt=FileFormat.PDB,
             filter_struct_by_plddt=True,
-            protein_chain_map=protein_chain_map
+            protein_chain_map=entity_chain_map
         )
 
         rigid_bodies_extractor.assess_rigid_bodies(
             domains=domains,
             output_dir=save_dir,
-            protein_chain_map=protein_chain_map,
+            protein_chain_map=entity_chain_map,
             symmetric_pae=True,
             as_average=True,
             show_interface_residues_only=True,
