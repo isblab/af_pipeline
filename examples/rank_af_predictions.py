@@ -65,23 +65,17 @@ if __name__ == "__main__":
             continue
         job_set_dirs.update(get_job_set_dirs(pred_dir))
 
-    pprint(job_set_dirs)
-
     # Get the best prediction for each job set directory
     best_predictions = {}
 
     for job_set_dir in list(set(job_set_dirs)):
         ranker = RankAF3JobSet(
             job_set_dir=job_set_dir,
-            try_af_offset_from_path=False,
-        )
-        ranker.add_job_set_id(
             af_input_jobs=config_dict.get(ConfigYaml.AF_INPUT_JOBS, {}),
             soft_match=True,
         )
-        best_pred_info = ranker.extract_af3_best_pred_data(
-            af_input_jobs=config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
-        )
+        best_pred_info = ranker.extract_af3_best_pred_data()
+        print("*"*50)
         if len(best_pred_info) > 0:
             best_predictions.update(best_pred_info)
 
