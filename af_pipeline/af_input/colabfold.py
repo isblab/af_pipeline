@@ -8,6 +8,7 @@
 """
 
 import os
+import warnings
 from af_pipeline.af_input.alphafold2 import AlphaFold2
 from typing import Any, Dict, overload
 from af_pipeline.constants.af_constants import (
@@ -51,6 +52,12 @@ class ColabFold(AlphaFold2):
             sequences_to_add, job_set_name = self.generate_job_entities(
                 job_info=job_set_info
             )
+            if len(sequences_to_add) == 0:
+                warnings.warn(f"""
+                    No valid entities found for job.
+                    Skipping job file creation for this job."""
+                )
+                continue
             os.makedirs(output_dir, exist_ok=True)
 
             fasta_dict = {job_set_name: ":\n".join(list(sequences_to_add.values()))}
