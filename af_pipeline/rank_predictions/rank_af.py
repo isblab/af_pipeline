@@ -336,6 +336,10 @@ def extract_af_offset_from_af_input_jobs(
 
     ## Arguments:
 
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the AF offset from the af_input_jobs.
+
     - **af_input_jobs (dict | None, optional):**:<br />
         Dictionary containing AlphaFold input data
 
@@ -458,6 +462,11 @@ def assign_job_set_id(
 
     ## Arguments:
 
+    - **job_set_name (str):**:<br />
+        Name of the job set. This will be used to match the job set name in the
+        AF input jobs in the config dictionary and extract the corresponding job
+        set ID.
+
     - **af_input_jobs (dict | None, optional):**:<br />
         Dictionary containing AlphaFold input data
 
@@ -532,6 +541,16 @@ class RankAF2JobSet:
         self.af_input_jobs = af_input_jobs
 
     def extract_af2_best_pred_data(self) -> list:
+        """ Extract the paths to the best model and data for a given AlphaFold2
+        predictions directory and return them in a dictionary along with the
+        residue offsets and entity-chain mapping.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
+        """
 
         best_pred_info = {}
 
@@ -570,7 +589,17 @@ class RankAF2JobSet:
 
         return best_pred_info
 
-    def extract_colabfold_best_pred_data(self) -> list:
+    def extract_colabfold_best_pred_data(self) -> dict:
+        """ Extract the paths to the best model and data for a given ColabFold
+        predictions directory and return them in a dictionary along with the
+        residue offsets and entity-chain mapping.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
+        """
 
         best_pred_info = {}
 
@@ -602,6 +631,13 @@ class RankAF2JobSet:
         return best_pred_info
 
     def get_best_colabfold_model_path(self) -> str:
+        """ Obtain the path of the rank 1 model from the ColabFold predictions directory.
+
+        ## Returns:
+
+        - **str**:<br />
+            Path to the best ColabFold model file.
+        """
 
         model_paths = list(Path(self.job_set_dir).glob("*.pdb"))
         if len(model_paths) == 0:
@@ -656,20 +692,15 @@ class RankAF3JobSet:
             )
         self.af_input_jobs = af_input_jobs
 
-    def extract_af3_best_pred_data(self) -> list:
+    def extract_af3_best_pred_data(self) -> dict:
         """ Extract AF3 model metrics and paths to the best model and data for a
         given prediction directory
 
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AlphaFold input jobs
-
         ## Returns:
 
-        - **list**:<br />
-            List of dictionaries containing paths to the best model and
-            data for a given prediction directory along with offsets
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
         """
 
         best_pred_info = {}
