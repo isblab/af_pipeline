@@ -485,17 +485,19 @@ def assign_job_set_id(
         return job_set_id
 
     idx = 0
+
+    _condition = {
+        True: lambda x, y: x in y or y in x,
+        False: lambda x, y: x == y,
+    }
+
     for job_set in af_input_jobs:
 
-        if job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() == job_set_name.lower():
-            job_set_id = idx + 1
+        lookup_name: str = job_set.get(AFInputJobFields.JOB_SET_NAME, "")
 
-        elif soft_match and (
-            job_set_name.lower() in job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() or
-            job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() in job_set_name.lower()
-        ):
+        if _condition[soft_match](job_set_name.lower(), lookup_name.lower()):
             job_set_id = idx + 1
-        idx += 1
+            break
 
     return job_set_id
 
@@ -613,7 +615,7 @@ class RankAF2JobSet:
             af_input_jobs=self.af_input_jobs,
             structure_path=structure_path,
         )
-
+        print(self.job_set_id)
         mapping = extract_entity_chain_mapping(
             job_set_id=self.job_set_id,
             af_input_jobs=self.af_input_jobs,
@@ -646,7 +648,7 @@ class RankAF2JobSet:
         model_ranks = []
         for model_path in model_paths:
             model_name = model_path.stem
-            rank_str = model_name.split("_rank")[-1].split("_")[0].split(".")[0]
+            rank_str = model_name.split("relaxed_rank_")[-1].split("_")[0]
             try:
                 rank = int(rank_str)
                 model_ranks.append((model_path, rank))
