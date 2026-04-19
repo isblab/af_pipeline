@@ -38,7 +38,7 @@ def is_valid_job_dir(job_dir: str) -> bool:
     else:
         return False
 
-def get_job_set_dirs(pred_dir:str) -> set:
+def get_job_set_dirs(pred_dir:str, pred_type:str) -> set:
     """ Get the job set directories from the prediction directory.
 
     ## Arguments:
@@ -59,14 +59,19 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     directories = [Path(pred_dir)] + [d for d in Path(pred_dir).rglob('*') if d.is_dir()]
 
+    _condition = {
+        "AF3": lambda d: all([is_valid_job_dir(d) for d in d.iterdir() if d.is_dir()]),
+        "AF2": lambda d: is_valid_job_dir(d),
+        "ColabFold": lambda d: is_valid_job_dir(d),
+    }
+
     for directory in directories:
 
         subdirectories = [d for d in directory.iterdir() if d.is_dir()]
         if len(subdirectories) == 0:
             continue
 
-        if all([is_valid_job_dir(d) for d in subdirectories]):
-            print(f"Found job set directory: {directory}")
+        if _condition[pred_type](directory):
             job_set_dirs.add(str(directory))
 
     if len(job_set_dirs) == 0:
@@ -484,18 +489,16 @@ def assign_job_set_id(
         warnings.warn("No AF jobs found. Skipping extraction of job id.")
         return job_set_id
 
-    idx = 0
-
     _condition = {
-        True: lambda x, y: x in y or y in x,
-        False: lambda x, y: x == y,
+        True: lambda x, y: (x in y or y in x) and len(x)*len(y) > 0,
+        False: lambda x, y: x == y and len(x)*len(y) > 0,
     }
 
-    for job_set in af_input_jobs:
+    for idx, job_set in enumerate(af_input_jobs):
 
         lookup_name: str = job_set.get(AFInputJobFields.JOB_SET_NAME, "")
-
         if _condition[soft_match](job_set_name.lower(), lookup_name.lower()):
+            # print(lookup_name, "<--->" ,job_set_name)
             job_set_id = idx + 1
             break
 
@@ -580,7 +583,7 @@ class RankAF2JobSet:
             mapping_type="chain_to_entity",
         )
 
-        key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
+        key = os.path.basename(os.path.dirname(structure_path))
 
         best_pred_info[key] = {
             BestPredictionFields.STRUCTURE_PATH: structure_path,
@@ -608,14 +611,14 @@ class RankAF2JobSet:
         structure_path = self.get_best_colabfold_model_path()
         data_path = structure_path.replace("_unrelaxed_", "_scores_").replace(".pdb", ".json")
 
-        key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
+        key = os.path.basename(os.path.dirname(structure_path))
 
         af_offset = extract_af_offset(
             job_set_id=self.job_set_id,
             af_input_jobs=self.af_input_jobs,
             structure_path=structure_path,
         )
-        print(self.job_set_id)
+
         mapping = extract_entity_chain_mapping(
             job_set_id=self.job_set_id,
             af_input_jobs=self.af_input_jobs,
@@ -797,16 +800,16 @@ class RankAF3JobSet:
         best_model_path = best_model[5]
         best_model_idx = best_model[6]
 
-        print("\n" + self.job_set_name + f"\n{"-"*len(self.job_set_name)}")
-        for idx, model in enumerate(ranking):
-            print(
-                f"Seed: {model[0]}, "
-                f"Ranking Score: {model[1]:.2f}, "
-                f"iptm: {model[2]}, "
-                f"ptm: {model[3]}, "
-                f"Fraction Disordered: {model[4]}, "
-                f"Model Index: {model[6]}"
-            )
+        # print("\n" + self.job_set_name + f"\n{"-"*len(self.job_set_name)}")
+        # for idx, model in enumerate(ranking):
+        #     print(
+        #         f"Seed: {model[0]}, "
+        #         f"Ranking Score: {model[1]:.2f}, "
+        #         f"iptm: {model[2]}, "
+        #         f"ptm: {model[3]}, "
+        #         f"Fraction Disordered: {model[4]}, "
+        #         f"Model Index: {model[6]}"
+        #     )
 
         return best_model_seed, best_ranking_score, best_model_path, best_model_idx
 
