@@ -684,59 +684,6 @@ def update_matrix_row_col(
 
     return matrix
 
-def extract_protein_chain_mapping(
-    protein_chain_mapping: dict,
-) -> dict[str, str]:
-    """ Extract the protein chain mapping from the provided dictionary.
-
-    For e.g., if the user provides the following mapping:
-    ```python
-    {
-        "ProteinA": ["A", "B"],
-        "ProteinB": ["C"]
-    }
-    ```
-    The function will return the following dictionary:
-    ```python
-    {
-        "A": "ProteinA",
-        "B": "ProteinA",
-        "C": "ProteinB"
-    }
-    ```
-
-    ## Arguments:
-
-    - **protein_chain_mapping (dict)**:<br />
-        Protein-to-chain map.
-
-    ## Returns:
-
-    - **protein_chain_map (dict)**:<br />
-        Dictionary with chain IDs as keys and protein names as values.
-
-    ## Examples:
-
-    >>> protein_chain_mapping = {
-    ... "ProteinA" : ["A", "B"],
-    ... "ProteinB": ["C"]
-    ... }
-    >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
-    [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
-    """
-
-    chain_protein_map = {}
-
-    if len(protein_chain_mapping) == 0:
-        return chain_protein_map
-
-    for protein_name, chain_ids in protein_chain_mapping.items():
-        for chain_id in chain_ids:
-            if chain_id not in chain_protein_map:
-                chain_protein_map[chain_id] = protein_name
-
-    return chain_protein_map
-
 def generate_cmap(
     n: int,
     scheme: str | ColorMapScheme = ColorMapScheme.SOFT_WARM

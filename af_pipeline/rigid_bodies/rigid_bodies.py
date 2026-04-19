@@ -30,7 +30,6 @@ from af_pipeline.tools.structure_tools import (
 )
 from af_pipeline.utils.misc_utils import (
     fill_up_the_blanks,
-    extract_protein_chain_mapping,
     get_key_from_res_range,
 )
 from af_pipeline.constants.af_constants import (
@@ -583,10 +582,6 @@ class RigidBodies:
         )
 
         file_name = f"{dir_name}_rigid_bodies"
-
-        protein_chain_map = extract_protein_chain_mapping(
-            protein_chain_mapping=protein_chain_map
-        )
 
         ##################################################
 
