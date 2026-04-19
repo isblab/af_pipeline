@@ -74,6 +74,422 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     return job_set_dirs
 
+def extract_entity_chain_mapping(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    structure_path: str | None = None,
+    mapping_type: str = "chain_to_entity",
+) -> dict:
+    """ Extract the entity-chain mapping for a given job set ID from the AF
+    input jobs in the config dictionary or from the structure path.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the entity-chain mapping from the AlphaFold input jobs in the config
+        dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the entity-chain mapping for the given job_set_id.
+
+    - **structure_path (str | None, optional):**:<br />
+        Path to the structure file. This will be used to extract the
+        entity-chain mapping if af_input_jobs is not provided.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert not (af_input_jobs is None and structure_path is None), (
+        "Either af_input_jobs or structure_path should be provided."
+    )
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    mapping = extract_entity_chain_mapping_from_af_input_jobs(
+        job_set_id=job_set_id,
+        af_input_jobs=af_input_jobs,
+        mapping_type=mapping_type,
+    )
+
+    if len(mapping) == 0:
+        try:
+            mapping = extract_entity_chain_mapping_from_path(
+                structure_path=structure_path,
+                mapping_type=mapping_type,
+            )
+        except ValueError as e:
+            print(f"Error extracting entity-chain mapping from path {structure_path}: {e}")
+
+    return mapping
+
+def extract_entity_chain_mapping_from_af_input_jobs(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    mapping_type: str = "chain_to_entity",
+) -> dict:
+    """ Extract the entity-chain mapping for a given job set ID from the AF
+    input jobs in the config dictionary.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the entity-chain mapping from the AlphaFold input jobs in the config
+        dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the entity-chain mapping for the given job_set_id.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    mapping = {}
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of entity-chain mapping.")
+        return mapping
+
+    if job_set_id < 1 or job_set_id > len(af_input_jobs):
+        return mapping
+
+    job_set: dict = af_input_jobs[job_set_id-1]
+
+    if mapping_type == "chain_to_entity":
+        chainGen = chain_id_gen()
+        entities = job_set.get(AFInputJobFields.ENTITIES, [])
+        for entity in entities:
+            entity_name = entity[AFInputEntityFields.NAME]
+            entity_count = entity.get(AFInputEntityFields.COUNT, 1)
+            for _ in range(entity_count):
+                chain_id = next(chainGen)
+                mapping[chain_id] = entity_name
+
+    else:
+        mapping = defaultdict(list)
+        chainGen = chain_id_gen()
+        entities = job_set.get(AFInputJobFields.ENTITIES, [])
+        for entity in entities:
+            entity_name = entity[AFInputEntityFields.NAME]
+            entity_count = entity.get(AFInputEntityFields.COUNT, 1)
+            for _ in range(entity_count):
+                chain_id = next(chainGen)
+                mapping[entity_name].append(chain_id)
+
+    return mapping
+
+def extract_entity_chain_mapping_from_path(
+    structure_path: str,
+    mapping_type: str = "chain_to_entity"
+) -> dict:
+    """ Extract the entity-chain mapping for a given structure path.
+
+    ## Arguments:
+
+    - **structure_path (str)**:<br />
+        Path to the structure file. This will be used to extract the
+        entity-chain mapping based on the directory name.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    dirname = os.path.basename(os.path.dirname(structure_path))
+    mapping = {} if mapping_type == "chain_to_entity" else defaultdict(list)
+
+    if len(dirname.split("_")[0:-1]) % 3 == 0:
+        seed_is_present = True
+
+    elif len(dirname.split("_")[0:-1]) % 3 == 2:
+        seed_is_present = False
+
+    else:
+        raise ValueError(
+            "Invalid directory name for AF3 prediction, "
+            f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
+            f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
+        )
+
+    if seed_is_present:
+        p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
+
+    else:
+        p_c_r = dirname.split("_") # Seed is not present in the path
+
+    chainGen = chain_id_gen()
+    for i in range(len(p_c_r) // 3):
+        entity_name = p_c_r[i * 3]
+        entity_count = p_c_r[i * 3 + 1]
+
+        for _ in range(int(entity_count)):
+
+            chain_id = next(chainGen)
+            if mapping_type == "chain_to_entity":
+                mapping[chain_id] = entity_name
+            else:
+                mapping[entity_name].append(chain_id)
+
+    return mapping
+
+def extract_af_offset(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    structure_path: str | None = None,
+) -> dict:
+    """ Extract the AF offset for a given job set ID from the AlphaFold input jobs
+    in the config dictionary or from the structure prediction path.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the AF offset from the AlphaFold input jobs in the config dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the AF offset for the given job_set_id.
+
+    - **structure_path (str | None, optional):**:<br />
+        Path to the structure file. This will be used to extract the AF offset
+        if af_input_jobs is not provided.
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the AF offset for each chain in the format -
+        ```
+        {
+            "A": [start, end],
+            "B": [start, end]
+        }
+        ```
+    """
+
+    assert not (af_input_jobs is None and structure_path is None), (
+        "Either af_input_jobs or structure_path should be provided."
+    )
+
+    af_offset = extract_af_offset_from_af_input_jobs(
+        job_set_id=job_set_id,
+        af_input_jobs=af_input_jobs,
+    )
+
+    if len(af_offset) == 0:
+        try:
+            af_offset = extract_af_offset_from_path(
+                structure_path=structure_path,
+            )
+        except ValueError as e:
+            print(f"Error extracting AF offset from path {structure_path}: {e}")
+
+    return af_offset
+
+def extract_af_offset_from_af_input_jobs(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None
+) -> dict:
+    """ Extract the offsets for AF3 predictions from the AF jobs
+    dictionary in the config yaml file.
+
+    ## Arguments:
+
+    - **af_input_jobs (dict | None, optional):**:<br />
+        Dictionary containing AlphaFold input data
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing AF3 offsets for each chain in the format -
+        ```
+        {
+            "A": [start, end],
+            "B": [start, end]
+        }
+        ```
+    """
+    af_offset = {}
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of offsets.")
+        return af_offset
+
+    if job_set_id < 1 or job_set_id > len(af_input_jobs):
+        return af_offset
+
+    job_set: dict = af_input_jobs[job_set_id-1]
+    af_offset = job_set.get(AFInputJobFields.AF_OFFSET, {})
+    if len(af_offset) == 0:
+        warnings.warn(
+            f"No AF offset found for job {job_set_id} in AF jobs. "
+            "Please check the input yaml file."
+        )
+
+    return af_offset
+
+def extract_af_offset_from_path(structure_path: str) -> dict:
+    """ Extract the offset for AF3 prediction from the structure path
+
+    example structure paths\n
+        "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200_1234/model_0001.cif"
+        "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200/model_0001.cif"
+
+    The directory name is expected to be in the format\n
+        p1_copy1_1-100_p2_copy2_101-200_seed
+
+    where `p1`, `p2` are the protein names, `copy1`, `copy2` are the number of copies,
+    and `1-100`, `101-200` are the residue ranges.
+
+    The output will be a dictionary with the `chain_id` as key and
+    `residue_range` as values. For example -
+    ```
+    {
+        "A": [1, 100],
+        "B": [101, 200],
+        "C": [101, 200]
+    }
+    ```
+
+    ## Arguments:
+
+    - **structure_path (str)**:<br />
+        Path to the structure file
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the offset for each chain in the structure
+    """
+
+    dirname = os.path.basename(os.path.dirname(structure_path))
+    print(dirname)
+    af_offset = {}
+
+    if len(dirname.split("_")[0:-1]) % 3 == 0:
+        seed_is_present = True
+
+    elif len(dirname.split("_")[0:-1]) % 3 == 2:
+        seed_is_present = False
+
+    else:
+        raise ValueError(
+            "Invalid directory name for AF3 prediction, "
+            f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
+            f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
+        )
+
+    if seed_is_present:
+        p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
+
+    else:
+        p_c_r = dirname.split("_") # Seed is not present in the path
+
+    chainGen = chain_id_gen()
+    for i in range(len(p_c_r) // 3):
+
+        copy_number = p_c_r[i * 3 + 1]
+        res_range = p_c_r[i * 3 + 2]
+
+        for _ in range(int(copy_number)):
+
+            chain_id = next(chainGen)
+            try:
+                start, end = res_range.split(af_constants.RES_RANGE_SEP)
+            except ValueError:
+                try:
+                    start, end = res_range.split("-")
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid residue range format in {structure_path}. "
+                        f"Expected format is 'START{af_constants.RES_RANGE_SEP}END' or 'START-END'."
+                    )
+            af_offset[chain_id] = [int(start), int(end)]
+
+    return af_offset
+
+def assign_job_set_id(
+    job_set_name: str,
+    af_input_jobs: list | None = None,
+    soft_match = False
+) -> int:
+    """ Get the job set ID for the current job set based on the job set name.
+
+    ## Arguments:
+
+    - **af_input_jobs (dict | None, optional):**:<br />
+        Dictionary containing AlphaFold input data
+
+    - **soft_match (bool, optional):**:<br />
+        If True, allow partial matching of job set names
+
+    ## Returns:
+
+    - **int**:<br />
+        Job id for the current job set
+    """
+    job_set_id = -1
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of job id.")
+        return job_set_id
+
+    idx = 0
+    for job_set in af_input_jobs:
+
+        if job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() == job_set_name.lower():
+            job_set_id = idx + 1
+
+        elif soft_match and (
+            job_set_name.lower() in job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() or
+            job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() in job_set_name.lower()
+        ):
+            job_set_id = idx + 1
+        idx += 1
+
+    return job_set_id
+
 class RankAF2JobSet:
     """ Class to rank AF2 predictions for a given job set directory """
 
@@ -86,9 +502,18 @@ class RankAF2JobSet:
         **kwargs,
     ):
         self.job_set_dir = os.path.abspath(job_set_dir)
+        self.job_set_name = os.path.basename(self.job_set_dir)
         self.job_set_id = job_set_id
-        self.af_input_jobs = af_input_jobs
         self.data_format = kwargs.get("data_format", "json")
+        if job_set_id != -1:
+            self.job_set_id = job_set_id
+        else:
+            self.job_set_id = assign_job_set_id(
+                job_set_name=self.job_set_name,
+                af_input_jobs=af_input_jobs,
+                soft_match=soft_match,
+            )
+        self.af_input_jobs = af_input_jobs
 
     def extract_af2_best_pred_data(self) -> list:
 
@@ -105,13 +530,26 @@ class RankAF2JobSet:
 
         data_path = os.path.join(self.job_set_dir, f"result_{order[0]}.{self.data_format}")
 
+        af_offset = extract_af_offset(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+        )
+
+        mapping = extract_entity_chain_mapping(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+            mapping_type="chain_to_entity",
+        )
+
         key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
 
         best_pred_info[key] = {
             BestPredictionFields.STRUCTURE_PATH: structure_path,
             BestPredictionFields.DATA_PATH: data_path,
-            # BestPredictionFields.AF_OFFSET: af_offset,
-            # BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
+            BestPredictionFields.AF_OFFSET: af_offset,
+            BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
         }
 
         return best_pred_info
@@ -143,7 +581,8 @@ class RankAF3JobSet:
         if job_set_id != -1:
             self.job_set_id = job_set_id
         else:
-            self.job_set_id = self.assign_job_set_id(
+            self.job_set_id = assign_job_set_id(
+                job_set_name=self.job_set_name,
                 af_input_jobs=af_input_jobs,
                 soft_match=soft_match,
             )
@@ -178,13 +617,13 @@ class RankAF3JobSet:
 
         data_path = self.get_data_path_from_structure_path(structure_path)
 
-        af_offset = RankAF3JobSet.extract_af_offset(
+        af_offset = extract_af_offset(
             job_set_id=self.job_set_id,
             af_input_jobs=self.af_input_jobs,
             structure_path=structure_path,
         )
 
-        mapping = RankAF3JobSet.extract_entity_chain_mapping(
+        mapping = extract_entity_chain_mapping(
             job_set_id=self.job_set_id,
             af_input_jobs=self.af_input_jobs,
             structure_path=structure_path,
@@ -480,436 +919,3 @@ class RankAF3JobSet:
         return structure_path.replace(
             f".{FileFormat.CIF}", f".{FileFormat.JSON}"
         ).replace("model_", "full_data_")
-
-    @staticmethod
-    def extract_entity_chain_mapping(
-        job_set_id: int = -1,
-        af_input_jobs: list| None = None,
-        structure_path: str | None = None,
-        mapping_type: str = "chain_to_entity",
-    ) -> dict:
-        """ Extract the entity-chain mapping for a given job set ID from the AF
-        input jobs in the config dictionary or from the structure path.
-
-        ## Arguments:
-
-        - **job_set_id (int, optional):**:<br />
-            ID of the job set in af_input_jobs (1-indexed). This will be used to
-            extract the entity-chain mapping from the AlphaFold input jobs in the config
-            dictionary.
-
-        - **af_input_jobs (list | None, optional):**:<br />
-            List of AlphaFold input jobs from the config dictionary. This will be used to
-            extract the entity-chain mapping for the given job_set_id.
-
-        - **structure_path (str | None, optional):**:<br />
-            Path to the structure file. This will be used to extract the
-            entity-chain mapping if af_input_jobs is not provided.
-
-        - **mapping_type (str, optional):**:<br />
-            Type of mapping to extract. Should be either "chain_to_entity" or
-            "entity_to_chain".
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the entity-chain mapping.
-            - If mapping_type is "chain_to_entity", the keys will be chain IDs
-              and the values will be entity names.
-            - If mapping_type is "entity_to_chain", the keys will be entity names
-              and the values will be lists of chain IDs.
-        """
-
-        assert not (af_input_jobs is None and structure_path is None), (
-            "Either af_input_jobs or structure_path should be provided."
-        )
-        assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
-            "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
-        )
-
-        mapping = RankAF3JobSet.extract_entity_chain_mapping_from_af_input_jobs(
-            job_set_id=job_set_id,
-            af_input_jobs=af_input_jobs,
-            mapping_type=mapping_type,
-        )
-
-        if len(mapping) == 0:
-            try:
-                mapping = RankAF3JobSet.extract_entity_chain_mapping_from_path(
-                    structure_path=structure_path,
-                    mapping_type=mapping_type,
-                )
-            except ValueError as e:
-                print(f"Error extracting entity-chain mapping from path {structure_path}: {e}")
-
-        return mapping
-
-    @staticmethod
-    def extract_entity_chain_mapping_from_af_input_jobs(
-        job_set_id: int = -1,
-        af_input_jobs: list| None = None,
-        mapping_type: str = "chain_to_entity",
-    ) -> dict:
-        """ Extract the entity-chain mapping for a given job set ID from the AF
-        input jobs in the config dictionary.
-
-        ## Arguments:
-
-        - **job_set_id (int, optional):**:<br />
-            ID of the job set in af_input_jobs (1-indexed). This will be used to
-            extract the entity-chain mapping from the AlphaFold input jobs in the config
-            dictionary.
-
-        - **af_input_jobs (list | None, optional):**:<br />
-            List of AlphaFold input jobs from the config dictionary. This will be used to
-            extract the entity-chain mapping for the given job_set_id.
-
-        - **mapping_type (str, optional):**:<br />
-            Type of mapping to extract. Should be either "chain_to_entity" or
-            "entity_to_chain".
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the entity-chain mapping.
-            - If mapping_type is "chain_to_entity", the keys will be chain IDs
-              and the values will be entity names.
-            - If mapping_type is "entity_to_chain", the keys will be entity names
-              and the values will be lists of chain IDs.
-        """
-
-        assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
-            "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
-        )
-
-        mapping = {}
-
-        if af_input_jobs is None:
-            warnings.warn("No AF jobs found. Skipping extraction of entity-chain mapping.")
-            return mapping
-
-        if job_set_id < 1 or job_set_id > len(af_input_jobs):
-            return mapping
-
-        job_set: dict = af_input_jobs[job_set_id-1]
-
-        if mapping_type == "chain_to_entity":
-            chainGen = chain_id_gen()
-            entities = job_set.get(AFInputJobFields.ENTITIES, [])
-            for entity in entities:
-                entity_name = entity[AFInputEntityFields.NAME]
-                entity_count = entity.get(AFInputEntityFields.COUNT, 1)
-                for _ in range(entity_count):
-                    chain_id = next(chainGen)
-                    mapping[chain_id] = entity_name
-
-        else:
-            mapping = defaultdict(list)
-            chainGen = chain_id_gen()
-            entities = job_set.get(AFInputJobFields.ENTITIES, [])
-            for entity in entities:
-                entity_name = entity[AFInputEntityFields.NAME]
-                entity_count = entity.get(AFInputEntityFields.COUNT, 1)
-                for _ in range(entity_count):
-                    chain_id = next(chainGen)
-                    mapping[entity_name].append(chain_id)
-
-        return mapping
-
-    @staticmethod
-    def extract_entity_chain_mapping_from_path(
-        structure_path: str,
-        mapping_type: str = "chain_to_entity"
-    ) -> dict:
-        """ Extract the entity-chain mapping for a given structure path.
-
-        ## Arguments:
-
-        - **structure_path (str)**:<br />
-            Path to the structure file. This will be used to extract the
-            entity-chain mapping based on the directory name.
-
-        - **mapping_type (str, optional):**:<br />
-            Type of mapping to extract. Should be either "chain_to_entity" or
-            "entity_to_chain".
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the entity-chain mapping.
-            - If mapping_type is "chain_to_entity", the keys will be chain IDs
-              and the values will be entity names.
-            - If mapping_type is "entity_to_chain", the keys will be entity names
-              and the values will be lists of chain IDs.
-        """
-
-        assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
-            "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
-        )
-
-        dirname = os.path.basename(os.path.dirname(structure_path))
-        mapping = {} if mapping_type == "chain_to_entity" else defaultdict(list)
-
-        assert len(dirname.split("_")) >= 3
-        "Invalid directory name for AF3 prediction"
-
-        assert len(dirname.split("_")) % 3 < 27
-        "Invalid directory name for AF3 prediction, too many chains"
-
-        if len(dirname.split("_")[0:-1]) % 3 == 0:
-            seed_is_present = True
-
-        elif len(dirname.split("_")[0:-1]) % 3 == 2:
-            seed_is_present = False
-
-        else:
-            raise ValueError(
-                "Invalid directory name for AF3 prediction, "
-                f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
-                f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
-            )
-
-        if seed_is_present:
-            p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
-
-        else:
-            p_c_r = dirname.split("_") # Seed is not present in the path
-
-        chainGen = chain_id_gen()
-        for i in range(len(p_c_r) // 3):
-            entity_name = p_c_r[i * 3]
-            entity_count = p_c_r[i * 3 + 1]
-
-            for _ in range(int(entity_count)):
-
-                chain_id = next(chainGen)
-                if mapping_type == "chain_to_entity":
-                    mapping[chain_id] = entity_name
-                else:
-                    mapping[entity_name].append(chain_id)
-
-        return mapping
-
-    @staticmethod
-    def extract_af_offset(
-        job_set_id: int = -1,
-        af_input_jobs: list| None = None,
-        structure_path: str | None = None,
-    ) -> dict:
-        """ Extract the AF offset for a given job set ID from the AlphaFold input jobs
-        in the config dictionary or from the structure prediction path.
-
-        ## Arguments:
-
-        - **job_set_id (int, optional):**:<br />
-            ID of the job set in af_input_jobs (1-indexed). This will be used to
-            extract the AF offset from the AlphaFold input jobs in the config dictionary.
-
-        - **af_input_jobs (list | None, optional):**:<br />
-            List of AlphaFold input jobs from the config dictionary. This will be used to
-            extract the AF offset for the given job_set_id.
-
-        - **structure_path (str | None, optional):**:<br />
-            Path to the structure file. This will be used to extract the AF offset
-            if af_input_jobs is not provided.
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the AF offset for each chain in the format -
-            ```
-            {
-                "A": [start, end],
-                "B": [start, end]
-            }
-            ```
-        """
-
-        assert not (af_input_jobs is None and structure_path is None), (
-            "Either af_input_jobs or structure_path should be provided."
-        )
-
-        af_offset = RankAF3JobSet.extract_af_offset_from_af_input_jobs(
-            job_set_id=job_set_id,
-            af_input_jobs=af_input_jobs,
-        )
-
-        if len(af_offset) == 0:
-            try:
-                af_offset = RankAF3JobSet.extract_af_offset_from_path(
-                    structure_path=structure_path,
-                )
-            except ValueError as e:
-                print(f"Error extracting AF offset from path {structure_path}: {e}")
-
-        return af_offset
-
-    @staticmethod
-    def extract_af_offset_from_af_input_jobs(
-        job_set_id: int = -1,
-        af_input_jobs: list| None = None
-    ) -> dict:
-        """ Extract the offsets for AF3 predictions from the AF jobs
-        dictionary in the config yaml file.
-
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AlphaFold input data
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing AF3 offsets for each chain in the format -
-            ```
-            {
-                "A": [start, end],
-                "B": [start, end]
-            }
-            ```
-        """
-        af_offset = {}
-
-        if af_input_jobs is None:
-            warnings.warn("No AF jobs found. Skipping extraction of offsets.")
-            return af_offset
-
-        if job_set_id < 1 or job_set_id > len(af_input_jobs):
-            return af_offset
-
-        job_set: dict = af_input_jobs[job_set_id-1]
-        af_offset = job_set.get(AFInputJobFields.AF_OFFSET, {})
-        if len(af_offset) == 0:
-            warnings.warn(
-                f"No AF offset found for job {job_set_id} in AF jobs. "
-                "Please check the input yaml file."
-            )
-
-        return af_offset
-
-    @staticmethod
-    def extract_af_offset_from_path(structure_path: str) -> dict:
-        """ Extract the offset for AF3 prediction from the structure path
-
-        example structure paths\n
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200_1234/model_0001.cif"
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200/model_0001.cif"
-
-        The directory name is expected to be in the format\n
-            p1_copy1_1-100_p2_copy2_101-200_seed
-
-        where `p1`, `p2` are the protein names, `copy1`, `copy2` are the number of copies,
-        and `1-100`, `101-200` are the residue ranges.
-
-        The output will be a dictionary with the `chain_id` as key and
-        `residue_range` as values. For example -
-        ```
-        {
-            "A": [1, 100],
-            "B": [101, 200],
-            "C": [101, 200]
-        }
-        ```
-
-        ## Arguments:
-
-        - **structure_path (str)**:<br />
-            Path to the structure file
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the offset for each chain in the structure
-        """
-
-        dirname = os.path.basename(os.path.dirname(structure_path))
-        af_offset = {}
-
-        assert len(dirname.split("_")) >= 3
-        "Invalid directory name for AF3 prediction"
-
-        assert len(dirname.split("_")) % 3 < 27
-        "Invalid directory name for AF3 prediction, too many chains"
-
-        if len(dirname.split("_")[0:-1]) % 3 == 0:
-            seed_is_present = True
-
-        elif len(dirname.split("_")[0:-1]) % 3 == 2:
-            seed_is_present = False
-
-        else:
-            raise ValueError(
-                "Invalid directory name for AF3 prediction, "
-                f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
-                f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
-            )
-
-        if seed_is_present:
-            p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
-
-        else:
-            p_c_r = dirname.split("_") # Seed is not present in the path
-
-        chainGen = chain_id_gen()
-        for i in range(len(p_c_r) // 3):
-
-            copy_number = p_c_r[i * 3 + 1]
-            res_range = p_c_r[i * 3 + 2]
-
-            for _ in range(int(copy_number)):
-
-                chain_id = next(chainGen)
-                try:
-                    start, end = res_range.split(af_constants.RES_RANGE_SEP)
-                except ValueError:
-                    try:
-                        start, end = res_range.split("-")
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid residue range format in {structure_path}. "
-                            f"Expected format is 'START{af_constants.RES_RANGE_SEP}END' or 'START-END'."
-                        )
-                af_offset[chain_id] = [int(start), int(end)]
-
-        return af_offset
-
-    def assign_job_set_id(
-        self,
-        af_input_jobs: list | None = None,
-        soft_match = False
-    ) -> int:
-        """ Get the job set ID for the current job set based on the job set name.
-
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AlphaFold input data
-
-        - **soft_match (bool, optional):**:<br />
-            If True, allow partial matching of job set names
-
-        ## Returns:
-
-        - **int**:<br />
-            Job id for the current job set
-        """
-        job_set_id = -1
-
-        if af_input_jobs is None:
-            warnings.warn("No AF jobs found. Skipping extraction of job id.")
-            return job_set_id
-
-        idx = 0
-        for job_set in af_input_jobs:
-
-            if job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() == self.job_set_name.lower():
-                job_set_id = idx + 1
-
-            elif soft_match and (
-                self.job_set_name.lower() in job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() or
-                job_set.get(AFInputJobFields.JOB_SET_NAME, "").lower() in self.job_set_name.lower()
-            ):
-                job_set_id = idx + 1
-            idx += 1
-
-        return job_set_id
