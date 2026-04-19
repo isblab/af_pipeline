@@ -119,6 +119,14 @@ class AlphaFold2:
 
             self.input_job_sets[job_set_idx] = {
                 AFInputJobFields.JOB_SET_NAME: job_set_name,
+                **{
+                    k:v for k,v in self.input_job_sets[job_set_idx].items()
+                    if k not in [
+                        AFInputJobFields.JOB_SET_NAME,
+                        AFInputJobFields.MODEL_SEEDS,
+                        AFInputJobFields.AF_OFFSET,
+                    ]
+                },
                 AFInputJobFields.AF_OFFSET: self.job_set_af_offset,
             }
 
