@@ -126,12 +126,13 @@ classDiagram
 - Please refer to the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples) for sample scripts.
 
 - Use the following command to run the example script:
-```
-python rank_af_predictions.py \\
-    -i ./output/af_input_jobs.json \\
-    -o ./output \\
-    --pred_dirs ./input/AF_predictions/AF3
-```
+  ```bash
+  python rank_af_predictions.py \\
+      -i ./output/af_input_jobs.json \\
+      -o ./output \\
+      -t AF3 \\ # replace with AF2 or ColabFold to rank those predictions
+      --pred_dirs ./input/AF_predictions/AF3 # replace with ColabFold or AF2 predictions directory
+  ```
 
 ## Workflows
 

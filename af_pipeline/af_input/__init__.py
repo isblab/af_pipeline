@@ -20,28 +20,22 @@ Check the [examples directory](https://github.com/isblab/af_pipeline/blob/main/e
 
 af_input_jobs:
 
-  job_cycle_1:
+  - job_set_name: "job_set_a"
+    modelSeeds: [1, 2] # -> will lead to 2 jobs with seeds 1 and 2
+    entities: ...
 
-    - job_set_name: "job_set_a"
-      modelSeeds: [1, 2] # -> will lead to 2 jobs
-      entities: ...
+  - job_set_name: "job_set_b"
+    modelSeeds: 3 # -> will lead to 3 jobs with randomly generated seeds
+    entities: ...
 
-    - job_set_name: "job_set_b"
-      modelSeeds: 3 # -> will lead to 3 jobs
-      entities: ...
-
-  job_cycle_2:
-
-    - modelSeeds: [4, 5, 6] # -> will lead to 3 jobs
-      entities: ...
+  - modelSeeds: [4, 5, 6] # -> will lead to 3 jobs
+    entities: ...
 
 ```
 
-- `af_input_jobs` contains the input specifications for prediction jobs. It is organized into multiple job cycles.
-- Each `job_cycle` is a group of related predictions on one or more systems. A system corresponds to a single set of input sequences.
-- Each `job_cycle` contains a list of `job_set` instances (in config.yaml).
-- Each `job_set` is a set of predictions (jobs) on a single system, with the constituent jobs varying only in the model seed.
-- User only specifies the `job_set` and the `modelSeeds`. Each `job_set` is converted to a list of `job` instances based on `modelSeeds`.
+- `af_input_jobs` contains the input specifications for prediction jobs. It is organized into multiple job sets.
+- Each `job_set` is a set of predictions (jobs) with the same input specifications except for the model seed.
+- Each `job_set` is converted to a list of `job` instances based on `modelSeeds`.
 
 <hr>
 
@@ -56,7 +50,8 @@ af_input_jobs:
       -i ./input/config.yaml \\
       -o ./output/af_input_jobs \\
       -p ./input/protein_sequences.fasta \\
-      -n ./input/nucleic_acid_sequences.fasta
+      -n ./input/nucleic_acid_sequences.fasta \\
+      -t AF3 # replace with AF2 or ColabFold
   ```
 
 > [!TIP]
@@ -75,8 +70,7 @@ af_input_jobs:
 graph LR
 
     config.yaml -->|contains| af_input_jobs
-    af_input_jobs -->|contains| job_cycle
-    job_cycle -->|contains| job_set
+    af_input_jobs -->|contains| job_set
     job_set -->|contains| job
     job -->|contains| entity
 
@@ -94,21 +88,11 @@ graph LR
 
 - Each entity in the `job` is an instance of :py:class:`af_pipeline.af_input.alphafold3.AFSequence`.
 
-
 - In all three cases (AlphaFoldServer, AlphaFold2, ColabFold), the input data is provided as a dictionary, which is
   stored in a `YAML` file. See the [examples directory](https://github.com/isblab/af_pipeline/tree/main/examples)
   for sample input file.
 
-- The user can create job cycles using the method for creating job cycles in the corresponding class:
-
-  - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AlphaFoldServer.create_af3_job_cycles`
-  - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AlphaFold2.create_af2_job_cycles`
-  - **ColabFold**: `af_pipeline.af_input.colabfold.ColabFold.create_colabfold_job_cycles`
-
-</newline>
-
-- The method `write_job_files` corresponding to each submodule is used to
-  save the generated files in appropriate format:
+- The method `write_job_files` in each submodule is used to save the generated files in appropriate format:
 
   - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AlphaFoldServer.write_job_files`
   - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AlphaFold2.write_job_files`
@@ -130,11 +114,9 @@ graph TD
   click G "af_input/alphafold3.html#AlphaFoldServer" "AlphaFoldServer" _blank
   D --> G
   F -- optional --> G
-  G --> H[create_af3_job_cycles / create_af2_job_cycles / create_colabfold_job_cycles]
-  click H "af_input/alphafold3.html#AlphaFoldServer.create_af3_job_cycles" "create_af3_job_cycles" _blank
-  H --> I[write_job_files]
-  click I "af_input/alphafold3.html#AlphaFoldServer.write_job_files" "write_job_files" _blank
-  I --> J([JSON files for AF3 jobs or FASTA files for AF2/ColabFold jobs])
+  G --> H[write_job_files]
+  click H "af_input/alphafold3.html#AlphaFoldServer.write_job_files" "write_job_files" _blank
+  H --> J([JSON files for AF3 jobs or FASTA files for AF2/ColabFold jobs])
 ```
 
 <hr>
@@ -168,16 +150,12 @@ af_offset: {}
 
 Some of the attributes can be retrieved in the config file while creating the
 input `JSON` or `FASTA` files within the script.
-For e.g., `af_offset` or `job_name` need not be specified in the config file.
-They can be generated within the script and added to the config file as shown in
-the [example script](https://github.com/isblab/af_pipeline/tree/main/examples/create_af_jobs.py).
-
-> [!CAUTION]
-> Doing the above will modify the original config file.
-> This modification does not preserve comments in the config file.
+For e.g., `af_offset` or `job_set_name` need not be specified in the config file.
+The accompanying `af_input_jobs.json` file will have these attributes filled in
+based on the information provided in the config file and the job set.
 
 > [!NOTE]
-> If `job_name` is not specified in the config file, then it will be generated
+> If `job_set_name` is not specified in the config file, then it will be generated
 > automatically using the information provided in the job set.
 > It is a combination of `entity_name`, `range` and `count` for each entity and
 > the `model_seed`.
@@ -205,7 +183,7 @@ etc.) or directly created in the wrapper script.
 **Q. How can I specify model seeds?**
 <details>
 <summary>You can specify model seeds in the config file in the "modelSeeds" attribute.</summary>
-Each job set within a job cycle has a "modelSeeds" attribute to specify the model seeds.
+Each job set has a "modelSeeds" attribute to specify the model seeds.
 
 You can provide a single integer value (to directly denote the number of jobs) or
 a list of integer values (to specifically denote the seed values).

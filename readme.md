@@ -47,6 +47,10 @@ See also:
 ## Usage
 
 - Refer to the scripts available in the [examples](./examples/) directory.
+  Before running the scripts, make sure you unzip [`AF_predictions.zip`](./examples/input/AF_predictions.zip)
+  ```bash
+  unzip ./input/AF_predictions.zip -d input/
+  ```
 
 - Create `JSON` job files for AlphaFold server [^afserver].
   ```bash
@@ -54,7 +58,8 @@ See also:
       -i ./input/config.yaml \\
       -o ./output/af_input_jobs \\
       -p ./input/protein_sequences.fasta \\
-      -n ./input/nucleic_acid_sequences.fasta
+      -n ./input/nucleic_acid_sequences.fasta \\
+      -t AF3 # you can replace this with AF2 or ColbFold
   ```
 
 - Upload the `JSON` files to AlphaFold server [^afserver] and download and extract the results.
@@ -64,6 +69,7 @@ See also:
   python rank_af_predictions.py \\
       -i ./output/af_input_jobs.json \\
       -o ./output \\
+      -t AF3 \\
       --pred_dirs ./input/AF_predictions/AF3
   ```
 
@@ -104,10 +110,13 @@ See also:
 graph TD
     A([Create job files for AlphaFold Server]) e1@--> B[[AlphaFoldServer]]
     click B "af_pipeline/af_input/alphafold3.html#AlphaFoldServer" "AlphaFoldServer" _blank
-    B e2@--> C[/Input FASTA or JSON files for AlphaFold/] e3@--> D([Submit jobs to AlphaFold server])
+    B e2@--> C[/Input FASTA or JSON files for AlphaFold/] e3@--> D[\Submit jobs to AlphaFold server/]
     click D "https://alphafoldserver.com" "alphafoldserver" _blank
     D e4@--> E[/Output files from AlphaFold server/]
-    E e5@--> F[[Initialize]]
+    E e16@--> R[[RankAF3JobSet]]
+    click R "af_pipeline/rank_predictions/rank_af.html#RankAF3JobSet" "RankAF3JobSet" _blank
+    R e17@--> S[/best prediction/]
+    S e5@--> F[[Initialize]]
     click F "af_pipeline/parser/initialize.html#Initialize" "Initialize" _blank
     F e6@--> G[[RigidBodies]]
     click G "af_pipeline/rigid_bodies/rigid_bodies.html#RigidBodies" "RigidBodies" _blank
