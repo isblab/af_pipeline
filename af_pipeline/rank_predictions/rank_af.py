@@ -491,7 +491,23 @@ def assign_job_set_id(
     return job_set_id
 
 class RankAF2JobSet:
-    """ Class to rank AF2 predictions for a given job set directory """
+    """ Class to rank AF2 or ColabFold predictions for a given job set directory """
+
+    job_set_dir: str
+    """ Path to the job set directory"""
+
+    job_set_name: str
+    """ Name of the job set"""
+
+    job_set_id: int
+    """ ID of the job set in af_input_jobs (1-indexed)"""
+
+    af_input_jobs: list | None
+    """ List of AlphaFold input jobs from the config dictionary"""
+
+    data_format: str = "json"
+    """ Format of the AlphaFold2 output data file. Should be either "json" or "pkl".
+    Default is "json"."""
 
     def __init__(
         self,
@@ -553,6 +569,58 @@ class RankAF2JobSet:
         }
 
         return best_pred_info
+
+    def extract_colabfold_best_pred_data(self) -> list:
+
+        best_pred_info = {}
+
+        structure_path = self.get_best_colabfold_model_path()
+        data_path = structure_path.replace("_unrelaxed_", "_scores_").replace(".pdb", ".json")
+
+        key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
+
+        af_offset = extract_af_offset(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+        )
+
+        mapping = extract_entity_chain_mapping(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+            mapping_type="chain_to_entity",
+        )
+
+        best_pred_info[key] = {
+            BestPredictionFields.STRUCTURE_PATH: structure_path,
+            BestPredictionFields.DATA_PATH: data_path,
+            BestPredictionFields.AF_OFFSET: af_offset,
+            BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
+        }
+
+        return best_pred_info
+
+    def get_best_colabfold_model_path(self) -> str:
+
+        model_paths = list(Path(self.job_set_dir).glob("*.pdb"))
+        if len(model_paths) == 0:
+            raise ValueError(f"No model files found in {self.job_set_dir}.")
+
+        model_ranks = []
+        for model_path in model_paths:
+            model_name = model_path.stem
+            rank_str = model_name.split("_rank")[-1].split("_")[0].split(".")[0]
+            try:
+                rank = int(rank_str)
+                model_ranks.append((model_path, rank))
+            except ValueError:
+                print(f"Could not extract rank from model name {model_name}. Skipping this file.")
+
+        model_ranks.sort(key=lambda x: x[1])
+        structure_path = str(model_ranks[0][0])
+
+        return structure_path
 
 class RankAF3JobSet:
     """ Class to rank AF3 predictions for a given job set directory """
