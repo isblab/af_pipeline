@@ -351,6 +351,11 @@ def convert_false_to_true(
     - **np.ndarray**:<br />
         Binary array with False values converted to True if the patch length is
         less than or equal to threshold.
+
+    ## Examples:
+    >>> arr = np.array([True, False, False, True, False, True])
+    >>> convert_false_to_true(arr, threshold=2)
+    array([ True,  True,  True,  True,  True,  True])
     """
     if isinstance(arr, list):
         arr = np.array(arr)

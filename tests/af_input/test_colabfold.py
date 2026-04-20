@@ -1,4 +1,6 @@
+import os
 import pytest
+import tempfile
 from af_pipeline.af_input.colabfold import ColabFold
 from af_pipeline.constants.af_constants import (
     AFInputJobFields,
@@ -7,7 +9,7 @@ from af_pipeline.constants.af_constants import (
     ConfigYaml,
 )
 
-test_out_dir = "tests/test_output"
+test_out_dir = tempfile.mkdtemp()
 
 protein_sequences_by_id = {
     "A12345": "MKTAYIAKQRQISFVKSHFSRQDILDLI",
@@ -17,24 +19,22 @@ entities_map = {
     "protA": "A12345",
     "protB": "B67890",
 }
-input_dict = {
-    "cycle1": [{
-        AFInputJobFields.JOB_SET_NAME: "jobset_min",
-        AFInputJobFields.MODEL_SEEDS: [0, 1],
-        AFInputJobFields.ENTITIES: [{
-            AFInputEntityFields.NAME: "protB",
-            AFInputEntityFields.TYPE: EntityType.PROTEIN_CHAIN,
-        },{
-            AFInputEntityFields.NAME: "dnaA",
-            AFInputEntityFields.TYPE: EntityType.DNA_SEQUENCE,
-        },{
-            AFInputEntityFields.NAME: "protA",
-            AFInputEntityFields.TYPE: EntityType.PROTEIN_CHAIN,
-        },]
-    }],
-}
+input_job_sets = [{
+    AFInputJobFields.JOB_SET_NAME: "jobset_min",
+    AFInputJobFields.MODEL_SEEDS: [0, 1],
+    AFInputJobFields.ENTITIES: [{
+        AFInputEntityFields.NAME: "protB",
+        AFInputEntityFields.TYPE: EntityType.PROTEIN_CHAIN,
+    },{
+        AFInputEntityFields.NAME: "dnaA",
+        AFInputEntityFields.TYPE: EntityType.DNA_SEQUENCE,
+    },{
+        AFInputEntityFields.NAME: "protA",
+        AFInputEntityFields.TYPE: EntityType.PROTEIN_CHAIN,
+    },]
+}]
 config_dict = {
-    ConfigYaml.AF_INPUT_JOBS: input_dict,
+    ConfigYaml.AF_INPUT_JOBS: input_job_sets,
     ConfigYaml.PROTEIN_UNIPROT_MAP: entities_map,
 }
 
@@ -45,21 +45,12 @@ def colabfold():
         protein_sequences=protein_sequences_by_id,
     )
 
-def test_create_colabfold_job_cycles(colabfold: ColabFold):
+def test_write_job_files(colabfold: ColabFold):
 
-    expected_fasta_dict = {
-        "jobset_min": "GAVLILLLVAVAVVAGVAA:\nMKTAYIAKQRQISFVKSHFSRQDILDLI",
-    }
+    colabfold.write_job_files(
+        output_dir=os.path.join(test_out_dir, "cf_input_jobs"),
+    )
 
-    colabfold.create_colabfold_job_cycles()
-
-    assert "cycle1" in colabfold.job_cycles, "Job cycle 'cycle1' not found in output."
-
-    job_list = colabfold.job_cycles["cycle1"]
-    assert len(job_list) == 1, "Expected one job in 'cycle1'."
-
-    for fasta_dict, job_name in job_list:
-        assert job_name == "jobset_min", "Job name mismatch."
-        assert fasta_dict[job_name] == expected_fasta_dict[job_name], \
-            "FASTA content mismatch."
-
+    assert os.path.isfile(os.path.join(
+        test_out_dir, "cf_input_jobs", "jobset_min", "jobset_min.fasta"
+    ))
