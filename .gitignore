@@ -1,4 +1,5 @@
 examples/input/AF_predictions/*
+tests/test_data/*
 docs/network/af_pipeline_network.html
 tests/badges/*
 docs_/*
