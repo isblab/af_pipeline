@@ -9,8 +9,6 @@ from af_pipeline.constants.af_constants import (
     PlotType
 )
 
-# af_pred = AlphaFoldPred()
-
 def get_chain_protein_map(
     protein_chain_map: dict[str, list[str]]
 ) -> dict[str, str]:
@@ -106,6 +104,7 @@ if __name__ == "__main__":
         structure_path = pred_to_analyse.get(BestPredictionFields.STRUCTURE_PATH)
         data_path = pred_to_analyse.get(BestPredictionFields.DATA_PATH)
         af_offset = pred_to_analyse.get(BestPredictionFields.AF_OFFSET, {})
+        entity_chain_map = pred_to_analyse.get(BestPredictionFields.ENTITY_CHAIN_MAP, {})
         pred_dir_name = os.path.basename(
             os.path.dirname(os.path.dirname(structure_path))
         )
@@ -147,8 +146,8 @@ if __name__ == "__main__":
                 output_dir=output_dir,
                 save_plot=True,
                 plot_type=PlotType.STATIC,
-                p1_name=None,
-                p2_name=None,
+                p1_name=entity_chain_map.get(chain_ids[0], chain_ids[0]),
+                p2_name=entity_chain_map.get(chain_ids[1], chain_ids[1]),
                 concat_residues=True,
                 contact_probability=True,
             )

@@ -1,11 +1,6 @@
-"""
-[rank_af](https://github.com/isblab/af_pipeline/tree/main/af_pipeline/rank_predictions/rank_af)
-===================================
-- Rank AlphaFold predictions based on various metrics and select the best model for each job set.
-"""
-
 import os
 import warnings
+from pathlib import Path
 from collections import defaultdict
 from af_pipeline.utils.file_utils import read_json
 from af_pipeline.utils.misc_utils import chain_id_gen
@@ -13,59 +8,17 @@ from af_pipeline.constants import af_constants
 from af_pipeline.constants.af_constants import (
     AF3Metrics,
     AF3SummaryConfidenceFields,
+    AFInputEntityFields,
     AFInputJobFields,
     BestPredictionFields,
     FileFormat,
-    RES_RANGE_SEP,
 )
 
-def get_directory_level(pred_dir:str) -> int | None:
-    """ Get the level of the prediction directory
+def is_valid_job_dir(job_dir: str) -> bool:
+    """ Check if a directory is a valid job directory.
 
-    **level 0** is the job directory -> this will have 5 models\n
-    **level 1** is the job set directory -> this will have `n` directories given `n` model seeds\n
-    **level 2** is the job cycle directory -> this will have `m` directories given `m` job sets\n
-    **level 3** is the prediction directory -> this has all the job cycles
-
-    ## Arguments:
-
-    - **pred_dir (str)**:<br />
-        Path to the prediction directory
-
-    ## Returns:
-
-    - **int | None**:<br />
-        `int`: Level of the prediction directory
-        `None`: If the directory does not exist or is not valid
-    """
-    if not os.path.isdir(pred_dir):
-        print(f"Prediction directory {pred_dir} does not exist.")
-        return None
-
-    sub_items = os.listdir(pred_dir)
-    sub_dirs = [item for item in sub_items if os.path.isdir(os.path.join(pred_dir, item))]
-    sub_files = [item for item in sub_items if os.path.isfile(os.path.join(pred_dir, item))]
-
-    for level in range(4):
-        if (
-            any(f".{FileFormat.CIF}" in file or f".{FileFormat.PDB}" in file
-            for file in sub_files) or len(sub_dirs) == 0
-        ):
-            return level
-
-        pred_dir = os.path.join(pred_dir, sub_dirs[0])
-        sub_items = os.listdir(pred_dir)
-        sub_dirs = [item for item in sub_items if os.path.isdir(os.path.join(pred_dir, item))]
-        sub_files = [item for item in sub_items if os.path.isfile(os.path.join(pred_dir, item))]
-
-    # return None if no valid level is found
-    return None
-
-def is_valid_job_dir(job_dir:str) -> tuple[bool, str]:
-    """ Check if the job directory is valid
-
-    A valid job directory is one that is at **level 0** and contains at least one
-    prediction file (either .cif or .pdb).
+    A valid job directory is defined as a directory that contains at least one
+    structure file.
 
     ## Arguments:
 
@@ -75,166 +28,18 @@ def is_valid_job_dir(job_dir:str) -> tuple[bool, str]:
     ## Returns:
 
     - **bool**:<br />
-        `True` if the job directory is valid, `False` otherwise
+        True if the directory is a valid job directory, False otherwise
     """
 
-    dir_level = get_directory_level(job_dir)
+    files = [f for f in Path(job_dir).iterdir() if f.is_file()]
 
-    if dir_level is None or dir_level != 0:
-        msg = f"{job_dir} is not at the expected level 0 for a job directory."
-        return False, msg
-
+    if any(f.suffix in [f".{FileFormat.CIF}", f".{FileFormat.PDB}"] for f in files):
+        return True
     else:
-        return True, f"{job_dir} is a valid job directory."
+        return False
 
-def is_valid_job_set_dir(job_set_dir:str) -> tuple[bool, str, list, list]:
-    """ Check if the job set directory is valid
-
-    A valid job set directory is one that is at **level 1** and all its subdirectories
-    are valid job directories (i.e., at **level 0** and contains prediction files).
-
-    ## Arguments:
-
-    - **job_set_dir (str)**:<br />
-        Path to the job set directory
-
-    ## Returns:
-
-    - **bool**:<br />
-        `True` if the job set directory is valid, `False` otherwise
-    """
-
-    dir_level = get_directory_level(job_set_dir)
-
-    return_val = True
-    valid_job_dirs = []
-    invalid_job_dirs = []
-
-    if dir_level is None or dir_level != 1:
-        msg = f"{job_set_dir} is not at the expected level 1 for a job set directory."
-        return False, msg, valid_job_dirs, invalid_job_dirs
-
-    job_dirs = [
-        item for item in os.listdir(job_set_dir)
-        if os.path.isdir(os.path.join(job_set_dir, item))
-    ]
-
-    if len(job_dirs) == 0:
-        msg = f"No job directories found in {job_set_dir}."
-        return False, msg, valid_job_dirs, invalid_job_dirs
-
-    for job_dir in job_dirs:
-
-        is_valid_job, _msg = is_valid_job_dir(os.path.join(job_set_dir, job_dir))
-
-        if is_valid_job:
-            valid_job_dirs.append(job_dir)
-        else:
-            invalid_job_dirs.append(job_dir)
-
-        return_val = return_val and is_valid_job
-
-    if return_val:
-        msg = f"{job_set_dir} is a valid job set directory."
-    else:
-        msg = f"{job_set_dir} is not a valid job set directory. "
-
-    return return_val, msg, valid_job_dirs, invalid_job_dirs
-
-def is_valid_job_cycle_dir(job_cycle_dir:str) -> tuple[bool, str, list, list]:
-    """ Check if the job cycle directory is valid
-
-    A valid job cycle directory is one that is at **level 2** and all its subdirectories
-    are valid job set directories (i.e., at **level 1**).
-
-    ## Arguments:
-
-    - **job_cycle_dir (str)**:<br />
-        Path to the job cycle directory
-
-    ## Returns:
-
-    - **bool**:<br />
-        `True` if the job cycle directory is valid, `False` otherwise
-    """
-
-    return_val = False
-    valid_job_set_dirs = []
-    invalid_job_set_dirs = []
-
-    job_set_dirs = [
-        item for item in os.listdir(job_cycle_dir)
-        if os.path.isdir(os.path.join(job_cycle_dir, item))
-    ]
-
-    if len(job_set_dirs) == 0:
-        msg = f"No job set directories found in {job_cycle_dir}."
-        return return_val, msg, valid_job_set_dirs, invalid_job_set_dirs
-
-    for job_set_dir in job_set_dirs:
-        is_valid_job_set, _msg, _, _ = is_valid_job_set_dir(
-            os.path.join(job_cycle_dir, job_set_dir)
-        )
-        if is_valid_job_set:
-            valid_job_set_dirs.append(job_set_dir)
-        else:
-            invalid_job_set_dirs.append(job_set_dir)
-        return_val = return_val or is_valid_job_set
-
-    if return_val:
-        msg = f"{job_cycle_dir} is a valid job cycle directory."
-    else:
-        msg = f"{job_cycle_dir} is not a valid job cycle directory. "
-
-    return return_val, msg, valid_job_set_dirs, invalid_job_set_dirs
-
-def is_valid_af_master_dir(af_master_dir:str) -> tuple[bool, str, list, list]:
-    """ Check if the AF master directory is valid
-
-    A valid AF master directory is one that is at **level 3** and all its subdirectories
-    are valid job cycle directories (i.e., at **level 2**).
-
-    ## Arguments:
-
-    - **af_master_dir (str)**:<br />
-        Path to the AF master directory
-
-    ## Returns:
-
-    - **bool**:<br />
-        `True` if the AF master directory is valid, `False` otherwise
-    """
-
-    return_val = False
-    valid_job_cycle_dirs = []
-    invalid_job_cycle_dirs = []
-
-    job_cycle_dirs = [
-        item for item in os.listdir(af_master_dir)
-        if os.path.isdir(os.path.join(af_master_dir, item))
-    ]
-
-    if len(job_cycle_dirs) == 0:
-        msg = f"No job cycle directories found in {af_master_dir}."
-        return return_val, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
-
-    for cycle_dir in job_cycle_dirs:
-        is_valid_cycle, _msg, _, _ = is_valid_job_cycle_dir(os.path.join(af_master_dir, cycle_dir))
-        if is_valid_cycle:
-            valid_job_cycle_dirs.append(cycle_dir)
-        else:
-            invalid_job_cycle_dirs.append(cycle_dir)
-        return_val = return_val or is_valid_cycle
-
-    if return_val:
-        msg = f"{af_master_dir} is a valid AF master directory."
-    else:
-        msg = f"{af_master_dir} is not a valid AF master directory."
-
-    return return_val, msg, valid_job_cycle_dirs, invalid_job_cycle_dirs
-
-def get_job_set_dirs(pred_dir:str) -> set:
-    """ Get the job set directories from the input prediction directory.
+def get_job_set_dirs(pred_dir:str, pred_type:str) -> set:
+    """ Get the job set directories from the prediction directory.
 
     ## Arguments:
 
@@ -243,45 +48,620 @@ def get_job_set_dirs(pred_dir:str) -> set:
 
     ## Returns:
 
-    - **list**:<br />
-        List of job set directories found in the prediction directory
+    - **set**:<br />
+        Set of valid job set directories
     """
+
     if not os.path.isdir(pred_dir):
         raise ValueError(f"Prediction directory {pred_dir} does not exist.")
 
     job_set_dirs = set()
 
-    is_valid_af_master, msg1, valid_job_cycle_dirs, _ = is_valid_af_master_dir(pred_dir)
+    directories = [Path(pred_dir)] + [d for d in Path(pred_dir).rglob('*') if d.is_dir()]
 
-    if is_valid_af_master:
+    _condition = {
+        "AF3": lambda d: all([is_valid_job_dir(d) for d in d.iterdir() if d.is_dir()]),
+        "AF2": lambda d: is_valid_job_dir(d),
+        "ColabFold": lambda d: is_valid_job_dir(d),
+    }
 
-        for job_cycle_dir in valid_job_cycle_dirs:
-            job_cycle_path = os.path.join(pred_dir, job_cycle_dir)
-            is_valid_job_cycle, _, valid_job_set_dirs, _ = is_valid_job_cycle_dir(job_cycle_path)
-            job_set_dirs.update([
-                os.path.join(job_cycle_path, job_set_dir)
-                for job_set_dir in valid_job_set_dirs
-            ])
+    for directory in directories:
 
-    is_valid_job_cycle, _, valid_job_set_dirs, _ = is_valid_job_cycle_dir(pred_dir)
+        subdirectories = [d for d in directory.iterdir() if d.is_dir()]
+        if len(subdirectories) == 0:
+            continue
 
-    if is_valid_job_cycle:
-        job_set_dirs.update([
-            os.path.join(pred_dir, job_set_dir)
-            for job_set_dir in valid_job_set_dirs
-        ])
+        if _condition[pred_type](directory):
+            job_set_dirs.add(str(directory))
 
-    is_valid_job_set, _, _, _ = is_valid_job_set_dir(pred_dir)
+    if len(job_set_dirs) == 0:
+        raise ValueError(f"No valid job set directories found in {pred_dir}.")
 
-    if is_valid_job_set:
-        job_set_dirs.add(pred_dir)
+    return job_set_dirs
 
-    if any([is_valid_af_master, is_valid_job_cycle, is_valid_job_set]):
-        return job_set_dirs
+def extract_entity_chain_mapping(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    structure_path: str | None = None,
+    mapping_type: str = "chain_to_entity",
+) -> dict:
+    """ Extract the entity-chain mapping for a given job set ID from the AF
+    input jobs in the config dictionary or from the structure path.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the entity-chain mapping from the AlphaFold input jobs in the config
+        dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the entity-chain mapping for the given job_set_id.
+
+    - **structure_path (str | None, optional):**:<br />
+        Path to the structure file. This will be used to extract the
+        entity-chain mapping if af_input_jobs is not provided.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert not (af_input_jobs is None and structure_path is None), (
+        "Either af_input_jobs or structure_path should be provided."
+    )
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    mapping = extract_entity_chain_mapping_from_af_input_jobs(
+        job_set_id=job_set_id,
+        af_input_jobs=af_input_jobs,
+        mapping_type=mapping_type,
+    )
+
+    if len(mapping) == 0:
+        try:
+            mapping = extract_entity_chain_mapping_from_path(
+                structure_path=structure_path,
+                mapping_type=mapping_type,
+            )
+        except ValueError as e:
+            print(f"Error extracting entity-chain mapping from path {structure_path}: {e}")
+
+    return mapping
+
+def extract_entity_chain_mapping_from_af_input_jobs(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    mapping_type: str = "chain_to_entity",
+) -> dict:
+    """ Extract the entity-chain mapping for a given job set ID from the AF
+    input jobs in the config dictionary.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the entity-chain mapping from the AlphaFold input jobs in the config
+        dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the entity-chain mapping for the given job_set_id.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    mapping = {}
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of entity-chain mapping.")
+        return mapping
+
+    if job_set_id < 1 or job_set_id > len(af_input_jobs):
+        return mapping
+
+    job_set: dict = af_input_jobs[job_set_id-1]
+
+    if mapping_type == "chain_to_entity":
+        chainGen = chain_id_gen()
+        entities = job_set.get(AFInputJobFields.ENTITIES, [])
+        for entity in entities:
+            entity_name = entity[AFInputEntityFields.NAME]
+            entity_count = entity.get(AFInputEntityFields.COUNT, 1)
+            for _ in range(entity_count):
+                chain_id = next(chainGen)
+                mapping[chain_id] = entity_name
 
     else:
-        raise ValueError(f"Prediction directory {pred_dir} is not a valid AF \
-            master directory, job cycle directory, or job set directory.")
+        mapping = defaultdict(list)
+        chainGen = chain_id_gen()
+        entities = job_set.get(AFInputJobFields.ENTITIES, [])
+        for entity in entities:
+            entity_name = entity[AFInputEntityFields.NAME]
+            entity_count = entity.get(AFInputEntityFields.COUNT, 1)
+            for _ in range(entity_count):
+                chain_id = next(chainGen)
+                mapping[entity_name].append(chain_id)
+
+    return mapping
+
+def extract_entity_chain_mapping_from_path(
+    structure_path: str,
+    mapping_type: str = "chain_to_entity"
+) -> dict:
+    """ Extract the entity-chain mapping for a given structure path.
+
+    ## Arguments:
+
+    - **structure_path (str)**:<br />
+        Path to the structure file. This will be used to extract the
+        entity-chain mapping based on the directory name.
+
+    - **mapping_type (str, optional):**:<br />
+        Type of mapping to extract. Should be either "chain_to_entity" or
+        "entity_to_chain".
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the entity-chain mapping.
+        - If mapping_type is "chain_to_entity", the keys will be chain IDs
+            and the values will be entity names.
+        - If mapping_type is "entity_to_chain", the keys will be entity names
+            and the values will be lists of chain IDs.
+    """
+
+    assert mapping_type in ["chain_to_entity", "entity_to_chain"], (
+        "Invalid mapping type. Should be 'chain_to_entity' or 'entity_to_chain'."
+    )
+
+    dirname = os.path.basename(os.path.dirname(structure_path))
+    mapping = {} if mapping_type == "chain_to_entity" else defaultdict(list)
+
+    if len(dirname.split("_")[0:-1]) % 3 == 0:
+        seed_is_present = True
+
+    elif len(dirname.split("_")[0:-1]) % 3 == 2:
+        seed_is_present = False
+
+    else:
+        raise ValueError(
+            "Invalid directory name for AF3 prediction, "
+            f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
+            f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
+        )
+
+    if seed_is_present:
+        p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
+
+    else:
+        p_c_r = dirname.split("_") # Seed is not present in the path
+
+    chainGen = chain_id_gen()
+    for i in range(len(p_c_r) // 3):
+        entity_name = p_c_r[i * 3]
+        entity_count = p_c_r[i * 3 + 1]
+
+        for _ in range(int(entity_count)):
+
+            chain_id = next(chainGen)
+            if mapping_type == "chain_to_entity":
+                mapping[chain_id] = entity_name
+            else:
+                mapping[entity_name].append(chain_id)
+
+    return mapping
+
+def extract_af_offset(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None,
+    structure_path: str | None = None,
+) -> dict:
+    """ Extract the AF offset for a given job set ID from the AlphaFold input jobs
+    in the config dictionary or from the structure prediction path.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the AF offset from the AlphaFold input jobs in the config dictionary.
+
+    - **af_input_jobs (list | None, optional):**:<br />
+        List of AlphaFold input jobs from the config dictionary. This will be used to
+        extract the AF offset for the given job_set_id.
+
+    - **structure_path (str | None, optional):**:<br />
+        Path to the structure file. This will be used to extract the AF offset
+        if af_input_jobs is not provided.
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the AF offset for each chain in the format -
+        ```
+        {
+            "A": [start, end],
+            "B": [start, end]
+        }
+        ```
+    """
+
+    assert not (af_input_jobs is None and structure_path is None), (
+        "Either af_input_jobs or structure_path should be provided."
+    )
+
+    af_offset = extract_af_offset_from_af_input_jobs(
+        job_set_id=job_set_id,
+        af_input_jobs=af_input_jobs,
+    )
+
+    if len(af_offset) == 0:
+        try:
+            af_offset = extract_af_offset_from_path(
+                structure_path=structure_path,
+            )
+        except ValueError as e:
+            print(f"Error extracting AF offset from path {structure_path}: {e}")
+
+    return af_offset
+
+def extract_af_offset_from_af_input_jobs(
+    job_set_id: int = -1,
+    af_input_jobs: list| None = None
+) -> dict:
+    """ Extract the offsets for AF3 predictions from the AF jobs
+    dictionary in the config yaml file.
+
+    ## Arguments:
+
+    - **job_set_id (int, optional):**:<br />
+        ID of the job set in af_input_jobs (1-indexed). This will be used to
+        extract the AF offset from the af_input_jobs.
+
+    - **af_input_jobs (dict | None, optional):**:<br />
+        Dictionary containing AlphaFold input data
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing AF3 offsets for each chain in the format -
+        ```
+        {
+            "A": [start, end],
+            "B": [start, end]
+        }
+        ```
+    """
+    af_offset = {}
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of offsets.")
+        return af_offset
+
+    if job_set_id < 1 or job_set_id > len(af_input_jobs):
+        return af_offset
+
+    job_set: dict = af_input_jobs[job_set_id-1]
+    af_offset = job_set.get(AFInputJobFields.AF_OFFSET, {})
+    if len(af_offset) == 0:
+        warnings.warn(
+            f"No AF offset found for job {job_set_id} in AF jobs. "
+            "Please check the input yaml file."
+        )
+
+    return af_offset
+
+def extract_af_offset_from_path(structure_path: str) -> dict:
+    """ Extract the offset for AF3 prediction from the structure path
+
+    example structure paths\n
+        "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200_1234/model_0001.cif"
+        "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200/model_0001.cif"
+
+    The directory name is expected to be in the format\n
+        p1_copy1_1-100_p2_copy2_101-200_seed
+
+    where `p1`, `p2` are the protein names, `copy1`, `copy2` are the number of copies,
+    and `1-100`, `101-200` are the residue ranges.
+
+    The output will be a dictionary with the `chain_id` as key and
+    `residue_range` as values. For example -
+    ```
+    {
+        "A": [1, 100],
+        "B": [101, 200],
+        "C": [101, 200]
+    }
+    ```
+
+    ## Arguments:
+
+    - **structure_path (str)**:<br />
+        Path to the structure file
+
+    ## Returns:
+
+    - **dict**:<br />
+        Dictionary containing the offset for each chain in the structure
+    """
+
+    dirname = os.path.basename(os.path.dirname(structure_path))
+    print(dirname)
+    af_offset = {}
+
+    if len(dirname.split("_")[0:-1]) % 3 == 0:
+        seed_is_present = True
+
+    elif len(dirname.split("_")[0:-1]) % 3 == 2:
+        seed_is_present = False
+
+    else:
+        raise ValueError(
+            "Invalid directory name for AF3 prediction, "
+            f"should be in the format p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200_seed "
+            f"or p1_copy1_1{af_constants.RES_RANGE_SEP}100_p2_copy2_101{af_constants.RES_RANGE_SEP}200"
+        )
+
+    if seed_is_present:
+        p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
+
+    else:
+        p_c_r = dirname.split("_") # Seed is not present in the path
+
+    chainGen = chain_id_gen()
+    for i in range(len(p_c_r) // 3):
+
+        copy_number = p_c_r[i * 3 + 1]
+        res_range = p_c_r[i * 3 + 2]
+
+        for _ in range(int(copy_number)):
+
+            chain_id = next(chainGen)
+            try:
+                start, end = res_range.split(af_constants.RES_RANGE_SEP)
+            except ValueError:
+                try:
+                    start, end = res_range.split("-")
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid residue range format in {structure_path}. "
+                        f"Expected format is 'START{af_constants.RES_RANGE_SEP}END' or 'START-END'."
+                    )
+            af_offset[chain_id] = [int(start), int(end)]
+
+    return af_offset
+
+def assign_job_set_id(
+    job_set_name: str,
+    af_input_jobs: list | None = None,
+    soft_match = False
+) -> int:
+    """ Get the job set ID for the current job set based on the job set name.
+
+    ## Arguments:
+
+    - **job_set_name (str):**:<br />
+        Name of the job set. This will be used to match the job set name in the
+        AF input jobs in the config dictionary and extract the corresponding job
+        set ID.
+
+    - **af_input_jobs (dict | None, optional):**:<br />
+        Dictionary containing AlphaFold input data
+
+    - **soft_match (bool, optional):**:<br />
+        If True, allow partial matching of job set names
+
+    ## Returns:
+
+    - **int**:<br />
+        Job id for the current job set
+    """
+    job_set_id = -1
+
+    if af_input_jobs is None:
+        warnings.warn("No AF jobs found. Skipping extraction of job id.")
+        return job_set_id
+
+    _condition = {
+        True: lambda x, y: (x in y or y in x) and len(x)*len(y) > 0,
+        False: lambda x, y: x == y and len(x)*len(y) > 0,
+    }
+
+    for idx, job_set in enumerate(af_input_jobs):
+
+        lookup_name: str = job_set.get(AFInputJobFields.JOB_SET_NAME, "")
+        if _condition[soft_match](job_set_name.lower(), lookup_name.lower()):
+            # print(lookup_name, "<--->" ,job_set_name)
+            job_set_id = idx + 1
+            break
+
+    return job_set_id
+
+class RankAF2JobSet:
+    """ Class to rank AF2 or ColabFold predictions for a given job set directory """
+
+    job_set_dir: str
+    """ Path to the job set directory"""
+
+    job_set_name: str
+    """ Name of the job set"""
+
+    job_set_id: int
+    """ ID of the job set in af_input_jobs (1-indexed)"""
+
+    af_input_jobs: list | None
+    """ List of AlphaFold input jobs from the config dictionary"""
+
+    data_format: str = "json"
+    """ Format of the AlphaFold2 output data file. Should be either "json" or "pkl".
+    Default is "json"."""
+
+    def __init__(
+        self,
+        job_set_dir:str,
+        job_set_id: int = -1,
+        af_input_jobs: list| None = None,
+        soft_match: bool = False,
+        **kwargs,
+    ):
+        self.job_set_dir = os.path.abspath(job_set_dir)
+        self.job_set_name = os.path.basename(self.job_set_dir)
+        self.job_set_id = job_set_id
+        self.data_format = kwargs.get("data_format", "json")
+        if job_set_id != -1:
+            self.job_set_id = job_set_id
+        else:
+            self.job_set_id = assign_job_set_id(
+                job_set_name=self.job_set_name,
+                af_input_jobs=af_input_jobs,
+                soft_match=soft_match,
+            )
+        self.af_input_jobs = af_input_jobs
+
+    def extract_af2_best_pred_data(self) -> list:
+        """ Extract the paths to the best model and data for a given AlphaFold2
+        predictions directory and return them in a dictionary along with the
+        residue offsets and entity-chain mapping.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
+        """
+
+        best_pred_info = {}
+
+        ranking_debug_json = os.path.join(self.job_set_dir, "ranking_debug.json")
+        ranking_debug = read_json(ranking_debug_json)
+        order = ranking_debug.get("order", [])
+        # scores = ranking_debug.get("iptm+ptm", [])
+
+        structure_path = os.path.join(self.job_set_dir, f"relaxed_{order[0]}.pdb")
+        if not os.path.exists(structure_path):
+            structure_path = os.path.join(self.job_set_dir, f"unrelaxed_{order[0]}.pdb")
+
+        data_path = os.path.join(self.job_set_dir, f"result_{order[0]}.{self.data_format}")
+
+        af_offset = extract_af_offset(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+        )
+
+        mapping = extract_entity_chain_mapping(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+            mapping_type="chain_to_entity",
+        )
+
+        key = os.path.basename(os.path.dirname(structure_path))
+
+        best_pred_info[key] = {
+            BestPredictionFields.STRUCTURE_PATH: structure_path,
+            BestPredictionFields.DATA_PATH: data_path,
+            BestPredictionFields.AF_OFFSET: af_offset,
+            BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
+        }
+
+        return best_pred_info
+
+    def extract_colabfold_best_pred_data(self) -> dict:
+        """ Extract the paths to the best model and data for a given ColabFold
+        predictions directory and return them in a dictionary along with the
+        residue offsets and entity-chain mapping.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
+        """
+
+        best_pred_info = {}
+
+        structure_path = self.get_best_colabfold_model_path()
+        data_path = structure_path.replace("_unrelaxed_", "_scores_").replace(".pdb", ".json")
+
+        key = os.path.basename(os.path.dirname(structure_path))
+
+        af_offset = extract_af_offset(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+        )
+
+        mapping = extract_entity_chain_mapping(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+            mapping_type="chain_to_entity",
+        )
+
+        best_pred_info[key] = {
+            BestPredictionFields.STRUCTURE_PATH: structure_path,
+            BestPredictionFields.DATA_PATH: data_path,
+            BestPredictionFields.AF_OFFSET: af_offset,
+            BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
+        }
+
+        return best_pred_info
+
+    def get_best_colabfold_model_path(self) -> str:
+        """ Obtain the path of the rank 1 model from the ColabFold predictions directory.
+
+        ## Returns:
+
+        - **str**:<br />
+            Path to the best ColabFold model file.
+        """
+
+        model_paths = list(Path(self.job_set_dir).glob("*.pdb"))
+        if len(model_paths) == 0:
+            raise ValueError(f"No model files found in {self.job_set_dir}.")
+
+        model_ranks = []
+        for model_path in model_paths:
+            model_name = model_path.stem
+            rank_str = model_name.split("relaxed_rank_")[-1].split("_")[0]
+            try:
+                rank = int(rank_str)
+                model_ranks.append((model_path, rank))
+            except ValueError:
+                print(f"Could not extract rank from model name {model_name}. Skipping this file.")
+
+        model_ranks.sort(key=lambda x: x[1])
+        structure_path = str(model_ranks[0][0])
+
+        return structure_path
 
 class RankAF3JobSet:
     """ Class to rank AF3 predictions for a given job set directory """
@@ -292,39 +672,40 @@ class RankAF3JobSet:
     job_set_name: str
     """ Name of the job set"""
 
-    job_cycle_name: str
-    """ Name of the job cycle"""
-
     job_set_id: int
-    """ ID of the job set in the job cycle (1-indexed)"""
+    """ ID of the job set in af_input_jobs (1-indexed)"""
 
-    try_af_offset_from_path: bool
-    """ Whether to try to extract AF offset from the structure path"""
+    af_input_jobs: list | None
+    """ List of AlphaFold input jobs from the config dictionary"""
 
     def __init__(
         self,
         job_set_dir:str,
-        try_af_offset_from_path: bool = False,
+        job_set_id: int = -1,
+        af_input_jobs: list| None = None,
+        soft_match: bool = False,
     ):
         self.job_set_dir = os.path.abspath(job_set_dir)
-        self.job_cycle_name = os.path.basename(os.path.dirname(self.job_set_dir))
         self.job_set_name = os.path.basename(self.job_set_dir)
-        self.try_af_offset_from_path = try_af_offset_from_path
+        if job_set_id != -1:
+            self.job_set_id = job_set_id
+        else:
+            self.job_set_id = assign_job_set_id(
+                job_set_name=self.job_set_name,
+                af_input_jobs=af_input_jobs,
+                soft_match=soft_match,
+            )
+        self.af_input_jobs = af_input_jobs
 
-    def extract_af3_best_pred_data(self, af_input_jobs: dict| None = None) -> list:
+    def extract_af3_best_pred_data(self) -> dict:
         """ Extract AF3 model metrics and paths to the best model and data for a
         given prediction directory
 
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AF input data
-
         ## Returns:
 
-        - **list**:<br />
-            List of dictionaries containing paths to the best model and
-            data for a given prediction directory along with offsets
+        - **dict**:<br />
+            Dictionary containing paths to the best model and data for a given
+            prediction directory along with offsets and entity-chain mapping.
         """
 
         best_pred_info = {}
@@ -333,30 +714,33 @@ class RankAF3JobSet:
 
         if structure_path is None:
             warnings.warn(
-                f"No valid AF3 predictions found for {self.job_cycle_name} job {self.job_set_name}. "
+                f"No valid AF3 predictions found for {self.job_set_name}. "
                 "Skipping ranking of AF3 predictions."
             )
             return []
 
         data_path = self.get_data_path_from_structure_path(structure_path)
 
-        af_offset = self.extract_af_offset_from_af_input_jobs(af_input_jobs)
+        af_offset = extract_af_offset(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+        )
 
-        if self.try_af_offset_from_path:
-            print("Trying to extract AF offset from structure path...")
-
-            try:
-                af_offset = self.extract_af_offset_from_path(structure_path)
-
-            except ValueError as e:
-                print(f"Error extracting AF offset from path {structure_path}: {e}")
+        mapping = extract_entity_chain_mapping(
+            job_set_id=self.job_set_id,
+            af_input_jobs=self.af_input_jobs,
+            structure_path=structure_path,
+            mapping_type="chain_to_entity",
+        )
 
         key = os.path.basename(os.path.dirname(os.path.dirname(structure_path)))
 
         best_pred_info[key] = {
             BestPredictionFields.STRUCTURE_PATH: structure_path,
             BestPredictionFields.DATA_PATH: data_path,
-            BestPredictionFields.AF_OFFSET: af_offset
+            BestPredictionFields.AF_OFFSET: af_offset,
+            BestPredictionFields.ENTITY_CHAIN_MAP: mapping,
         }
 
         return best_pred_info
@@ -416,15 +800,16 @@ class RankAF3JobSet:
         best_model_path = best_model[5]
         best_model_idx = best_model[6]
 
-        for idx, model in enumerate(ranking):
-            print(
-                f"Seed: {model[0]}, "
-                f"Ranking Score: {model[1]:.2f}, "
-                f"iptm: {model[2]}, "
-                f"ptm: {model[3]}, "
-                f"Fraction Disordered: {model[4]}, "
-                f"Model Index: {model[6]}"
-            )
+        # print("\n" + self.job_set_name + f"\n{"-"*len(self.job_set_name)}")
+        # for idx, model in enumerate(ranking):
+        #     print(
+        #         f"Seed: {model[0]}, "
+        #         f"Ranking Score: {model[1]:.2f}, "
+        #         f"iptm: {model[2]}, "
+        #         f"ptm: {model[3]}, "
+        #         f"Fraction Disordered: {model[4]}, "
+        #         f"Model Index: {model[6]}"
+        #     )
 
         return best_model_seed, best_ranking_score, best_model_path, best_model_idx
 
@@ -508,10 +893,6 @@ class RankAF3JobSet:
                 if "job_request" in af3_file
             ]
 
-            # assert len(summary_confidences_files) == 5, \
-            # f"There should be 5 summary_confidences files. \
-            #     Found: {len(summary_confidences_files)}"
-
             if len(summary_confidences_files) != 5:
                 warnings.warn(
                     f"There should be 5 summary_confidences files in {af3_seed_prediction_dir}. "
@@ -519,9 +900,6 @@ class RankAF3JobSet:
                     "Skipping this."
                 )
                 continue
-
-            # assert len(job_request_file) == 1
-            # "There should be 1 job_request file"
 
             if len(job_request_file) != 1:
                 warnings.warn(
@@ -586,7 +964,7 @@ class RankAF3JobSet:
             Dictionary containing AF3 model metrics
         """
 
-        metric_data = read_json(af3_summary_confidence_file)
+        metric_data: dict = read_json(af3_summary_confidence_file)
 
         required_data = {
             AF3SummaryConfidenceFields.FRACTION_DISORDERED: metric_data.get(AF3SummaryConfidenceFields.FRACTION_DISORDERED),
@@ -614,7 +992,7 @@ class RankAF3JobSet:
             Seed of the model
         """
 
-        job_request_data = read_json(af3_job_request_file)
+        job_request_data: dict = read_json(af3_job_request_file)
 
         return job_request_data[0].get(AFInputJobFields.MODEL_SEEDS)[0]
 
@@ -645,203 +1023,3 @@ class RankAF3JobSet:
         return structure_path.replace(
             f".{FileFormat.CIF}", f".{FileFormat.JSON}"
         ).replace("model_", "full_data_")
-
-    def extract_af_offset_from_af_input_jobs(self, af_input_jobs: dict| None = None) -> dict:
-        """ Extract the offsets for AF3 predictions from the AF jobs
-        dictionary in the config yaml file.
-
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AF input data
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing AF3 offsets for each chain in the format -
-            ```
-            {
-                "A": [start, end],
-                "B": [start, end]
-            }
-            ```
-        """
-        af_offset = {}
-
-        self.try_af_offset_from_path = False
-
-        if af_input_jobs is None:
-            warnings.warn("No AF jobs found. Skipping extraction of offsets.")
-            return af_offset
-
-        # atoz = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        # chain_count = 0
-
-        job_sets = af_input_jobs.get(self.job_cycle_name, None)
-
-        if job_sets is None:
-            warnings.warn(
-                f"No job sets found for job cycle {self.job_cycle_name} in AF jobs. "
-                "Please check the input yaml file."
-            )
-            self.try_af_offset_from_path = True
-            return af_offset
-
-        assert isinstance(self.job_set_id, int), \
-            "You haven't added job id yet. Please call add_job_set_id() first."
-
-        if self.job_set_id < 1 or self.job_set_id > len(job_sets):
-            self.try_af_offset_from_path = True
-            return af_offset
-
-        if AFInputJobFields.AF_OFFSET in job_sets[self.job_set_id-1]:
-            # If af_offset is already present in the job set, use it
-            af_offset = job_sets[self.job_set_id-1][AFInputJobFields.AF_OFFSET]
-            if len(af_offset) == 0:
-                warnings.warn(
-                    f"No AF offset found for job {self.job_set_id} in AF jobs. "
-                    "Please check the input yaml file."
-                )
-                self.try_af_offset_from_path = True
-            else:
-                self.try_af_offset_from_path = False
-            return af_offset
-
-        else:
-            self.try_af_offset_from_path = True
-
-        return af_offset
-
-    @staticmethod
-    def extract_af_offset_from_path(structure_path: str) -> dict:
-        """ Extract the offset for AF3 prediction from the structure path
-
-        example structure paths\n
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200_1234/model_0001.cif"
-            "/path/to/AF3_pred/p1_1_1to100_p2_2_101-200/model_0001.cif"
-
-        The directory name is expected to be in the format\n
-            p1_copy1_1-100_p2_copy2_101-200_seed
-
-        where `p1`, `p2` are the protein names, `copy1`, `copy2` are the number of copies,
-        and `1-100`, `101-200` are the residue ranges.
-
-        The output will be a dictionary with the `chain_id` as key and
-        `residue_range` as values. For example -
-        ```
-        {
-            "A": [1, 100],
-            "B": [101, 200],
-            "C": [101, 200]
-        }
-        ```
-
-        ## Arguments:
-
-        - **structure_path (str)**:<br />
-            Path to the structure file
-
-        ## Returns:
-
-        - **dict**:<br />
-            Dictionary containing the offset for each chain in the structure
-        """
-
-        dirname = os.path.basename(os.path.dirname(structure_path))
-        af_offset = {}
-
-        assert len(dirname.split("_")) >= 3
-        "Invalid directory name for AF3 prediction"
-
-        assert len(dirname.split("_")) % 3 < 27
-        "Invalid directory name for AF3 prediction, too many chains"
-
-        if len(dirname.split("_")[0:-1]) % 3 == 0:
-            seed_is_present = True
-
-        elif len(dirname.split("_")[0:-1]) % 3 == 2:
-            seed_is_present = False
-
-        else:
-            raise ValueError(
-                "Invalid directory name for AF3 prediction, "
-                f"should be in the format p1_copy1_1{RES_RANGE_SEP}100_p2_copy2_101{RES_RANGE_SEP}200_seed "
-                f"or p1_copy1_1{RES_RANGE_SEP}100_p2_copy2_101{RES_RANGE_SEP}200"
-            )
-
-        if seed_is_present:
-            p_c_r = dirname.split("_")[0:-1]  # Exclude the seed
-
-        else:
-            p_c_r = dirname.split("_") # Seed is not present in the path
-
-        # atoz = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        chain_count = 0
-
-        chainGen = chain_id_gen()
-        for i in range(len(p_c_r) // 3):
-
-            copy_number = p_c_r[i * 3 + 1]
-            res_range = p_c_r[i * 3 + 2]
-
-            for _ in range(int(copy_number)):
-
-                chain_id = next(chainGen)
-                try:
-                    start, end = res_range.split(af_constants.RES_RANGE_SEP)
-                except ValueError:
-                    try:
-                        start, end = res_range.split("-")
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid residue range format in {structure_path}. "
-                            f"Expected format is 'START{RES_RANGE_SEP}END' or 'START-END'."
-                        )
-                af_offset[chain_id] = [int(start), int(end)]
-                chain_count += 1
-
-        return af_offset
-
-    def add_job_set_id(self, af_input_jobs: dict | None = None, soft_match = False) -> int:
-        """ Get the `job_id` from the AF input jobs dictionary
-
-        ## Arguments:
-
-        - **af_input_jobs (dict | None, optional):**:<br />
-            Dictionary containing AF input data
-
-        - **soft_match (bool, optional):**:<br />
-            If True, allow partial matching of job set names
-
-        ## Returns:
-
-        - **int**:<br />
-            Job id for the current job set
-        """
-        job_set_id = -1
-
-        if af_input_jobs is None:
-            warnings.warn("No AF jobs found. Skipping extraction of job id.")
-            return job_set_id
-
-        idx = 0
-
-        for job_cycle, job_sets_list in af_input_jobs.items():
-            for job_set in job_sets_list:
-
-                if job_set.get(AFInputJobFields.JOB_SET_NAME, "") == self.job_set_name:
-                    job_set_id = idx + 1
-                    self.job_cycle_name = job_cycle
-
-                elif soft_match and (
-                    self.job_set_name in job_set.get(AFInputJobFields.JOB_SET_NAME, "") or
-                    job_set.get(AFInputJobFields.JOB_SET_NAME, "") in self.job_set_name
-                ):
-                    job_set_id = idx + 1
-                    self.job_cycle_name = job_cycle
-                idx += 1
-            idx = 0
-
-        self.job_set_id = job_set_id
-
-        return job_set_id

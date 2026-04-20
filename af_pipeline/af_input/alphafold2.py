@@ -10,26 +10,21 @@ import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 from af_pipeline.constants.af_constants import (
-    RES_RANGE_SEP,
     ConfigYaml,
     EntityType,
     FileFormat,
     AFInputJobFields,
     AFInputEntityFields,
 )
+from af_pipeline.constants import af_constants
+from af_pipeline.utils.misc_utils import chain_id_gen
+from af_pipeline.utils.file_utils import write_json
 
 class AlphaFold2:
     """Class to create FASTA files for AlphaFold2 jobs."""
 
-    input_dict: Dict[str, List[Dict[str, Any]]]
-    """Dictionary with:<br />
-
-    - `key` -> `job_cycle_id` <br />
-      Unique string identifier for the job cycle.<br />
-
-    - `val` -> `job_sets_list` <br />
-      List of `AFJobSet.job_set_info`s, each of which specifies
-      the entities, model seeds, job name, etc."""
+    input_job_sets: List[Dict[str, Any]]
+    """List of job sets, each of which specifies the entities, model seeds, job name, etc."""
 
     protein_sequences: Dict[str, str] | None
     """Dictionary with:<br />
@@ -56,34 +51,9 @@ class AlphaFold2:
         protein_sequences: Dict[str, str],
     ):
 
-        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {})
-        self.input_dict = config_dict.get(ConfigYaml.AF_INPUT_JOBS, {})
+        self.entities_map = config_dict.get(ConfigYaml.PROTEIN_UNIPROT_MAP, {}).copy()
+        self.input_job_sets = config_dict.get(ConfigYaml.AF_INPUT_JOBS, []).copy()
         self.protein_sequences = protein_sequences
-
-    def create_af2_job_cycles(self) -> None:
-        """Create job cycles for AlphaFold2.
-
-        Convert the input information into the format required by
-        the AlphaFold2.
-
-        Each job within a cycle is a tuple ->
-        (`sequences_to_add`, `job_name`)<br />
-        where, `sequences_to_add` = `{identifier: sequence}`
-        """
-
-        self.job_cycles = {}
-
-        for job_cycle_id, jobs_info in self.input_dict.items():
-
-            job_list = []
-
-            for job_info in jobs_info:
-                sequences_to_add, job_name = self.generate_job_entities(
-                    job_info=job_info
-                )
-                job_list.append((sequences_to_add, job_name))
-
-            self.job_cycles[job_cycle_id] = job_list
 
     @staticmethod
     def write_to_fasta(
@@ -120,26 +90,56 @@ class AlphaFold2:
         self,
         output_dir: str,
     ):
-        """Write the generated job files to the output directory.
+        """Convert the input information into the format required by AlphaFold2
+        and write the job files to the output directory.
 
         Arguments:
 
         - **output_dir (str)**:<br /> Output directory to save the job files.
         """
 
-        for job_cycle, job_list in self.job_cycles.items():
+        for job_set_idx, job_set_info in enumerate(self.input_job_sets):
 
-            os.makedirs(os.path.join(output_dir, job_cycle), exist_ok=True)
-
-            for fasta_dict, job_name in job_list:
-
-                AlphaFold2.write_to_fasta(
-                    fasta_dict=fasta_dict,
-                    file_name=job_name,
-                    output_dir=os.path.join(output_dir, job_cycle),
+            sequences_to_add, job_set_name = self.generate_job_entities(
+                job_info=job_set_info
+            )
+            if len(sequences_to_add) == 0:
+                warnings.warn(f"""
+                    No valid entities found for job.
+                    Skipping job file creation for this job."""
                 )
+                continue
+            os.makedirs(output_dir, exist_ok=True)
 
-        print("\nAll job files written to", output_dir)
+            AlphaFold2.write_to_fasta(
+                fasta_dict=sequences_to_add,
+                file_name=job_set_name,
+                output_dir=os.path.join(output_dir, job_set_name),
+            )
+
+            self.input_job_sets[job_set_idx] = {
+                AFInputJobFields.JOB_SET_NAME: job_set_name,
+                **{
+                    k:v for k,v in self.input_job_sets[job_set_idx].items()
+                    if k not in [
+                        AFInputJobFields.JOB_SET_NAME,
+                        AFInputJobFields.MODEL_SEEDS,
+                        AFInputJobFields.AF_OFFSET,
+                    ]
+                },
+                AFInputJobFields.AF_OFFSET: self.job_set_af_offset,
+            }
+
+            write_json(
+                file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
+                data={
+                    ConfigYaml.PROTEIN_UNIPROT_MAP: self.entities_map,
+                    ConfigYaml.AF_INPUT_JOBS: [
+                        info for info in self.input_job_sets
+                        if info.get(AFInputJobFields.JOB_SET_NAME, None) is not None
+                    ],
+                },
+            )
 
     def generate_job_entities(
         self,
@@ -159,6 +159,9 @@ class AlphaFold2:
         - **(tuple)**:<br /> `(sequences_to_add, job_name)`
         """
 
+        chainGen = chain_id_gen()
+        self.job_set_af_offset = {}
+
         # get the job name if provided
         job_name = job_info.get(AFInputJobFields.JOB_SET_NAME, None)
 
@@ -167,8 +170,14 @@ class AlphaFold2:
         ranges = self.get_entity_info(job_info, AFInputEntityFields.RANGE, None)
         counts = self.get_entity_info(job_info, AFInputEntityFields.COUNT, 1)
 
-        sequences = self.get_entity_sequences(ranges=ranges, identifiers=identifiers)
+        if len(identifiers) == 0:
+            warnings.warn(f"""
+                No proteinChain entities found in the job.
+                AlphaFold2 only supports proteinChain entities."""
+            )
+            return {}, None
 
+        sequences = self.get_entity_sequences(ranges=ranges, identifiers=identifiers)
         job_dict = {
             AFInputJobFields.JOB_NAME: job_name,
             AFInputJobFields.ENTITIES: [],
@@ -187,6 +196,12 @@ class AlphaFold2:
                     }
                 )
 
+                entity_chain_id = next(chainGen)
+                self.job_set_af_offset[entity_chain_id] = [
+                    range_[0] if range_ else 1,
+                    range_[1] if range_ else len(sequence),
+                ]
+
         # generate job name if not provided
         if not job_name:
             job_name = self.generate_job_name(job_dict)
@@ -201,7 +216,7 @@ class AlphaFold2:
                 start, end = entity[AFInputEntityFields.RANGE]
 
                 sequences_to_add[
-                    f"{identifier}_{entity_count}_{start}{RES_RANGE_SEP}{end}"
+                    f"{identifier}_{entity_count}_{start}{af_constants.RES_RANGE_SEP}{end}"
                 ] = sequence
 
         # warn if any of the entities is not a proteinChain
@@ -310,7 +325,7 @@ class AlphaFold2:
             start, end = entity[AFInputEntityFields.RANGE]
             count = entity[AFInputEntityFields.COUNT]
 
-            fragments[f"{identifier}_{start}{RES_RANGE_SEP}{end}"].append(count)
+            fragments[f"{identifier}_{start}{af_constants.RES_RANGE_SEP}{end}"].append(count)
 
         fragments = {k: max(v) for k, v in fragments.items()}
 

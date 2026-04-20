@@ -7,8 +7,15 @@
   this class inherits from `af_pipeline.af_input.alphafold2.AlphaFold2`.
 """
 
+import os
+import warnings
 from af_pipeline.af_input.alphafold2 import AlphaFold2
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, overload
+from af_pipeline.constants.af_constants import (
+    ConfigYaml,
+    AFInputJobFields,
+)
+from af_pipeline.utils.file_utils import write_json
 
 class ColabFold(AlphaFold2):
     """Class to create FASTA files for ColabFold jobs."""
@@ -24,32 +31,52 @@ class ColabFold(AlphaFold2):
             protein_sequences=protein_sequences,
         )
 
-    def create_colabfold_job_cycles(self) -> None:
-        """Create job cycles for ColabFold
+    @overload
+    def write_job_files(self, output_dir):
+        ...
 
-        Convert the input information into the format required by
-        the ColabFold.
+    def write_job_files(
+        self,
+        output_dir: str,
+    ):
+        """Convert the input information into the format required by ColabFold
+        and write the job files to the output directory.
 
-        Each job within a cycle is a tuple -> (`fasta_dict`, `job_name`)<br />
-        where, `fasta_dict` = `{job_name: all_sequence_str}`.
+        Arguments:
 
-        `all_sequence_str` is concatenation of all sequences in the job
-        joined by ":".
+        - **output_dir (str)**:<br /> Output directory to save the job files.
         """
 
-        self.job_cycles = {}
+        for job_set_idx, job_set_info in enumerate(self.input_job_sets):
 
-        for job_cycle, jobs_info in self.input_dict.items():
-
-            job_list = []
-
-            for job_info in jobs_info:
-                sequences_to_add, job_name = self.generate_job_entities(
-                    job_info=job_info
+            sequences_to_add, job_set_name = self.generate_job_entities(
+                job_info=job_set_info
+            )
+            if len(sequences_to_add) == 0:
+                warnings.warn(f"""
+                    No valid entities found for job.
+                    Skipping job file creation for this job."""
                 )
+                continue
+            os.makedirs(output_dir, exist_ok=True)
 
-                fasta_dict = {job_name: ":\n".join(list(sequences_to_add.values()))}
+            fasta_dict = {job_set_name: ":\n".join(list(sequences_to_add.values()))}
 
-                job_list.append((fasta_dict, job_name))
+            AlphaFold2.write_to_fasta(
+                fasta_dict=fasta_dict,
+                file_name=job_set_name,
+                output_dir=os.path.join(output_dir, job_set_name),
+            )
 
-            self.job_cycles[job_cycle] = job_list
+            self.input_job_sets[job_set_idx] = {
+                AFInputJobFields.JOB_SET_NAME: job_set_name,
+                AFInputJobFields.AF_OFFSET: self.job_set_af_offset,
+            }
+
+            write_json(
+                file_path=os.path.join(os.path.dirname(output_dir), "af_input_jobs.json"),
+                data={
+                    ConfigYaml.PROTEIN_UNIPROT_MAP: self.entities_map,
+                    ConfigYaml.AF_INPUT_JOBS: self.input_job_sets,
+                },
+            )

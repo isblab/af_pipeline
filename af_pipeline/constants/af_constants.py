@@ -44,11 +44,6 @@ RES_SEPARATOR = "-"
 RES_SPLITTER = ","
 """ Separator for multiple residue ranges. For example, `1-100,150-200`."""
 
-class UpdateConfigMode(StrEnum):
-    """ Modes for updating the config dictionary."""
-    REPLACE = auto()
-    SOFT_REPLACE = auto()
-
 class MaskedInteractionType(StrEnum):
     """ Which interactions to mask in the 2D interaction map."""
     INTRA_PART = auto()
@@ -354,10 +349,6 @@ class NucleicAcidModificationFields(StrEnum):
 class ConfigYaml(StrEnum):
     """ Keys for the config YAML file used by modules in af_pipeline.af_input."""
     AF_INPUT_JOBS = auto()
-    AF_MASTER_DIRS = auto()
-    AF_CYCLE_DIRS = auto()
-    AF_JOB_SET_DIRS = auto()
-    BEST_AF3_PREDICTIONS = auto()
     PROTEIN_UNIPROT_MAP = auto()
 
 class BestPredictionFields(StrEnum):
@@ -365,6 +356,7 @@ class BestPredictionFields(StrEnum):
     STRUCTURE_PATH = auto()
     DATA_PATH = auto()
     AF_OFFSET = auto()
+    ENTITY_CHAIN_MAP = auto()
 
 class AF3Metrics(StrEnum):
     """ Metrics for assessing the confidence of AlphaFold 3 predictions."""

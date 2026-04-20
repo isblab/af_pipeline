@@ -4,52 +4,6 @@ protein_uniprot_map:
   "Dp1": "P15924-1"
 
 af_input_jobs:
-  Double_stranded_DNA:
-  - modelSeeds: [1] # 1 model with seed 1
-    entities:
-    - name: "DNA_25"
-      type: "dnaSequence"
-      strand: "double"
-
-  Double_stranded_RNA:
-  - modelSeeds: [1] # 1 model with seed 1
-    entities:
-    - name: "RNA_33"
-      type: "rnaSequence"
-      strand: "double"
-
-  Single_stranded_DNA:
-  - modelSeeds: [1] # 1 model with seed 1
-    entities:
-    - name: "DNA20"
-      type: "dnaSequence"
-
-  Lb2Cas12a_RNA_DNA_complex_8I54_targets: # job_cycle_id
-  # job_sets_list
-  - job_set_name: "Lb2Cas12a_RNA_DNA_complex" # user provided job name
-    modelSeeds: [1, 2] # 2 models with seeds 1 and 2
-    entities:
-    - name: "Lb2Cas12a"
-      type: "proteinChain"
-      count: 1
-      useStructureTemplate: true # by default set to true
-      maxTemplateDate: "2023-01-01" # by default set to 2021-09-30
-      glycans: [["BMA", 5]]
-      modifications:
-      - - "CCD_HY3"
-        - 11
-    - name: "RNA_33"
-      type: "rnaSequence"
-    - name: "DNA_25"
-      type: "dnaSequence"
-    - name: "DNA_mod"
-      type: "dnaSequence"
-      modifications: [["CCD_6OG", 2], ["CCD_6MA", 1]]
-    - name: "MG"
-      type: "ion"
-      count: 1
-
-  Actin_profilin_targets:
   # job set 1
   # no user provided job name
   - modelSeeds: 2 # 2 models with randomly generated seeds
@@ -83,7 +37,47 @@ af_input_jobs:
       type: "ion"
       count: 1
 
-  DP_dimer_targets:
+  - modelSeeds: [1] # 1 model with seed 1
+    entities:
+    - name: "DNA25"
+      type: "dnaSequence"
+      strand: "double"
+
+  - modelSeeds: [1] # 1 model with seed 1
+    entities:
+    - name: "RNA33"
+      type: "rnaSequence"
+      strand: "double"
+
+  - job_set_name: "Single_stranded_DNA"
+    modelSeeds: [1] # 1 model with seed 1
+    entities:
+    - name: "DNA20"
+      type: "dnaSequence"
+
+  - job_set_name: "Lb2Cas12a_RNA_DNA_complex" # user provided job name
+    modelSeeds: [1, 2] # 2 models with seeds 1 and 2
+    entities:
+    - name: "Lb2Cas12a"
+      type: "proteinChain"
+      count: 1
+      useStructureTemplate: true # by default set to true
+      maxTemplateDate: "2023-01-01" # by default set to 2021-09-30
+      glycans: [["BMA", 5]]
+      modifications:
+      - - "CCD_HY3"
+        - 11
+    - name: "RNA33"
+      type: "rnaSequence"
+    - name: "DNA25"
+      type: "dnaSequence"
+    - name: "DNAmod"
+      type: "dnaSequence"
+      modifications: [["CCD_6OG", 2], ["CCD_6MA", 1]]
+    - name: "MG"
+      type: "ion"
+      count: 1
+
   - modelSeeds: 1 # 1 model with randomly generated seed
     entities:
     - name: "Dp1"
@@ -92,10 +86,9 @@ af_input_jobs:
       range: [1021, 1950]
       useStructureTemplate: false
 
-  Collagen_triple_helix_targets:
   - job_set_name: "collagen_triple_helix"
     entities:
-    - name: "collagen_polypeptide"
+    - name: "collagenPolypeptide"
       type: "proteinChain"
       count: 3
       maxTemplateDate: "2023-01-01"

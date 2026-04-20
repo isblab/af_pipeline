@@ -1,7 +1,8 @@
 import os
 import pytest
+import tempfile
 from af_pipeline.af_input.alphafold3 import (
-    AlphaFoldServer, AFCycle, AFJobSet, AFSequence, Entity
+    AlphaFoldServer, AFJobSet, AFSequence, Entity
 )
 from af_pipeline.constants.af_constants import (
     MAX_TEMPLATE_DATE,
@@ -12,7 +13,7 @@ from af_pipeline.constants.af_constants import (
     EntityType,
 )
 
-test_out_dir = "tests/test_output"
+test_out_dir = tempfile.mkdtemp()
 
 ###############################################################################
 protein_sequences_by_name = {
@@ -140,11 +141,9 @@ job_sets_list = [
     job_set_info_max,
 ]
 ###############################################################################
-input_dict = {
-    "cycle1": [job_sets_list[0]],
-}
+input_job_sets = [job_sets_list[0]]
 config_dict = {
-    ConfigYaml.AF_INPUT_JOBS: input_dict,
+    ConfigYaml.AF_INPUT_JOBS: input_job_sets,
     ConfigYaml.PROTEIN_UNIPROT_MAP: entities_map,
 }
 
@@ -846,268 +845,6 @@ def test_create_job_set(
     assert af_jobset == expected_af_jobset, assert_msg
 
 ###############################################################################
-# AFCycle class Fixtures and Tests
-###############################################################################
-@pytest.fixture
-def af_cycle():
-    return AFCycle(
-        job_sets_list=job_sets_list,
-        protein_sequences=protein_sequences_by_name,
-        nucleic_acid_sequences=nucleic_acid_sequences,
-    )
-
-###############################################################################
-def test_update_cycle(af_cycle: AFCycle):
-    """Test AFCycle.update_cycle method."""
-
-    assert_msg = "Updated cycle does not match expected outcome."
-
-    af_cycle.update_cycle()
-    expected_job_list = [
-        {
-            "name": "jobset_min_0",
-            "modelSeeds": [0],
-            "sequences": [
-                {
-                    "proteinChain": {
-                        "sequence": "GAVLILLLVAVAVVAGVAA",
-                        "glycans": [],
-                        "modifications": [],
-                        "count": 1,
-                        "maxTemplateDate": MAX_TEMPLATE_DATE,
-                        "useStructureTemplate": True,
-                    }
-                },
-                {
-                    "dnaSequence": {
-                        "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
-                        "modifications": [],
-                        "count": 1,
-                    }
-                },
-                {
-                    "rnaSequence": {
-                        "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
-                        "modifications": [],
-                        "count": 1,
-                    }
-                },
-                {
-                    "ligand": {
-                        "count": 2,
-                        "ligand": "CCD_ATP",
-                    }
-                },
-                {
-                    "ion": {
-                        "count": 2,
-                        "ion": "MG",
-                    }
-                },
-            ],
-        },
-        {
-            "name": "jobset_min_1",
-            "modelSeeds": [1],
-            "sequences": [
-                {
-                    "proteinChain": {
-                        "sequence": "GAVLILLLVAVAVVAGVAA",
-                        "glycans": [],
-                        "modifications": [],
-                        "count": 1,
-                        "maxTemplateDate": MAX_TEMPLATE_DATE,
-                        "useStructureTemplate": True,
-                    }
-                },
-                {
-                    "dnaSequence": {
-                        "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
-                        "modifications": [],
-                        "count": 1,
-                    }
-                },
-                {
-                    "rnaSequence": {
-                        "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
-                        "modifications": [],
-                        "count": 1,
-                    }
-                },
-                {
-                    "ligand": {
-                        "count": 2,
-                        "ligand": "CCD_ATP",
-                    }
-                },
-                {
-                    "ion": {
-                        "count": 2,
-                        "ion": "MG",
-                    }
-                },
-            ],
-        },
-        {
-            "name": "jobset_max_0",
-            "modelSeeds": [0],
-            "sequences": [
-                {
-                    "proteinChain": {
-                        "sequence": "KTAYIAKQRQISFVKSHFSRQDIL",
-                        "glycans": [{
-                            "residues": "BMA",
-                            "position": 5 - 2 + 1,
-                        }],
-                        "modifications": [{
-                            "ptmType": "CCD_HY3",
-                            "ptmPosition": 11 - 2 + 1,
-                        }],
-                        "count": 2,
-                        "maxTemplateDate": "2023-01-01",
-                        "useStructureTemplate": True,
-                    }
-                },
-                {
-                    "dnaSequence": {
-                        "sequence": "GCGTACGTAGCTAGCTAG",
-                        "modifications": [
-                            {
-                                "modificationType": "CCD_6OG",
-                                "basePosition": 3 - 3 + 1,
-                            },
-                            {
-                                "modificationType": "CCD_6MA",
-                                "basePosition": 5 - 3 + 1,
-                            },
-                        ],
-                        "count": 1,
-                    }
-                },
-                {
-                    "rnaSequence": {
-                        "sequence": "GCGUACGUAGCUAGCUAG",
-                        "modifications": [
-                            {
-                                "modificationType": "CCD_5MC",
-                                "basePosition": 4 - 3 + 1,
-                            },
-                            {
-                                "modificationType": "CCD_5MU",
-                                "basePosition": 6 - 3 + 1,
-                            },
-                        ],
-                        "count": 1,
-                    }
-                },
-                {
-                    "ligand": {
-                        "count": 2,
-                        "ligand": "CCD_ATP",
-                    }
-                },
-                {
-                    "ion": {
-                        "count": 2,
-                        "ion": "MG",
-                    }
-                },
-            ],
-        },
-        {
-            "name": "jobset_max_1",
-            "modelSeeds": [1],
-            "sequences": [
-                {
-                    "proteinChain": {
-                        "sequence": "KTAYIAKQRQISFVKSHFSRQDIL",
-                        "glycans": [{
-                            "residues": "BMA",
-                            "position": 5 - 2 + 1,
-                        }],
-                        "modifications": [{
-                            "ptmType": "CCD_HY3",
-                            "ptmPosition": 11 - 2 + 1,
-                        }],
-                        "count": 2,
-                        "maxTemplateDate": "2023-01-01",
-                        "useStructureTemplate": True,
-                    }
-                },
-                {
-                    "dnaSequence": {
-                        "sequence": "GCGTACGTAGCTAGCTAG",
-                        "modifications": [
-                            {
-                                "modificationType": "CCD_6OG",
-                                "basePosition": 3 - 3 + 1,
-                            },
-                            {
-                                "modificationType": "CCD_6MA",
-                                "basePosition": 5 - 3 + 1,
-                            },
-                        ],
-                        "count": 1,
-                    }
-                },
-                {
-                    "rnaSequence": {
-                        "sequence": "GCGUACGUAGCUAGCUAG",
-                        "modifications": [
-                            {
-                                "modificationType": "CCD_5MC",
-                                "basePosition": 4 - 3 + 1,
-                            },
-                            {
-                                "modificationType": "CCD_5MU",
-                                "basePosition": 6 - 3 + 1,
-                            },
-                        ],
-                        "count": 1,
-                    }
-                },
-                {
-                    "ligand": {
-                        "count": 2,
-                        "ligand": "CCD_ATP",
-                    }
-                },
-                {
-                    "ion": {
-                        "count": 2,
-                        "ion": "MG",
-                    }
-                },
-            ],
-        },
-    ]
-    expected_job_set_names = [
-        "jobset_min",
-        "jobset_max",
-    ]
-    expected_job_set_af_offsets = [
-        {"A": [1, 19],
-         "B": [1, 27],
-         "C": [1, 27],
-         "D": [1, 1],
-         "E": [1, 1],
-         "F": [1, 1],
-         "G": [1, 1]},
-        {'A': [2, 25],
-         'B': [2, 25],
-         'C': [3, 20],
-         'D': [3, 20],
-         'E': [1, 1],
-         'F': [1, 1],
-         'G': [1, 1],
-         'H': [1, 1]},
-    ]
-
-    assert af_cycle.job_list == expected_job_list, assert_msg
-    assert af_cycle.job_set_names == expected_job_set_names, assert_msg
-    assert af_cycle.job_set_af_offsets == expected_job_set_af_offsets, assert_msg
-
-###############################################################################
 # AlphaFoldServer class Fixtures and Tests
 ###############################################################################
 @pytest.fixture
@@ -1120,125 +857,11 @@ def alphafoldserver():
 
 def test_write_job_files(alphafoldserver: AlphaFoldServer):
 
-    alphafoldserver.create_af3_job_cycles()
     alphafoldserver.write_job_files(
         output_dir=os.path.join(test_out_dir, "af3_input_jobs"),
         num_jobs_per_file=20,
     )
 
     assert os.path.isfile(os.path.join(
-        test_out_dir, "af3_input_jobs", "cycle1", "cycle1_set_0.json"
+        test_out_dir, "af3_input_jobs", "jobset_min", "jobset_min_set_0.json"
     ))
-
-def test_create_af3_job_cycles(alphafoldserver: AlphaFoldServer):
-    """Test AlphaFoldServer.create_af3_job_cycles method."""
-
-    assert_msg = "AF3 job cycles do not match expected outcome."
-
-    alphafoldserver.create_af3_job_cycles()
-    expected_af3_job_cycles = {
-        "cycle1": [
-            {
-                "name": "jobset_min_0",
-                "modelSeeds": [0],
-                "sequences": [
-                    {
-                        "proteinChain": {
-                            "sequence": "GAVLILLLVAVAVVAGVAA",
-                            "glycans": [],
-                            "modifications": [],
-                            "count": 1,
-                            "maxTemplateDate": MAX_TEMPLATE_DATE,
-                            "useStructureTemplate": True,
-                        }
-                    },
-                    {
-                        "dnaSequence": {
-                            "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
-                            "modifications": [],
-                            "count": 1,
-                        }
-                    },
-                    {
-                        "rnaSequence": {
-                            "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
-                            "modifications": [],
-                            "count": 1,
-                        }
-                    },
-                    {
-                        "ligand": {
-                            "count": 2,
-                            "ligand": "CCD_ATP",
-                        }
-                    },
-                    {
-                        "ion": {
-                            "count": 2,
-                            "ion": "MG",
-                        }
-                    },
-                ],
-            },
-            {
-                "name": "jobset_min_1",
-                "modelSeeds": [1],
-                "sequences": [
-                    {
-                        "proteinChain": {
-                            "sequence": "GAVLILLLVAVAVVAGVAA",
-                            "glycans": [],
-                            "modifications": [],
-                            "count": 1,
-                            "maxTemplateDate": MAX_TEMPLATE_DATE,
-                            "useStructureTemplate": True,
-                        }
-                    },
-                    {
-                        "dnaSequence": {
-                            "sequence": "ATGCGTACGTAGCTAGCTAGCTAGCTA",
-                            "modifications": [],
-                            "count": 1,
-                        }
-                    },
-                    {
-                        "rnaSequence": {
-                            "sequence": "AUGCGUACGUAGCUAGCUAGCUAGCUA",
-                            "modifications": [],
-                            "count": 1,
-                        }
-                    },
-                    {
-                        "ligand": {
-                            "count": 2,
-                            "ligand": "CCD_ATP",
-                        }
-                    },
-                    {
-                        "ion": {
-                            "count": 2,
-                            "ion": "MG",
-                        }
-                    },
-                ],
-            },
-        ],
-    }
-    expected_job_set_names = {"cycle1": ["jobset_min"]}
-    expected_af_offsets = {
-        "cycle1": [
-            {
-                "A": [1, 19],
-                "B": [1, 27],
-                "C": [1, 27],
-                "D": [1, 1],
-                "E": [1, 1],
-                "F": [1, 1],
-                "G": [1, 1],
-            }
-        ]
-    }
-
-    assert alphafoldserver.job_cycles == expected_af3_job_cycles, assert_msg
-    assert alphafoldserver.job_set_names == expected_job_set_names, assert_msg
-    assert alphafoldserver.af_offsets == expected_af_offsets, assert_msg

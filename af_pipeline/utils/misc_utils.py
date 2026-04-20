@@ -18,124 +18,12 @@ from af_pipeline.constants.af_constants import (
     MaskedInteractionType,
     MiscStrEnum,
     ReturnType,
-    UpdateConfigMode,
     ColorMapScheme,
     BinaryColorMap,
 )
 from typing import List
 import random
 from functools import wraps
-
-def add_attribute(
-    config_yaml: dict,
-    attribute_name: str,
-    attribute_value: Any,
-    mode: UpdateConfigMode = UpdateConfigMode.REPLACE,
-    add_first: bool = False,
-):
-    """Update a generic attribute in the config file.
-
-    Arguments:
-
-    - **config_yaml (dict)**:<br />
-        Configuration dictionary.
-
-    - **attribute_name (str)**:<br />
-        Name of the attribute to update.
-
-    - **attribute_value (Any)**:<br />
-        Value of the attribute to update.
-
-    - **mode (str, optional)**:<br />
-        Mode to update the config file.
-    """
-
-    from af_pipeline.constants.af_constants import ConfigYaml
-
-    af_input_jobs = config_yaml.get(ConfigYaml.AF_INPUT_JOBS, {})
-
-    for job_cycle, job_sets in af_input_jobs.items():
-        for idx, job_set in enumerate(job_sets):
-            if attribute_name in job_set:
-                af_input_jobs[job_cycle][idx][attribute_name] = (
-                    attribute_value[job_cycle][idx]
-                )
-            elif add_first:
-                af_input_jobs[job_cycle][idx] = {
-                    attribute_name: attribute_value[job_cycle][idx],
-                    **job_set,
-                }
-            else:
-                af_input_jobs[job_cycle][idx] = {
-                    **job_set,
-                    attribute_name: attribute_value[job_cycle][idx],
-                }
-
-    updated_config = update_config(
-        config_yaml=config_yaml,
-        updates={ConfigYaml.AF_INPUT_JOBS: af_input_jobs},
-        mode=mode
-    )
-
-    return updated_config
-
-def update_config(
-    config_yaml: dict,
-    updates: dict = None,
-    mode: UpdateConfigMode = UpdateConfigMode.REPLACE,
-):
-    """Update config file with a new field or update an existing field.
-
-    Arguments:
-
-    - **config_yaml (dict)**:<br />
-        Configuration dictionary.
-
-    - **updates (dict, optional)**:<br />
-        Fields to update in the config file.
-
-    - **mode (str, optional)**:<br />
-        Mode to update the config file. ("append" or "replace").
-
-    """
-
-    update_fields = list(updates.keys()) if updates else []
-
-    if len(update_fields) == 0:
-
-        print("No fields to update in config")
-        return None
-
-    existing_fields = list(config_yaml.keys())
-
-    for field in update_fields:
-
-        add_field = False
-
-        if field in existing_fields:
-            if mode == UpdateConfigMode.REPLACE:
-                config_yaml[field] = updates[field]
-            elif mode == UpdateConfigMode.SOFT_REPLACE:
-                #! only update if the field is not already set
-                if config_yaml[field] is None or config_yaml[field] == "":
-                    config_yaml[field] = updates[field]
-            else:
-                raise ValueError(
-                    "Invalid mode. Use one of the following: "\
-                    f": {list(UpdateConfigMode)}"
-                )
-
-        else:
-            print(f"{field} not found in config")
-            print("Adding field to config")
-            add_field = True
-
-        if add_field:
-            config_yaml[field] = updates[field]
-            add_field = False
-
-    print(f"Config dict updated with {update_fields}")
-    return config_yaml
 
 def time_it(func):
     """ Decorator to measure the execution time of a function.
@@ -463,6 +351,11 @@ def convert_false_to_true(
     - **np.ndarray**:<br />
         Binary array with False values converted to True if the patch length is
         less than or equal to threshold.
+
+    ## Examples:
+    >>> arr = np.array([True, False, False, True, False, True])
+    >>> convert_false_to_true(arr, threshold=2)
+    array([ True,  True,  True,  True,  True,  True])
     """
     if isinstance(arr, list):
         arr = np.array(arr)
@@ -795,59 +688,6 @@ def update_matrix_row_col(
     matrix = matrix[mask][:, mask]
 
     return matrix
-
-def extract_protein_chain_mapping(
-    protein_chain_mapping: dict,
-) -> dict[str, str]:
-    """ Extract the protein chain mapping from the provided dictionary.
-
-    For e.g., if the user provides the following mapping:
-    ```python
-    {
-        "ProteinA": ["A", "B"],
-        "ProteinB": ["C"]
-    }
-    ```
-    The function will return the following dictionary:
-    ```python
-    {
-        "A": "ProteinA",
-        "B": "ProteinA",
-        "C": "ProteinB"
-    }
-    ```
-
-    ## Arguments:
-
-    - **protein_chain_mapping (dict)**:<br />
-        Protein-to-chain map.
-
-    ## Returns:
-
-    - **protein_chain_map (dict)**:<br />
-        Dictionary with chain IDs as keys and protein names as values.
-
-    ## Examples:
-
-    >>> protein_chain_mapping = {
-    ... "ProteinA" : ["A", "B"],
-    ... "ProteinB": ["C"]
-    ... }
-    >>> sorted(extract_protein_chain_mapping(protein_chain_mapping).items())
-    [('A', 'ProteinA'), ('B', 'ProteinA'), ('C', 'ProteinB')]
-    """
-
-    chain_protein_map = {}
-
-    if len(protein_chain_mapping) == 0:
-        return chain_protein_map
-
-    for protein_name, chain_ids in protein_chain_mapping.items():
-        for chain_id in chain_ids:
-            if chain_id not in chain_protein_map:
-                chain_protein_map[chain_id] = protein_name
-
-    return chain_protein_map
 
 def generate_cmap(
     n: int,
