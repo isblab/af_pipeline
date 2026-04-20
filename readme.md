@@ -143,6 +143,6 @@ graph TD
 
 ## Additional Information
 
-**License**: GPLv3
+**License**: [GPLv3](LICENSE.txt)
 
 **Testable**: Yes
