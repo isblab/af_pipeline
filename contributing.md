@@ -48,7 +48,10 @@
 
 - The generated documentation will be available inside `docs_` directory.
 
-- Refer to the [tests](./tests/) directory.
+- Refer to the [tests](./tests/) directory. Unzip the test data first.
+  ```bash
+  unzip ./tests/test_data.zip -d tests/
+  ```
 
 - Run tests using `pytest` as follows:
   ```bash
