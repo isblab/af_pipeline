@@ -909,6 +909,7 @@ class RankAF3JobSet:
                 )
                 continue
 
+            base_name = None
             for summary_confidence_path in summary_confidences_files:
 
                 model_idx = summary_confidence_path.split("_")[-1].split(".")[0]
@@ -916,7 +917,9 @@ class RankAF3JobSet:
                     af3_summary_confidence_file=summary_confidence_path
                 )
                 model_metrics[int(model_idx)] = af3_summary_confidences
+                base_name = summary_confidence_path.rsplit("_", 3)[0]
 
+            assert base_name != None, "Could not figure out base_name from summary_confidences"
             # choosing the best model based on ranking score
             model_seed = self.get_seed_from_job_request(job_request_file[0])
 
@@ -928,11 +931,7 @@ class RankAF3JobSet:
                         AF3Metrics.IPTM: model_metric[AF3Metrics.IPTM],
                         AF3Metrics.PTM: model_metric[AF3Metrics.PTM],
                         AF3Metrics.FRACTION_DISORDERED: model_metric[AF3Metrics.FRACTION_DISORDERED],
-                        AF3Metrics.MODEL_PATH: [
-                            os.path.join(af3_seed_prediction_dir, af3_file)
-                            for af3_file in os.listdir(af3_seed_prediction_dir)
-                            if f"model_{i}" in af3_file and af3_file.endswith(FileFormat.CIF)
-                        ][0],
+                        AF3Metrics.MODEL_PATH: f"{base_name}_model_{i}.{FileFormat.CIF}",
                         AF3Metrics.MODEL_IDX: i,
                     }
                 )
