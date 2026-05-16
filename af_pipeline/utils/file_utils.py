@@ -33,6 +33,7 @@ def read_yaml(
 def write_json(
     file_path: str,
     data: Any,
+    indent: int | None = None,
 ):
     """Write data to a json file.
 
@@ -46,7 +47,7 @@ def write_json(
     """
 
     with open(file_path, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=indent)
 
 
 def read_json(file_path: str) -> Any:

@@ -106,6 +106,7 @@ class AlphaFoldServer:
         self,
         output_dir: str,
         num_jobs_per_file: int = 20,
+        indent: int = 4,
     ) -> None:
         """Convert the input information into the dictionary format required by
         the AlphaFold server and write job files to the output directory.
@@ -180,6 +181,7 @@ class AlphaFoldServer:
                     ConfigYaml.PROTEIN_UNIPROT_MAP: self.entities_map,
                     ConfigYaml.AF_INPUT_JOBS: self.input_job_sets,
                 },
+                indent=indent,
             )
 
     @staticmethod
