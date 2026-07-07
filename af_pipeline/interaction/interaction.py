@@ -844,18 +844,37 @@ def plot_map(
         - For "static", it returns a matplotlib figure object.
         - For "interactive", it returns a plotly figure object.
     """
-    xtick_vals = np.arange(0, p2_region[1] - p2_region[0] + 1)
-    xtick_labels = [str(x+p2_region[0]) for x in xtick_vals]
+    p2_start, p2_end = p2_region[0], p2_region[1]
+    p1_start, p1_end = p1_region[0], p1_region[1]
 
-    ytick_vals = np.arange(0, p1_region[1] - p1_region[0] + 1)
-    ytick_labels = [str(x+p1_region[0]) for x in ytick_vals]
+    xtick_vals = np.arange(p2_start, p2_end + 1)
+    xtick_labels = [str(x) for x in xtick_vals]
+
+    ytick_vals = np.arange(p1_start, p1_end + 1)
+    ytick_labels = [str(x) for x in ytick_vals]
 
     num_unique_patches = len(np.unique(contact_map))
 
-    colorscale = generate_cmap(
-        n=num_unique_patches,
-        scheme=ColorMapScheme.BINARY if num_unique_patches == 2 else ColorMapScheme.SOFT_WARM,
-    )
+    if num_unique_patches == 2:
+        colorscale = [
+            [0.0, 'black'], [0.5, 'black'],
+            [0.5, 'green'], [1.0, 'green']
+        ]
+        colorbar = {
+            "tickmode": "array",
+            "tickvals": [0.25, 0.75],
+            "ticktext": ["No Contact", "Contact"],
+        }
+    else:
+        colorscale = generate_cmap(
+            n=num_unique_patches,
+            scheme=ColorMapScheme.SOFT_WARM,
+        )
+        colorbar = {
+            "tickmode": "array",
+            "tickvals": [np.arange(num_unique_patches)],
+            "ticktext": [str(i) for i in range(num_unique_patches)],
+        }
 
     if plot_type not in IntCons.valid_plot_types:
         raise ValueError(
@@ -868,8 +887,11 @@ def plot_map(
 
         fig = go.Figure(
             data=go.Heatmap(
+                x=xtick_vals,
+                y=ytick_vals,
                 z=contact_map,
                 colorscale=colorscale,
+                colorbar=colorbar,
                 xgap=0.2,
                 ygap=0.2,
             )
@@ -880,16 +902,14 @@ def plot_map(
             yaxis_title=f"Residue number of {chain1}",
             xaxis_title=f"Residue number of {chain2}",
             xaxis=dict(
-                tickmode="array",
+                tickmode="auto",
                 tickformat=".0f",
-                tickvals=xtick_vals,
-                ticktext=xtick_labels,
+                nticks=10,
             ),
             yaxis=dict(
                 tickmode="array",
                 tickformat=".0f",
-                tickvals=ytick_vals,
-                ticktext=ytick_labels,
+                nticks=10,
             ),
         )
 
