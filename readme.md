@@ -44,6 +44,12 @@ See also:
 
 <hr>
 
+## Tutorial
+
+- Refer to the following Google colab notebook (presented at Computational Biology Summer School 2026 at NCBS Bangalore)
+
+  [![Colab notebook](https://img.shields.io/badge/google_colab-F9AB00?style=for-the-badge&logo=google-colab&logoColor=white&label)](https://colab.research.google.com/drive/18Xddb_Wm-_GVpCC1m0qA3p1SiTE2yGVF?usp=drive_link)
+
 ## Usage
 
 - Refer to the scripts available in the [examples](./examples/) directory.
@@ -135,7 +141,7 @@ graph TD
     K e14@--> P[/"Output files for rigid body assessment (xlsx)"/]
     M e15@--> Q[/"Output files for interacting patches (xlsx and plots)"/]
     classDef animate stroke-dasharray: 9,5,stroke-dashoffset: 900,animation: dash 25s linear infinite;
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 animate
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16,e17 animate
 
 ```
 
