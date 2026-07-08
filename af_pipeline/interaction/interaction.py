@@ -542,17 +542,6 @@ class Interaction:
                 num_to_idx=self.rep_num_to_idx,
             )
 
-
-    """
-
-    Args:
-        contact_map (np.ndarray): binary contact map or contact map
-        avg_contact_probs_mat (np.ndarray): average contact_probs_mat map
-        patches (dict): interacting patches from the map
-        interacting_region (dict): interacting region specified by the user
-        out_file (str): path to save the output file
-        save_plot (bool, optional): save the plot. Defaults to False.
-    """
 def save_map(
     contact_map: np.ndarray,
     avg_contact_probs_mat: np.ndarray | None,
