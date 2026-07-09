@@ -49,6 +49,7 @@ See also:
 - Refer to the following Google colab notebook (presented at Computational Biology Summer School 2026 at NCBS Bangalore)
 
   [![Colab notebook](https://img.shields.io/badge/google_colab-F9AB00?style=for-the-badge&logo=google-colab&logoColor=white&label)](https://colab.research.google.com/drive/18Xddb_Wm-_GVpCC1m0qA3p1SiTE2yGVF?usp=drive_link)
+  ![Slides](https://img.shields.io/badge/google_slides-yellow?style=for-the-badge&logo=google-slides&logoColor=white&label)(https://github.com/isblab/af_pipeline/blob/main/tutorials/AF_pipeline_NCBS_summer_school_2026.pdf)
 
 ## Usage
 
