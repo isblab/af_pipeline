@@ -210,6 +210,7 @@ class RigidBodies:
                 pae_power=self.pae_power,
                 pae_cutoff=self.pae_cutoff,
                 graph_resolution=self.resolution,
+                random_seed=self.random_seed,
             )
 
         elif self.library == CommunityDetectionLibrary.NETWORKX:
