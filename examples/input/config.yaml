@@ -64,9 +64,7 @@ af_input_jobs:
       useStructureTemplate: true # by default set to true
       maxTemplateDate: "2023-01-01" # by default set to 2021-09-30
       glycans: [["BMA", 5]]
-      modifications:
-      - - "CCD_HY3"
-        - 11
+      modifications: [["CCD_HY3", 11]]
     - name: "RNA33"
       type: "rnaSequence"
     - name: "DNA25"
