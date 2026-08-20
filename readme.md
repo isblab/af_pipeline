@@ -6,6 +6,21 @@
 
 <hr>
 
+## Overview & features
+
+<img src="./docs/assets/af_pipeline_workflow1.png" alt="af_pipeline_logo" width="100%">
+
+[AF-Pipeline](https://isblab.github.io/af_pipeline/) is a package to assist in
+AlphaFold2[^af2] and AlphaFold3[^af3] related tasks. These include:
+- Creating input files for prediction (for AlphaFold server[^afserver] or AlphaFold2[^af2] or Colabfold[^colabfold])
+- Ranking the predictions based on confidence metrics
+- Extracting **confidently predicted regions** from the predictions (based on [pae_to_domains](https://github.com/tristanic/pae_to_domains)[^pae_to_domains] package by Tristan Croll)
+- Extracting **interacting residue patches** from the predictions
+
+The workflow for the entire pipeline can be viewed [here](#workflow).
+
+<hr>
+
 ## Installation
 
 - Clone the repository
@@ -26,24 +41,6 @@
 
 <hr>
 
-## Overview
-
-[AF-Pipeline](https://isblab.github.io/af_pipeline/) is a package to assist in
-AlphaFold2[^af2] and AlphaFold3[^af3] related tasks. These include:
-- Creating input files for prediction (for AlphaFold server[^afserver] or AlphaFold2[^af2] or Colabfold[^colabfold])
-- Ranking the predictions based on confidence metrics
-- Extracting confidently predicted regions from the predictions (based on [pae_to_domains](https://github.com/tristanic/pae_to_domains)[^pae_to_domains] package by Tristan Croll)
-- Extracting interacting regions from the predictions
-
-The workflow for the entire pipeline can be viewed [here](#workflow).
-
-See also:
-- [Changelog](changelog.md)
-- [Contributing](contributing.md)
-- [Documentation](https://isblab.github.io/af_pipeline/)
-
-<hr>
-
 ## Tutorial
 
 - Refer to the following Google colab notebook and slides (presented at Computational Biology Summer School 2026 at NCBS Bangalore)
@@ -51,7 +48,19 @@ See also:
   [![Colab notebook](https://img.shields.io/badge/google_colab-F9AB00?style=for-the-badge&logo=google-colab&logoColor=white&label)](https://colab.research.google.com/drive/18Xddb_Wm-_GVpCC1m0qA3p1SiTE2yGVF?usp=drive_link)
   [![Slides](https://img.shields.io/badge/slides-yellow?style=for-the-badge&logo=google-slides&logoColor=white&label)](https://github.com/isblab/af_pipeline/blob/main/tutorials/AF_pipeline_NCBS_summer_school_2026.pdf)
 
-## Usage
+<hr>
+
+## Documentation
+
+- For a detailed explanation of different modules and their capabilites in AF-Pipeline, see [Documentation](https://isblab.github.io/af_pipeline/)
+
+- See also:
+  - [Changelog](changelog.md)
+  - [Contributing](contributing.md)
+
+<hr>
+
+## Quick usage
 
 - Refer to the scripts available in the [examples](./examples/) directory.
   Before running the scripts, make sure you unzip [`AF_predictions.zip`](./examples/input/AF_predictions.zip)
@@ -66,7 +75,7 @@ See also:
       -o ./output/af_input_jobs \\
       -p ./input/protein_sequences.fasta \\
       -n ./input/nucleic_acid_sequences.fasta \\
-      -t AF3 # you can replace this with AF2 or ColbFold
+      -t AF3 # you can replace this with AF2 or ColabFold
   ```
 
 - Upload the `JSON` files to AlphaFold server [^afserver] and download and extract the results.

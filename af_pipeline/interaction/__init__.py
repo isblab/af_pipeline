@@ -4,9 +4,13 @@
 
 - Module to handle interaction data for the predicted structure
 
-- This module contains classes and methods for extracting confidently
+- This module contains classes and methods for extracting confidently predicted
 interactions between residue-pairs from AlphaFold predictions based on the
 assessment metrics provided by AlphaFold: PAE and pLDDT.
+
+<div align="center">
+<img src="../assets/interaction_module.png" alt="interaction module" width="90%"/>
+</div>
 
 <hr>
 

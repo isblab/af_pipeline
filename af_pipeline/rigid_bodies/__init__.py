@@ -12,6 +12,12 @@
   communities of residues that are confidently predicted; a set of residues
   within each community satisfying a pLDDT cutoff constitute a rigid body.
 
+
+<div align="center">
+<img src="../assets/rb_extraction_module.png" alt="interaction module" width="90%"/>
+</div>
+
+
 [^tristan]: Tristan Croll, "Graph-based community clustering approach to extract protein domains from a predicted aligned error matrix": https://github.com/tristanic/pae_to_domains
 
 <hr>

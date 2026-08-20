@@ -6,10 +6,6 @@
 
 ## Network
 
-<a href="../docs/network/af_pipeline_network.html" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-    <button style="text-align: center; background-color: white; color: #3660a5; border: 2px solid #3660a5; border-radius: 2px; padding: 0.5em; cursor: pointer;" onmouseover="this.style.backgroundColor='#3660a5'; this.style.color='white';" onmouseout="this.style.backgroundColor='white'; this.style.color='#3660a5';">Show in new tab</button>
-</a>
-
 <details>
 
 <summary>Click to reveal more information</summary>
