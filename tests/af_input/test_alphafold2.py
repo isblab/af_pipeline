@@ -1,7 +1,7 @@
 import os
 import pytest
 import tempfile
-from af_pipeline.af_input.alphafold2 import AlphaFold2
+from af_pipeline.af_input.alphafold2 import AF2Config
 from af_pipeline.constants.af_constants import (
     RES_RANGE_SEP,
     ConfigYaml,
@@ -60,19 +60,19 @@ config_dict2 = {
 
 @pytest.fixture
 def alphafold2():
-    return AlphaFold2(
+    return AF2Config(
         config_dict=config_dict,
         protein_sequences=protein_sequences_by_id,
     )
 
 @pytest.fixture
 def alphafold2_no_job_names():
-    return AlphaFold2(
+    return AF2Config(
         config_dict=config_dict2,
         protein_sequences=protein_sequences_by_id,
     )
 
-def test_write_job_files(alphafold2: AlphaFold2):
+def test_write_job_files(alphafold2: AF2Config):
 
     alphafold2.write_job_files(
         output_dir=os.path.join(test_out_dir, "af2_input_jobs"),

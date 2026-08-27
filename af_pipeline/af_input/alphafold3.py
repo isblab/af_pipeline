@@ -49,7 +49,7 @@ from af_pipeline.constants.af_constants import (
     FileFormat,
 )
 
-class AlphaFoldServer:
+class AFServerConfig:
     """Class to help create JSON files for AlphaFold server jobs."""
 
     input_dict: Dict[str, List[Dict[str, Any]]]
@@ -155,7 +155,7 @@ class AlphaFoldServer:
             ]
             os.makedirs(output_dir, exist_ok=True)
 
-            AlphaFoldServer.write_to_json(
+            AFServerConfig.write_to_json(
                 sets_of_n_jobs=sets_of_n_jobs,
                 file_name=job_set.job_set_name,
                 output_dir=os.path.join(output_dir, job_set.job_set_name),

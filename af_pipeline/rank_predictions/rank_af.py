@@ -504,7 +504,7 @@ def assign_job_set_id(
 
     return job_set_id
 
-class RankAF2JobSet:
+class RankAF2:
     """ Class to rank AF2 or ColabFold predictions for a given job set directory """
 
     job_set_dir: str
@@ -663,7 +663,7 @@ class RankAF2JobSet:
 
         return structure_path
 
-class RankAF3JobSet:
+class RankAF3:
     """ Class to rank AF3 predictions for a given job set directory """
 
     job_set_dir: str

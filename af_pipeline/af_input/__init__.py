@@ -94,9 +94,9 @@ graph LR
 
 - The method `write_job_files` in each submodule is used to save the generated files in appropriate format:
 
-  - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AlphaFoldServer.write_job_files`
-  - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AlphaFold2.write_job_files`
-  - **ColabFold**: `af_pipeline.af_input.colabfold.ColabFold.write_job_files`
+  - **AlphaFoldServer**: `af_pipeline.af_input.alphafold3.AFServerConfig.write_job_files`
+  - **AlphaFold2**: `af_pipeline.af_input.alphafold2.AF2Config.write_job_files`
+  - **ColabFold**: `af_pipeline.af_input.colabfold.ColabConfig.write_job_files`
 
 <hr>
 
@@ -110,12 +110,12 @@ graph TD
   A([config.yaml]) --> B[/config_dict/]
   C([protein_sequences.fasta]) --> D[/protein_sequences/]
   E([nucleotide_sequences.fasta]) --> F[/nucleic_acid_sequences/]
-  B --> G[AlphaFoldServer instance]
-  click G "af_input/alphafold3.html#AlphaFoldServer" "AlphaFoldServer" _blank
+  B --> G[AFServerConfig instance]
+  click G "af_input/alphafold3.html#AFServerConfig" "AFServerConfig" _blank
   D --> G
   F -- optional --> G
   G --> H[write_job_files]
-  click H "af_input/alphafold3.html#AlphaFoldServer.write_job_files" "write_job_files" _blank
+  click H "af_input/alphafold3.html#AFServerConfig.write_job_files" "write_job_files" _blank
   H --> J([JSON files for AF3 jobs or FASTA files for AF2/ColabFold jobs])
 ```
 

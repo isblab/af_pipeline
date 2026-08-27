@@ -2,7 +2,7 @@ import os
 import pytest
 import tempfile
 from af_pipeline.af_input.alphafold3 import (
-    AlphaFoldServer, AFJobSet, AFSequence, Entity
+    AFServerConfig, AFJobSet, AFSequence, Entity
 )
 from af_pipeline.constants.af_constants import (
     MAX_TEMPLATE_DATE,
@@ -849,13 +849,13 @@ def test_create_job_set(
 ###############################################################################
 @pytest.fixture
 def alphafoldserver():
-    return AlphaFoldServer(
+    return AFServerConfig(
         config_dict=config_dict,
         protein_sequences=protein_sequences_by_name,
         nucleic_acid_sequences=nucleic_acid_sequences,
     )
 
-def test_write_job_files(alphafoldserver: AlphaFoldServer):
+def test_write_job_files(alphafoldserver: AFServerConfig):
 
     alphafoldserver.write_job_files(
         output_dir=os.path.join(test_out_dir, "af3_input_jobs"),

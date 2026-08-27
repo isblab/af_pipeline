@@ -1,8 +1,8 @@
 import os
 from argparse import ArgumentParser
-from af_pipeline.af_input.alphafold3 import AlphaFoldServer
-from af_pipeline.af_input.alphafold2 import AlphaFold2
-from af_pipeline.af_input.colabfold import ColabFold
+from af_pipeline.af_input.alphafold3 import AFServerConfig
+from af_pipeline.af_input.alphafold2 import AF2Config
+from af_pipeline.af_input.colabfold import ColabConfig
 from af_pipeline.utils.file_utils import read_fasta, read_yaml
 from af_pipeline.constants import af_constants
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     if args.pred_type == "AF3":
 
-        af_input = AlphaFoldServer(
+        af_input = AFServerConfig(
             config_dict=config_dict,
             protein_sequences=protein_sequences,
             nucleic_acid_sequences=nucleic_acid_sequences, # optional
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     elif args.pred_type == "AF2":
 
-        af_input = AlphaFold2(
+        af_input = AF2Config(
             config_dict=config_dict,
             protein_sequences=protein_sequences,
         )
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     elif args.pred_type == "ColabFold":
 
-        af_input = ColabFold(
+        af_input = ColabConfig(
             config_dict=config_dict,
             protein_sequences=protein_sequences,
         )

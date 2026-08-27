@@ -9,7 +9,7 @@
 
 import os
 import warnings
-from af_pipeline.af_input.alphafold2 import AlphaFold2
+from af_pipeline.af_input.alphafold2 import AF2Config
 from typing import Any, Dict, overload
 from af_pipeline.constants.af_constants import (
     ConfigYaml,
@@ -17,7 +17,7 @@ from af_pipeline.constants.af_constants import (
 )
 from af_pipeline.utils.file_utils import write_json
 
-class ColabFold(AlphaFold2):
+class ColabConfig(AF2Config):
     """Class to create FASTA files for ColabFold jobs."""
 
     def __init__(
@@ -62,7 +62,7 @@ class ColabFold(AlphaFold2):
 
             fasta_dict = {job_set_name: ":\n".join(list(sequences_to_add.values()))}
 
-            AlphaFold2.write_to_fasta(
+            AF2Config.write_to_fasta(
                 fasta_dict=fasta_dict,
                 file_name=job_set_name,
                 output_dir=os.path.join(output_dir, job_set_name),

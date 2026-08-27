@@ -20,7 +20,7 @@ from af_pipeline.constants import af_constants
 from af_pipeline.utils.misc_utils import chain_id_gen
 from af_pipeline.utils.file_utils import write_json
 
-class AlphaFold2:
+class AF2Config:
     """Class to create FASTA files for AlphaFold2 jobs."""
 
     input_job_sets: List[Dict[str, Any]]
@@ -111,7 +111,7 @@ class AlphaFold2:
                 continue
             os.makedirs(output_dir, exist_ok=True)
 
-            AlphaFold2.write_to_fasta(
+            AF2Config.write_to_fasta(
                 fasta_dict=sequences_to_add,
                 file_name=job_set_name,
                 output_dir=os.path.join(output_dir, job_set_name),

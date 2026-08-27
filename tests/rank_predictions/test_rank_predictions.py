@@ -1,8 +1,8 @@
 import os
 import pytest
 from af_pipeline.rank_predictions.rank_af import (
-    RankAF2JobSet,
-    RankAF3JobSet,
+    RankAF2,
+    RankAF3,
     extract_af_offset_from_path,
     get_job_set_dirs,
     assign_job_set_id,
@@ -89,21 +89,21 @@ af_input_jobs3 = [
 
 @pytest.fixture
 def rank_af3_job_set():
-    return RankAF3JobSet(
+    return RankAF3(
         job_set_dir=dummy_job_set_dir,
         af_input_jobs=af_input_jobs,
     )
 
 @pytest.fixture
 def rank_af3_job_set_real():
-    return RankAF3JobSet(
+    return RankAF3(
         job_set_dir=af3_pred_dir+"/prota_1_1t5_protb_1_11t15",
         af_input_jobs=af_input_jobs2,
     )
 
 @pytest.fixture
 def rank_colabfold_job_set_real():
-    return RankAF2JobSet(
+    return RankAF2(
         job_set_dir=colabfold_pred_dir,
         af_input_jobs=af_input_jobs3,
     )
@@ -230,7 +230,7 @@ def test_extract_entity_chain_mapping_from_path():
     }
     assert entity_chain_mapping == expected_mapping, "Chain-entity mapping does not match expected value."
 
-def test_extract_af3_best_pred_data(rank_af3_job_set_real: RankAF3JobSet):
+def test_extract_af3_best_pred_data(rank_af3_job_set_real: RankAF3):
 
     best_pred_info = rank_af3_job_set_real.extract_af3_best_pred_data()
 
@@ -245,7 +245,7 @@ def test_extract_af3_best_pred_data(rank_af3_job_set_real: RankAF3JobSet):
         "B": [11, 15],
     }
 
-def test_extract_colabfold_best_pred_data(rank_colabfold_job_set_real: RankAF2JobSet):
+def test_extract_colabfold_best_pred_data(rank_colabfold_job_set_real: RankAF2):
 
     best_pred_info = rank_colabfold_job_set_real.extract_colabfold_best_pred_data()
 

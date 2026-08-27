@@ -83,7 +83,7 @@ predictions/
 ## Organization
 
 The module is organized into the following submodule:
-- **rank_af**: Contains the `RankAF3JobSet` and `RankAF2JobSet` classes, that are
+- **rank_af**: Contains the `RankAF3` and `RankAF2` classes, that are
   repsonsible for ranking the predictions for a given job set and
   selecting the best model.
 
@@ -94,22 +94,22 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
-    class RankAF2JobSet {
+    class RankAF2 {
         + str job_set_dir
         + str job_set_name
         + int job_set_id
         + list af_input_jobs
         + str data_format
     }
-    class RankAF3JobSet {
+    class RankAF3 {
         + str job_set_dir
         + str job_set_name
         + int job_set_id
         + list af_input_jobs
     }
 
-    link RankAF2JobSet "rank_predictions/rank_af.html#RankAF2JobSet" "link to RankAF2JobSet class documentation"
-    link RankAF3JobSet "rank_predictions/rank_af.html#RankAF3JobSet" "link to RankAF3JobSet class documentation"
+    link RankAF2 "rank_predictions/rank_af.html#RankAF2" "link to RankAF2 class documentation"
+    link RankAF3 "rank_predictions/rank_af.html#RankAF3" "link to RankAF3 class documentation"
 ```
 
 ## Prerequisites
@@ -144,12 +144,12 @@ graph TD
   A[pred_dir] --> B[get_job_set_dirs]
   B[get_job_set_dirs] --> C[/job_set_dirs/]
   click B "rank_predictions/rank_af.html#get_job_set_dirs" "get_job_set_dirs" _blank
-  C -- for each --> D[RankAF3JobSet instance]
-  click D "rank_predictions/rank_af.html#RankAF3JobSet" "RankAF3JobSet" _blank
+  C -- for each --> D[RankAF3 instance]
+  click D "rank_predictions/rank_af.html#RankAF3" "RankAF3" _blank
   D --> E[assign_job_set_id]
   click E "rank_predictions/rank_af.html#assign_job_set_id" "assign_job_set_id" _blank
   E --> F[extract_af3_best_pred_data]
-  click F "rank_predictions/rank_af.html#RankAF3JobSet.extract_af3_best_pred_data" "extract_af3_best_pred_data" _blank
+  click F "rank_predictions/rank_af.html#RankAF3.extract_af3_best_pred_data" "extract_af3_best_pred_data" _blank
   F -- update --> G[/best_predictions/]
   G --> I([best_af_predictions.json])
 
@@ -164,14 +164,14 @@ graph TD
   A[pred_dir] --> B[get_job_set_dirs]
   B[get_job_set_dirs] --> C[/job_set_dirs/]
   click B "rank_predictions/rank_af.html#get_job_set_dirs" "get_job_set_dirs" _blank
-  C -- for each --> D[RankAF2JobSet instance]
-  click D "rank_predictions/rank_af.html#RankAF2JobSet" "RankAF2JobSet" _blank
+  C -- for each --> D[RankAF2 instance]
+  click D "rank_predictions/rank_af.html#RankAF2" "RankAF2" _blank
   D --> E[assign_job_set_id]
   click E "rank_predictions/rank_af.html#assign_job_set_id" "assign_job_set_id" _blank
   E --> F[extract_af2_best_pred_data]
   E --> J[extract_colabfold_best_pred_data]
-  click F "rank_predictions/rank_af.html#RankAF2JobSet.extract_af2_best_pred_data" "extract_af2_best_pred_data" _blank
-  click J "rank_predictions/rank_af.html#RankAF2JobSet.extract_colabfold_best_pred_data" "extract_colabfold_best_pred_data" _blank
+  click F "rank_predictions/rank_af.html#RankAF2.extract_af2_best_pred_data" "extract_af2_best_pred_data" _blank
+  click J "rank_predictions/rank_af.html#RankAF2.extract_colabfold_best_pred_data" "extract_colabfold_best_pred_data" _blank
   F -- update --> G[/best_predictions/]
   J -- update --> G[/best_predictions/]
   G --> I([best_af_predictions.json])

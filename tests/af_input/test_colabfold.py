@@ -1,7 +1,7 @@
 import os
 import pytest
 import tempfile
-from af_pipeline.af_input.colabfold import ColabFold
+from af_pipeline.af_input.colabfold import ColabConfig
 from af_pipeline.constants.af_constants import (
     AFInputJobFields,
     EntityType,
@@ -40,12 +40,12 @@ config_dict = {
 
 @pytest.fixture
 def colabfold():
-    return ColabFold(
+    return ColabConfig(
         config_dict=config_dict,
         protein_sequences=protein_sequences_by_id,
     )
 
-def test_write_job_files(colabfold: ColabFold):
+def test_write_job_files(colabfold: ColabConfig):
 
     colabfold.write_job_files(
         output_dir=os.path.join(test_out_dir, "cf_input_jobs"),

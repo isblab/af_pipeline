@@ -4,7 +4,7 @@ from pprint import pprint
 from argparse import ArgumentParser
 from af_pipeline.rank_predictions.rank_af import get_job_set_dirs
 from af_pipeline.utils.file_utils import read_json, write_json
-from af_pipeline.rank_predictions.rank_af import RankAF3JobSet, RankAF2JobSet
+from af_pipeline.rank_predictions.rank_af import RankAF3, RankAF2
 from af_pipeline.constants.af_constants import ConfigYaml
 from af_pipeline.constants import af_constants
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     for job_set_dir in list(set(job_set_dirs)):
 
         if args.pred_type == "AF3":
-            ranker = RankAF3JobSet(
+            ranker = RankAF3(
                 job_set_dir=job_set_dir,
                 af_input_jobs=None,
                 soft_match=True,
