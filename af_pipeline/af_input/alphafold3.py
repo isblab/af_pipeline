@@ -408,7 +408,11 @@ class AFJobSet:
                             resultdir, "bfd.mgnify30.metaeuk30.smag30.a3m"
                         )
                     )
-                    a3m_lines.update(env_a3m)
+                    for header, lines in env_a3m.items():
+                        if header in a3m_lines:
+                            a3m_lines[header].extend(lines)
+                        else:
+                            a3m_lines[header] = lines
             else:
                 a3m_lines = parse_a3m(
                     a3m_file=os.path.join(resultdir, "pair.a3m")
