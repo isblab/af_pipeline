@@ -301,6 +301,7 @@ class MMSeqs2:
 
         tar_name = os.path.basename(targz_file).split(".tar.gz")[0]
         resultdir = os.path.join(os.path.dirname(targz_file), tar_name)
+        resultdir = os.path.abspath(resultdir)
         if os.path.exists(resultdir) and not overwrite:
             logger.error(f"Output directory {resultdir} already exists. Skipping extraction.")
             return
@@ -308,7 +309,7 @@ class MMSeqs2:
         shutil.rmtree(resultdir, ignore_errors=True)
 
         with tarfile.open(targz_file, "r:gz") as tar:
-            tar.extractall(path=resultdir)
+            tar.extractall(path=resultdir, filter="data")
 
 
 if __name__ == "__main__":
