@@ -224,7 +224,11 @@ class MMSeqs2:
             query += f">{header}\n{seq}\n"
 
         _url = MMSeqs2API.get_ticket_url(use_pairing=self.use_pairing)
-        res = requests.post(_url, data={"q": query, "mode": mode})
+        res = requests.post(
+            _url,
+            data={"q": query, "mode": mode},
+            timeout=MMSeqs2API.TIMEOUT,
+        )
 
         try:
             out = res.json()
@@ -250,7 +254,10 @@ class MMSeqs2:
             Dictionary containing the status of the submitted request.
         """
 
-        res = requests.get(MMSeqs2API.get_status_url(ID))
+        res = requests.get(
+            MMSeqs2API.get_status_url(ID),
+            timeout=MMSeqs2API.TIMEOUT,
+        )
 
         try:
             out = res.json()
@@ -272,7 +279,10 @@ class MMSeqs2:
             Path to save the downloaded results.
         """
 
-        res = requests.get(MMSeqs2API.get_download_url(ID))
+        res = requests.get(
+            MMSeqs2API.get_download_url(ID),
+            timeout=MMSeqs2API.TIMEOUT,
+        )
 
         with open(path, "wb") as out:
             out.write(res.content)

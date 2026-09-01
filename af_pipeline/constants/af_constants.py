@@ -813,6 +813,9 @@ class MMSeqs2API:
     BASE_URL = "https://a3m.mmseqs.com"
     """ Base URL for the MMseqs2 API."""
 
+    TIMEOUT = 100
+    """ Timeout in seconds for API requests."""
+
     @staticmethod
     def get_ticket_url(use_pairing=False):
         """ Get the ticket URL for MMseqs2 API.
