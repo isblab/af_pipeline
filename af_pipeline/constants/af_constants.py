@@ -302,6 +302,9 @@ class AFServerSequenceFields(StrEnum):
     GLYCANS = auto()
     MODIFICATIONS = auto()
     COUNT = auto()
+    UNPAIREDMSA = "unpairedMsa"
+    PAIREDMSA = "pairedMsa"
+    TEMPLATES = "templates"
 
 class AFInputJobFields(StrEnum):
     NAME = auto()
@@ -311,6 +314,7 @@ class AFInputJobFields(StrEnum):
     ENTITIES = auto()
     AF_OFFSET = auto()
     SEQUENCES = auto()
+    MSA = auto()
 
 class AFInputEntityFields(StrEnum):
     """ Fields for entities in the config dictionary used by modules in af_pipeline.af_input"""
@@ -325,6 +329,18 @@ class AFInputEntityFields(StrEnum):
     MAX_TEMPLATE_DATE = "maxTemplateDate"
     GLYCANS = auto()
     MODIFICATIONS = auto()
+    PAIRED_MSA = "pairedMsa"
+    UNPAIRED_MSA = "unpairedMsa"
+
+class MSAFields(StrEnum):
+    """ Fields for multiple sequence alignments (MSA) in the config dictionary used by modules in af_pipeline.af_input"""
+    TYPE = auto()
+    PATH = auto()
+
+class MSAType(StrEnum):
+    """ Types of multiple sequence alignments (MSA) for AlphaFold Server input."""
+    PAIRED = "pairedMsa"
+    UNPAIRED = "unpairedMsa"
 
 class NucleicAcidStrand(StrEnum):
     """ Strand type for nucleic acids."""
@@ -375,6 +391,8 @@ class AF3SummaryConfidenceFields(StrEnum):
     NUM_RECYCLES = auto()
     PTM = auto()
     RANKING_SCORE = auto()
+
+ALLOWED_MSA_TYPES = list(MSAType)
 
 ALLOWED_STRUCTURE_FORMATS = list(AVAILABLE_PARSERS.keys())
 
@@ -788,3 +806,51 @@ OVERALL_ASSESSMENT_COLUMNS = {
         OverallAssessment.AVERAGE_IPAE_JI, #: "avg_ipae_ji",
     ]
 }
+
+
+class MMSeqs2API:
+
+    BASE_URL = "https://a3m.mmseqs.com"
+    """ Base URL for the MMseqs2 API."""
+
+    @staticmethod
+    def get_ticket_url(use_pairing=False):
+        """ Get the ticket URL for MMseqs2 API.
+
+        Args:
+            use_pairing (bool): Whether to use pairing mode. Default is False.
+
+        Returns:
+            str: The ticket URL.
+        """
+
+        if use_pairing:
+            return f"{MMSeqs2API.BASE_URL}/ticket/pair"
+        else:
+            return f"{MMSeqs2API.BASE_URL}/ticket/msa"
+
+    @staticmethod
+    def get_status_url(ID):
+        """ Get the status URL for MMseqs2 API.
+
+        Args:
+            ID (str): The ticket ID.
+
+        Returns:
+            str: The status URL.
+        """
+
+        return f"{MMSeqs2API.BASE_URL}/ticket/{ID}"
+
+    @staticmethod
+    def get_download_url(ID):
+        """ Get the download URL for MMseqs2 API.
+
+        Args:
+            ID (str): The ticket ID.
+
+        Returns:
+            str: The download URL.
+        """
+
+        return f"{MMSeqs2API.BASE_URL}/result/download/{ID}"
