@@ -355,7 +355,7 @@ class AFJobSet:
         use_env: bool = False,
         use_filter: bool = False,
         overwrite: bool = False,
-    ) -> Dict[str, str]:
+    ) -> Dict[str, List[str]]:
         """ Prepare MSA information for the given AF3 job.
         Also see :py:class:`MMSeqs2` for more details on MSA generation.
 
@@ -695,14 +695,14 @@ class Entity:
         entity_info: Dict[str, Any],
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
-        entities_map: Dict[str, str] = {},
-        a3m_lines: Dict[str, str] = {},
+        entities_map: Dict[str, str] | None = None,
+        a3m_lines: Dict[str, List[str]] | None = None,
     ):
 
-        self.entities_map = entities_map
+        self.entities_map = entities_map or {}
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
-        self.a3m_lines = a3m_lines
+        self.a3m_lines = a3m_lines or {}
 
         self.entity_info = entity_info
         self.sanity_check_entity_type(
@@ -1283,7 +1283,7 @@ class AFSequence(Entity):
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
-        a3m_lines: Dict[str, str] = {},
+        a3m_lines: Dict[str, List[str]] = {},
     ):
 
         super().__init__(

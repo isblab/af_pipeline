@@ -29,10 +29,9 @@ import tarfile
 import random
 import logging
 import shutil
-from typing import List
-import logging
 import requests
 import argparse
+from typing import List
 from collections import defaultdict
 from tqdm.autonotebook import tqdm
 from af_pipeline.constants.af_constants import MMSeqs2API
@@ -86,7 +85,7 @@ def parse_a3m(a3m_file: str) -> dict[str, List[str]]:
 
         a3m_lines[query].append(l.replace("\t", " "))
 
-    print(a3m_lines.keys())
+    logger.debug("A3M headers: %s", list(a3m_lines.keys()))
 
     return a3m_lines
 
