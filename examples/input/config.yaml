@@ -7,6 +7,9 @@ af_input_jobs:
   # job set 1
   # no user provided job name
   - modelSeeds: 2 # 2 models with randomly generated seeds
+    msa:
+      type: "pairedMsa"
+      path: "./input/msa/paired/out/pair.a3m" # if the path does not exist, the MSA will be generated using MMSeqs2 API
     entities:
     - name: "Act1"
       type: "proteinChain"
@@ -17,7 +20,10 @@ af_input_jobs:
 
   # job set 2
   # no user provided job name or model seeds
-  - entities:
+  - msa:
+      type: "unpairedMsa"
+      path: "./input/msa/unpaired/out/uniref.a3m"
+    entities:
     - name: "Act1"
       type: "proteinChain"
     - name: "Cdc3"
