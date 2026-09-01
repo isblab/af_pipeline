@@ -33,10 +33,11 @@ from af_pipeline.utils.misc_utils import (
     generate_seeds
 )
 from af_pipeline.constants.af_constants import (
-    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES,
+    PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES, ALLOWED_MSA_TYPES,
     MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE,
-    ConfigYaml, MiscStrEnum, NucleicAcidStrand
+    ConfigYaml, MiscStrEnum, NucleicAcidStrand, MSAType, MSAFields,
 )
+from af_pipeline.af_input.msa import parse_a3m, MMSeqs2
 from af_pipeline.constants import af_constants
 from af_pipeline.constants.af_constants import (
     NucleicAcidModificationFields,
@@ -335,6 +336,8 @@ class AFJobSet:
     ):
 
         self.job_set_info = job_set_info
+        self.msa_type = job_set_info.get(AFInputJobFields.MSA, {}).get(MSAFields.TYPE)
+        self.msa_path = job_set_info.get(AFInputJobFields.MSA, {}).get(MSAFields.PATH)
         self.entities_map = entities_map
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
@@ -344,6 +347,117 @@ class AFJobSet:
         self.af_sequences = []
         self.name_fragments = []
         self.job_set_af_offset = {}
+        self.sanity_check_msa_fields()
+        self.a3m_lines = self.prepare_msa(use_env=True, use_filter=True)
+
+    def prepare_msa(
+        self,
+        use_env: bool = False,
+        use_filter: bool = False,
+        overwrite: bool = False,
+    ) -> Dict[str, List[str]]:
+        """ Prepare MSA information for the given AF3 job.
+        Also see :py:class:`MMSeqs2` for more details on MSA generation.
+
+        ## Arguments:
+
+        - **use_env (bool, optional):**:<br />
+            Whether to use sequences from BFD in the MSA.
+            Defaults to False.
+
+        - **use_filter (bool, optional):**:<br />
+            Whether to apply filtering to the MSA. Defaults to False.
+
+        - **overwrite (bool, optional):**:<br />
+            Whether to overwrite existing MSA results. Defaults to False.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary with:<br />
+            - `header`: `a3m_content` <br />
+        """
+
+        a3m_lines = {}
+
+        if isinstance(self.msa_path, str) is False:
+            return a3m_lines
+
+        use_pairing = self.msa_type == MSAType.PAIRED
+
+        if os.path.exists(self.msa_path) is False:
+
+            mmseqs2 = MMSeqs2(
+                sequences=self.prepare_msa_sequences(),
+                targz_file=f"{os.path.dirname(self.msa_path)}.tar.gz",
+                use_env=use_env,
+                use_filter=use_filter,
+                use_pairing=use_pairing,
+            )
+            mmseqs2.main(overwrite=overwrite)
+
+            resultdir = os.path.dirname(self.msa_path)
+
+            if use_pairing is False:
+                a3m_lines = parse_a3m(
+                    a3m_file=os.path.join(resultdir, "uniref.a3m")
+                )
+                if use_env:
+                    env_a3m = parse_a3m(
+                        a3m_file=os.path.join(
+                            resultdir, "bfd.mgnify30.metaeuk30.smag30.a3m"
+                        )
+                    )
+                    for header, lines in env_a3m.items():
+                        if header in a3m_lines:
+                            a3m_lines[header].extend(lines)
+                        else:
+                            a3m_lines[header] = lines
+            else:
+                a3m_lines = parse_a3m(
+                    a3m_file=os.path.join(resultdir, "pair.a3m")
+                )
+
+        else:
+
+            a3m_lines = parse_a3m(a3m_file=self.msa_path)
+
+        return a3m_lines
+
+    def prepare_msa_sequences(self) -> Dict[str, str]:
+        """ Prepare input for MMSeqs2 API from the entity sequences.
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary with:<br />
+            - `header`: `sequence`
+        """
+
+        sequences = {}
+
+        for entity_info in self.job_set_info[AFInputJobFields.ENTITIES]:
+
+            entity = Entity(
+                entity_info=entity_info,
+                protein_sequences=self.protein_sequences,
+                nucleic_acid_sequences=self.nucleic_acid_sequences,
+                entities_map=self.entities_map,
+            )
+
+            if entity.entity_type == EntityType.PROTEIN_CHAIN:
+
+                header = (
+                    entity.entity_name + "_" +
+                    str(entity.start) + af_constants.RES_RANGE_SEP + str(entity.end)
+                )
+
+                sequences[header] = (
+                    entity.real_sequence[entity.start - 1 : entity.end]
+                )
+
+
+        return sequences
 
     def create_job_set(self) -> Dict[str, Any]:
         """Create a job from the job info
@@ -454,11 +568,13 @@ class AFJobSet:
 
         # add af_sequence for each entity
         for entity_info in self.job_set_info[AFInputJobFields.ENTITIES]:
+
             af_sequence = AFSequence(
                 entity_info=entity_info,
                 protein_sequences=self.protein_sequences,
                 nucleic_acid_sequences=self.nucleic_acid_sequences,
                 entities_map=self.entities_map,
+                a3m_lines=self.a3m_lines,
             )
             af_sequence_dict = af_sequence.create_af_sequence()
             self.af_sequences.append(af_sequence_dict)
@@ -490,6 +606,20 @@ class AFJobSet:
                 Consider providing a custom job name for job set. \n \
                 {self.job_set_info}"
             )
+
+    def sanity_check_msa_fields(self):
+
+        if self.msa_type is not None:
+            assert self.msa_type in ALLOWED_MSA_TYPES, (
+                f"MSA type {self.msa_type} is not allowed."
+                f" Allowed types: {ALLOWED_MSA_TYPES}"
+            )
+
+        if self.msa_type in ALLOWED_MSA_TYPES:
+            assert self.msa_path is not None, (
+                f"MSA type {self.msa_type} requires a path to the a3m MSA file."
+            )
+
 
 class Entity:
     """Entity constructor in the AlphaFold job
@@ -565,12 +695,14 @@ class Entity:
         entity_info: Dict[str, Any],
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
-        entities_map: Dict[str, str] = {},
+        entities_map: Dict[str, str] | None = None,
+        a3m_lines: Dict[str, List[str]] | None = None,
     ):
 
-        self.entities_map = entities_map
+        self.entities_map = entities_map or {}
         self.protein_sequences = protein_sequences
         self.nucleic_acid_sequences = nucleic_acid_sequences
+        self.a3m_lines = a3m_lines or {}
 
         self.entity_info = entity_info
         self.sanity_check_entity_type(
@@ -595,6 +727,44 @@ class Entity:
             entity_type=self.entity_type,
             entity_name=self.entity_name
         )
+
+    def get_msa_settings(self) -> Dict[str, str]:
+        """ Get MSA settings for the entity
+
+        - For proteinChain, get the unpaired MSA from the `a3m_lines` dictionary.
+        - For dnaSequence, rnaSequence, ligand and ion, return {}.
+
+        > [!NOTE]
+        > Even if the msa_type is `pairedMsa`, the `unpairedMsa` field is filled.
+        > This is the recommended approach.
+        >
+        > See https://alphafoldserver.com/faq#what-structure-templates-and-msa-are-used-by-alphafold-server-can-i-customize-these
+        > See https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#msa-pairing
+
+        ## Returns:
+
+        - **dict**:<br />
+            Dictionary with:<br />
+            - `pairedMsa`:`""` <br />
+            - `unpairedMsa`:`a3m_content` <br />
+        """
+
+        if self.entity_type != EntityType.PROTEIN_CHAIN:
+            return {}
+
+        header = (
+            self.entity_name + "_" +
+            str(self.start) + af_constants.RES_RANGE_SEP + str(self.end)
+        )
+
+        unpaired_msa = "".join(self.a3m_lines.get(header, []))
+        if len(unpaired_msa) == 0:
+            return {}
+
+        return {
+            AFInputEntityFields.PAIRED_MSA: "",
+            AFInputEntityFields.UNPAIRED_MSA: unpaired_msa,
+        }
 
     def get_template_settings(self):
         """Get the template settings for the entity
@@ -1018,6 +1188,7 @@ class Entity:
         self.glycans = self.get_glycans()
         self.modifications = self.get_modifications()
         self.template_settings = self.get_template_settings()
+        self.msa_settings = self.get_msa_settings()
 
 
 class AFSequence(Entity):
@@ -1112,6 +1283,7 @@ class AFSequence(Entity):
         protein_sequences: Dict[str, str] | None = None,
         nucleic_acid_sequences: Dict[str, str] | None = None,
         entities_map: Dict[str, str] = {},
+        a3m_lines: Dict[str, List[str]] = {},
     ):
 
         super().__init__(
@@ -1119,6 +1291,7 @@ class AFSequence(Entity):
             protein_sequences=protein_sequences,
             nucleic_acid_sequences=nucleic_acid_sequences,
             entities_map=entities_map,
+            a3m_lines=a3m_lines,
         )
         self.name = self.entity_name
         self.type = self.entity_type
@@ -1165,6 +1338,7 @@ class AFSequence(Entity):
             }
 
             af_sequence_dict[self.type].update(self.template_settings)
+            af_sequence_dict[self.type].update(self.msa_settings)
 
         elif self.type in [EntityType.DNA_SEQUENCE, EntityType.RNA_SEQUENCE]:
             af_sequence_dict = {
