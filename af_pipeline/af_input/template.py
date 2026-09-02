@@ -147,6 +147,7 @@ def get_custom_template_dict(
     template_path: str,
     chain_id: str,
     residue_range: List[int] | None = None,
+    tempdir: str | None = None,
 ) -> Dict[str, str | list[int]]:
     """ Obtain dictionary for template settings for AlphaFold server JSON file
 
@@ -179,7 +180,10 @@ def get_custom_template_dict(
 
     if isinstance(residue_range, str):
         residue_range = get_res_range_from_key(residue_range)
-
+        residue_range = sorted(residue_range)
+        _min = residue_range[0]
+        _max = residue_range[-1]
+        _suffix = f"{_min}_{_max}"
 
     template_name = os.path.splitext(os.path.basename(template_path))[0]
 
@@ -205,9 +209,21 @@ def get_custom_template_dict(
         )
 
     chain_structures = split_structure_by_chain(structure=structure)
-    chain_path = os.path.join(
-        os.path.dirname(template_path), f"{template_name}_{chain_id}.cif"
-    )
+    if tempdir:
+        chain_path = os.path.join(
+            tempdir, f"{template_name}_{chain_id}.cif"
+        )
+    else:
+        if residue_range:
+            chain_path = os.path.join(
+                os.path.dirname(template_path),
+                f"{template_name}_{chain_id}_{_suffix}.cif"
+            )
+        else:
+            chain_path = os.path.join(
+                os.path.dirname(template_path),
+                f"{template_name}_{chain_id}.cif"
+            )
 
     save_structure_obj(
         structure=chain_structures[chain_id],
