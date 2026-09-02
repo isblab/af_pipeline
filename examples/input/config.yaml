@@ -14,9 +14,19 @@ af_input_jobs:
     - name: "Act1"
       type: "proteinChain"
       range: [1, 375]
+      templates:
+      - path: "./input/templates/1J6Z.cif"
+        chain: "A"
+        resrange: "4-375"
+      - path: "./input/templates/3UB5.cif"
+        chain: "A"
     - name: "Cdc3"
       range: [11, 120]
       type: "proteinChain"
+      templates:
+      - path: "./input/templates/3UB5.cif"
+        chain: "P"
+        range: "11-120"
 
   # job set 2
   # no user provided job name or model seeds
