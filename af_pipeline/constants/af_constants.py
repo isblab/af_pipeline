@@ -325,12 +325,19 @@ class AFInputEntityFields(StrEnum):
     COUNT = auto()
     RANGE = auto()
     STRAND = auto()
+    TEMPLATES = auto()
     USE_STRUCTURE_TEMPLATE = "useStructureTemplate"
     MAX_TEMPLATE_DATE = "maxTemplateDate"
     GLYCANS = auto()
     MODIFICATIONS = auto()
     PAIRED_MSA = "pairedMsa"
     UNPAIRED_MSA = "unpairedMsa"
+
+class AFInputTemplateFields(StrEnum):
+    """ Fields for templates in the config dictionary used by modules in af_pipeline.af_input"""
+    PATH = auto()
+    CHAIN = auto()
+    RESRANGE = auto()
 
 class MSAFields(StrEnum):
     """ Fields for multiple sequence alignments (MSA) in the config dictionary used by modules in af_pipeline.af_input"""

@@ -204,7 +204,7 @@ def has_modifications(structure: Bio.PDB.Structure.Structure) -> bool:
 def save_structure_obj(
     structure: Bio.PDB.Structure.Structure,
     out_file: str,
-    res_select_obj: Select = Select(),
+    res_select_obj: Select = None,
     save_type: str = FileFormat.CIF,
     preserve_header_footer = False,
 ):
@@ -232,6 +232,8 @@ def save_structure_obj(
         > [!NOTE]
         > The header and footer information can only be preserved for CIF files.
     """
+
+    res_select_obj = res_select_obj or Select()
 
     if save_type == FileFormat.PDB:
 
