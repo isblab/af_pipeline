@@ -7,6 +7,7 @@ from Bio.PDB.Structure import Structure
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 from Bio.PDB.mmcifio import MMCIFIO
 from Bio.Align import PairwiseAligner
+from Bio.Data.PDBData import protein_letters_3to1
 from typing import List, Dict, Mapping
 from af_pipeline.constants.af_constants import FileFormat
 from af_pipeline.parser.structure_parser import StructureParser
@@ -122,7 +123,7 @@ def get_aligned_indices(
     # Perform pairwise alignment
     aligner = PairwiseAligner(scoring="blastp")
     alignments = aligner.align(seqA=query_seq, seqB=template_seq)
-    alignment = list(alignments)[0]  # Take the best alignment
+    alignment = next(iter(alignments))  # Take the best alignment
     query_aligned = alignment[0]
     template_aligned = alignment[1]
 
@@ -223,7 +224,8 @@ def get_custom_template_dict(
     for res, _ in structure_parser.get_residues(structure=structure):
         if res.id[0] != " ":  # Skip hetero residues
             continue
-        template_seq += res.resname[0]  # Get the first letter of the residue name
+        # Get the first letter of the residue name
+        template_seq += protein_letters_3to1.get(res.resname, "X")
 
     mmcif_dict = MMCIF2Dict(chain_path)
     mmcif_dict.update(filtered_metadata)

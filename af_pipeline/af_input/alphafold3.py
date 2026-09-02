@@ -785,10 +785,17 @@ class Entity:
         if self.entity_type != EntityType.PROTEIN_CHAIN:
             return template_dict
 
+        max_template_date = self.entity_info.get(
+            AFInputEntityFields.MAX_TEMPLATE_DATE, MAX_TEMPLATE_DATE
+        )
+        use_structure_template = self.entity_info.get(
+            AFInputEntityFields.USE_STRUCTURE_TEMPLATE, True
+        )
+
         templates = []
 
         _templates = self.entity_info.get(AFInputEntityFields.TEMPLATES, [])
-        if len(_templates) > 0:
+        if len(_templates) > 0 and use_structure_template is True:
             for template in _templates:
                 templates.append(
                     get_custom_template_dict(
@@ -798,13 +805,6 @@ class Entity:
                         residue_range=template.get(AFInputTemplateFields.RESRANGE)
                     )
                 )
-
-        max_template_date = self.entity_info.get(
-            AFInputEntityFields.MAX_TEMPLATE_DATE, MAX_TEMPLATE_DATE
-        )
-        use_structure_template = self.entity_info.get(
-            AFInputEntityFields.USE_STRUCTURE_TEMPLATE, True
-        )
 
         assert isinstance(use_structure_template, bool), \
             "useStructureTemplate must be a boolean value."
@@ -829,7 +829,7 @@ class Entity:
             warnings.warn(
                 f"maxTemplateDate is provided for {self.entity_name} \
                 but useStructureTemplate is False. \
-                Ignoring maxTemplateDate."
+                Ignoring maxTemplateDate and templates."
             )
 
         return template_dict
