@@ -83,11 +83,11 @@ def query_to_hit_mapping(
 
         # Gap inserted in the template
         if q_char == '-':
-            query_index += 1
+            hit_index += 1
 
         # Deleted residue in the template (would be a gap in the query).
         elif t_char == '-':
-            hit_index += 1
+            query_index += 1
 
         # Normal aligned residue, in both query and template. Add to mapping.
         else:
@@ -124,8 +124,8 @@ def get_aligned_indices(
     aligner = PairwiseAligner(scoring="blastp")
     alignments = aligner.align(seqA=query_seq, seqB=template_seq)
     alignment = next(iter(alignments))  # Take the best alignment
-    query_aligned = alignment[0]
-    template_aligned = alignment[1]
+    query_aligned = alignment[1]
+    template_aligned = alignment[0]
 
     # Map the aligned sequences
     aligned_mapping = query_to_hit_mapping(
