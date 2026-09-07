@@ -769,8 +769,8 @@ def save_interaction_patches_df(
         else:
             for res1, res2 in product(ch1_res_range, ch2_res_range):
                 if contact_probability:
-                    res1_idx = res1 - p1_region[0]
-                    res2_idx = res2 - p2_region[0] + p1_region[1] - p1_region[0] + 1
+                    res1_idx = num_to_idx[chain1][res1]
+                    res2_idx = num_to_idx[chain2][res2]
 
                     contact_probs_mat_res_range = avg_contact_probs_mat[res1_idx, res2_idx]
                     avg_contact_prob = np.mean(contact_probs_mat_res_range)
