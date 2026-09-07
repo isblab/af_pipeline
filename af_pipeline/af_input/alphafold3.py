@@ -27,6 +27,7 @@ import json
 import warnings
 from typing import List, Dict, Any, Tuple
 
+from af_pipeline.af_input.template import get_custom_template_dict
 from af_pipeline.utils.file_utils import write_json
 from af_pipeline.utils.misc_utils import (
     chain_id_gen,
@@ -34,7 +35,7 @@ from af_pipeline.utils.misc_utils import (
 )
 from af_pipeline.constants.af_constants import (
     PTM, DNA_MOD, RNA_MOD, LIGAND, ION, ENTITY_TYPES, ALLOWED_MSA_TYPES,
-    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE,
+    MAX_TEMPLATE_DATE, JOB_LIMIT_PER_JSON, AF_JOB_FILE, AFInputTemplateFields,
     ConfigYaml, MiscStrEnum, NucleicAcidStrand, MSAType, MSAFields,
 )
 from af_pipeline.af_input.msa import parse_a3m, MMSeqs2
@@ -452,10 +453,7 @@ class AFJobSet:
                     str(entity.start) + af_constants.RES_RANGE_SEP + str(entity.end)
                 )
 
-                sequences[header] = (
-                    entity.real_sequence[entity.start - 1 : entity.end]
-                )
-
+                sequences[header] = entity.real_sequence
 
         return sequences
 
@@ -779,6 +777,7 @@ class Entity:
             Dictionary with following `key`:`val` pairs:<br />
             - `maxTemplateDate`:`YYYY-MM-DD` <br />
             - `useStructureTemplate`:`True` or `False` <br />
+            - `templates`:`[template_dict1, template_dict2, ...]` <br />
         """
 
         template_dict = {}
@@ -793,6 +792,20 @@ class Entity:
             AFInputEntityFields.USE_STRUCTURE_TEMPLATE, True
         )
 
+        templates = []
+
+        _templates = self.entity_info.get(AFInputEntityFields.TEMPLATES, [])
+        if len(_templates) > 0 and use_structure_template is True:
+            for template in _templates:
+                templates.append(
+                    get_custom_template_dict(
+                        input_seq=self.real_sequence,
+                        template_path=template[AFInputTemplateFields.PATH],
+                        chain_id=template[AFInputTemplateFields.CHAIN],
+                        residue_range=template.get(AFInputTemplateFields.RESRANGE)
+                    )
+                )
+
         assert isinstance(use_structure_template, bool), \
             "useStructureTemplate must be a boolean value."
 
@@ -800,6 +813,7 @@ class Entity:
             True: {
                 AFInputEntityFields.USE_STRUCTURE_TEMPLATE: True,
                 AFInputEntityFields.MAX_TEMPLATE_DATE: max_template_date,
+                AFInputEntityFields.TEMPLATES: templates,
             },
             False: {
                 AFInputEntityFields.USE_STRUCTURE_TEMPLATE: False,
@@ -809,13 +823,13 @@ class Entity:
         template_dict = template_dict_configs[use_structure_template]
 
         if (
-            AFInputEntityFields.MAX_TEMPLATE_DATE in self.entity_info
-            and use_structure_template is False
-        ):
+            AFInputEntityFields.MAX_TEMPLATE_DATE in self.entity_info or
+            AFInputEntityFields.TEMPLATES in self.entity_info
+        ) and use_structure_template is False:
             warnings.warn(
                 f"maxTemplateDate is provided for {self.entity_name} \
                 but useStructureTemplate is False. \
-                Ignoring maxTemplateDate."
+                Ignoring maxTemplateDate and templates."
             )
 
         return template_dict
@@ -1169,6 +1183,32 @@ class Entity:
                     """
                 )
 
+    def update_real_sequence(self)-> str:
+        """Update the real sequence of the entity.
+
+        A real sequence is:
+        - Amino acid sequence for `proteinChain`.
+        - Nucleic acid sequence for `dnaSequence` and `rnaSequence`.
+
+        If a `range` (i.e. [`start`, `end`]) is provided, slice the sequence accordingly.
+
+        Returns:
+        - **real_sequence (str)**:<br />
+            Amino acid or nucleic acid sequence of the entity.
+        """
+
+        real_sequence = self.real_sequence
+        start, end = self.start, self.end
+
+        if self.entity_type in [
+            EntityType.PROTEIN_CHAIN,
+            EntityType.DNA_SEQUENCE,
+            EntityType.RNA_SEQUENCE
+        ]:
+            real_sequence = real_sequence[start - 1 : end]
+
+        return real_sequence
+
     def update_entity(self):
         """Fill up the entity with the information.
 
@@ -1185,6 +1225,7 @@ class Entity:
         self.entity_count = self.get_entity_count()
         self.real_sequence = self.get_real_sequence()
         self.start, self.end = self.get_entity_range()
+        self.real_sequence = self.update_real_sequence()
         self.glycans = self.get_glycans()
         self.modifications = self.get_modifications()
         self.template_settings = self.get_template_settings()
@@ -1296,7 +1337,6 @@ class AFSequence(Entity):
         self.name = self.entity_name
         self.type = self.entity_type
         self.count = self.entity_count
-        self.real_sequence = self.update_real_sequence()
 
     def create_af_sequence(self)-> Dict[str, Any]:
         """Create an AF sequence dictionary.
@@ -1358,32 +1398,6 @@ class AFSequence(Entity):
             }
 
         return af_sequence_dict
-
-    def update_real_sequence(self)-> str:
-        """Update the real sequence of the entity.
-
-        A real sequence is:
-        - Amino acid sequence for `proteinChain`.
-        - Nucleic acid sequence for `dnaSequence` and `rnaSequence`.
-
-        If a `range` (i.e. [`start`, `end`]) is provided, slice the sequence accordingly.
-
-        Returns:
-        - **real_sequence (str)**:<br />
-            Amino acid or nucleic acid sequence of the entity.
-        """
-
-        real_sequence = self.real_sequence
-        start, end = self.start, self.end
-
-        if self.type in [
-            EntityType.PROTEIN_CHAIN,
-            EntityType.DNA_SEQUENCE,
-            EntityType.RNA_SEQUENCE
-        ]:
-            real_sequence = real_sequence[start - 1 : end]
-
-        return real_sequence
 
     def get_name_fragment(self)-> str:
         """Get the name fragments of the entity.

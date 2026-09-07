@@ -229,6 +229,7 @@ def test_get_template_settings(
     expected_settings = {
         "useStructureTemplate": True,
         "maxTemplateDate": MAX_TEMPLATE_DATE,
+        "templates": [],
     }
     assert template_settings == expected_settings, assert_msg
 
@@ -236,6 +237,7 @@ def test_get_template_settings(
     expected_settings = {
         "useStructureTemplate": True,
         "maxTemplateDate": "2023-01-01",
+        "templates": [],
     }
     assert template_settings == expected_settings, assert_msg
 
@@ -550,6 +552,7 @@ def test_create_af_sequence(
             "count": 1,
             "maxTemplateDate": MAX_TEMPLATE_DATE,
             "useStructureTemplate": True,
+            "templates": [],
         }
     }
     assert af_seq == expected_af_seq, assert_msg
@@ -569,6 +572,7 @@ def test_create_af_sequence(
             "count": 2,
             "maxTemplateDate": "2023-01-01",
             "useStructureTemplate": True,
+            "templates": [],
         }
     }
     assert af_seq == expected_af_seq, assert_msg
@@ -714,6 +718,7 @@ def test_create_job_set(
                     "count": 1,
                     "maxTemplateDate": MAX_TEMPLATE_DATE,
                     "useStructureTemplate": True,
+                    "templates": [],
                 }
             },
             {
@@ -779,6 +784,7 @@ def test_create_job_set(
                     "count": 2,
                     "maxTemplateDate": "2023-01-01",
                     "useStructureTemplate": True,
+                    "templates": [],
                 }
             },
             {
