@@ -111,7 +111,7 @@ The workflow for the entire pipeline can be viewed [here](#workflow).
 
 [^af3]: Abramson, J. et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. Nature 630, 493–500 (2024). (https://alphafoldserver.com/)
 
-[^af2]: Jumper, J. et al. Highly Accurate Protein Structure Prediction with Alphafold. Nature 596, 583–589 (2021).
+[^af2]: Jumper, J. et al. Highly Accurate Protein Structure Prediction with Alphafold. Nature 596, 583–589 (2021). [Read online](https://webeditions.page/works/highly-accurate-protein-structure-prediction-with-alphafold/?via=placement:18550256a4f5be161aad).
 
 [^colabfold]: Mirdita, M. et al. ColabFold: making protein folding accessible to all. Nature Methods 19, 679–682 (2022). (https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb)
 
